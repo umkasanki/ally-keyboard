@@ -18,12 +18,12 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Phase 0 — Environment & Repository Setup
 > Goal: working git pipeline WSL ↔ GitHub ↔ MacInCloud, empty Xcode project compiles and runs
 
-- [ ] **0.1** Create Xcode project on MacInCloud
+- [x] **0.1** Create Xcode project on MacInCloud
   - App type: macOS App, AppKit (not SwiftUI), Swift
-  - Bundle ID: `com.ally.keyboard`
+  - Bundle ID: `com.umkasanki.AllyKeyboard`
   - Product name: `AllyKeyboard`
-- [ ] **0.2** Add `.gitignore` for Xcode (xcuserdata, DerivedData, .DS_Store)
-- [ ] **0.3** First commit and push from MacInCloud to GitHub
+- [x] **0.2** Add `.gitignore` for Xcode (xcuserdata, DerivedData, .DS_Store)
+- [x] **0.3** First commit and push from MacInCloud to GitHub
 - [ ] **0.4** `git pull` in WSL — verify files appear correctly
 - [ ] **0.5** Open project in PhpStorm on WSL — verify Swift files are readable
 
@@ -127,5 +127,5 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Last session:** Plan created, repository empty.  
-**Next step:** Phase 0 — create Xcode project on MacInCloud.
+**Last session:** Phase 0 mostly done — Xcode project created, builds and runs, pushed to GitHub.  
+**Next step:** Phase 0.4 — git pull in WSL, then Phase 0.5 — open in PhpStorm.

@@ -4,6 +4,7 @@
 .LSOverride
 
 # Xcode
+xcuserdata/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
 *.xcworkspace/xcshareddata/
