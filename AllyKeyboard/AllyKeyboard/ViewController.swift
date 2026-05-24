@@ -12,7 +12,7 @@ class ViewController: NSViewController {
     private let keyHeight: CGFloat  = 36
     private let keySpacing: CGFloat = 4
     private let rowSpacing: CGFloat = 4
-    private let padding: CGFloat    = 10
+    private let padding: CGFloat    = 12
 
     // MARK: - Key definitions (displayTitle, keyIdentifier)
     private let rows: [[(String, String)]] = [
@@ -32,8 +32,8 @@ class ViewController: NSViewController {
         buildKeyboard()
     }
 
-    override func viewDidAppear() {
-        super.viewDidAppear()
+    override func viewWillAppear() {
+        super.viewWillAppear()
         configureWindow()
     }
 
@@ -41,19 +41,12 @@ class ViewController: NSViewController {
 
     private func configureWindow() {
         guard let window = view.window else { return }
-
-        // Resize window to fit keyboard
         let size = keyboardSize()
         window.setContentSize(size)
+        view.setFrameSize(size)
         window.title = "AllyKeyboard"
-
-        // Float above all other windows
         window.level = .floating
-
-        // Appear on all Spaces
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
-
-        // Center if no saved position
         if UserDefaults.standard.string(forKey: "windowOrigin") == nil {
             window.center()
         }
@@ -71,13 +64,11 @@ class ViewController: NSViewController {
     private func buildKeyboard() {
         let size = keyboardSize()
         view.setFrameSize(size)
-
         let totalWidth = CGFloat(rows[0].count) * (keyWidth + keySpacing) - keySpacing
 
         for (rowIndex, row) in rows.enumerated() {
             let flippedRow = rows.count - 1 - rowIndex
             let y = padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
-
             let rowWidth = row.reduce(0) { $0 + keyWidthFor($1.1) } + CGFloat(row.count - 1) * keySpacing
             var x = padding + (totalWidth - rowWidth) / 2
 
@@ -105,6 +96,5 @@ class ViewController: NSViewController {
     @objc private func keyPressed(_ sender: NSButton) {
         let key = sender.identifier?.rawValue ?? sender.title
         print("Key pressed: \(key)")
-        // Phase 2: KeySender.send(key)
     }
 }
