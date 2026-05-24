@@ -43,7 +43,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
   - Fixed key size, spacing
 - [x] **1.4** Make window draggable by mouse (override `mouseDown` / `mouseDragged`)
 - [x] **1.4a** Fix window size: set contentRect 520×180 in storyboard, remove resizable
-- [ ] **1.5** Persist window position between launches (`UserDefaults`)
+- [x] **1.5** Persist window position between launches (`setFrameAutosaveName`)
 - [ ] **1.6** Test: window appears on top of Safari/TextEdit, focus stays in target app
 
 ---
@@ -128,5 +128,5 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Last session:** Phase 1.1–1.4 complete — QWERTY keyboard renders correctly in a floating window (520×180), all keys visible including P, no empty space.  
-**Next step:** Phase 1.5 — persist window position via UserDefaults.
+**Last session:** Phase 1 complete — floating QWERTY keyboard (520×180), window position persists between launches.  
+**Next step:** Phase 2 — key press simulation (CGEvent, Accessibility permissions).
