@@ -8,35 +8,36 @@ import Cocoa
 class KeyboardWindowController: NSWindowController {
 
     private enum Keys {
-        static let windowOrigin = "windowOrigin"
+        static let windowOrigin = "com.umkasanki.AllyKeyboard.windowOrigin"
     }
 
     convenience init() {
-        let window = DraggableWindow(
-            contentRect: NSRect(x: 100, y: 100, width: 520, height: 180),
-            styleMask: [.titled, .closable, .resizable],
+        // NSPanel with .nonactivatingPanel — proper AppKit way for
+        // floating tools that must not steal focus from the active app
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 180),
+            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
 
-        window.title = "AllyKeyboard"
-        window.level = .floating
-        window.collectionBehavior = [.canJoinAllSpaces, .stationary]
-        window.isReleasedWhenClosed = false
+        panel.title = "AllyKeyboard"
+        panel.level = .floating
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        panel.isReleasedWhenClosed = false
+        panel.isFloatingPanel = true
 
-        self.init(window: window)
+        self.init(window: panel)
 
-        // Must set delegate after self.init
-        window.delegate = self
+        panel.delegate = self
 
-        // Restore saved position or center
         if let savedOrigin = UserDefaults.standard.string(forKey: Keys.windowOrigin) {
-            window.setFrameOrigin(NSPointFromString(savedOrigin))
+            panel.setFrameOrigin(NSPointFromString(savedOrigin))
         } else {
-            window.center()
+            panel.center()
         }
 
-        window.contentViewController = KeyboardViewController()
+        panel.contentViewController = KeyboardViewController()
     }
 }
 
@@ -46,32 +47,5 @@ extension KeyboardWindowController: NSWindowDelegate {
     func windowDidMove(_ notification: Notification) {
         guard let origin = window?.frame.origin else { return }
         UserDefaults.standard.set(NSStringFromPoint(origin), forKey: Keys.windowOrigin)
-    }
-}
-
-// MARK: - DraggableWindow
-
-class DraggableWindow: NSWindow {
-
-    private var dragOffset: NSPoint = .zero
-
-    // Don't steal focus from active app
-    override var canBecomeKey: Bool { false }
-    override var canBecomeMain: Bool { false }
-
-    override func mouseDown(with event: NSEvent) {
-        dragOffset = event.locationInWindow
-    }
-
-    override func mouseDragged(with event: NSEvent) {
-        guard let screen = screen else { return }
-        let loc = event.locationInWindow
-        let newX = frame.origin.x + loc.x - dragOffset.x
-        let newY = frame.origin.y + loc.y - dragOffset.y
-
-        let clampedX = max(screen.visibleFrame.minX, min(newX, screen.visibleFrame.maxX - frame.width))
-        let clampedY = max(screen.visibleFrame.minY, min(newY, screen.visibleFrame.maxY - frame.height))
-
-        setFrameOrigin(NSPoint(x: clampedX, y: clampedY))
     }
 }
