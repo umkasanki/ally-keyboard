@@ -32,16 +32,16 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Phase 1 — Floating Keyboard Window
 > Goal: window with QWERTY buttons stays on top of all apps, can be dragged
 
-- [ ] **1.1** Configure `AppDelegate` — create window on app launch, no Dock icon (`LSUIElement = YES` in Info.plist)
-- [ ] **1.2** Create `KeyboardWindowController` — `NSWindow` with:
+- [x] **1.1** Configure `AppDelegate` — create window on app launch, no Dock icon (`NSApp.setActivationPolicy(.accessory)`)
+- [x] **1.2** Create `KeyboardWindowController` — `NSWindow` with:
   - `level = .floating`
   - `collectionBehavior = [.canJoinAllSpaces, .stationary]`
   - `styleMask` without title bar, or minimal
   - Non-activating (focus stays in target app)
-- [ ] **1.3** Create `KeyboardViewController` — grid of `NSButton` keys
+- [x] **1.3** Create `KeyboardViewController` — grid of `NSButton` keys
   - QWERTY layout (3 rows: 10 / 9 / 7 keys + Space/Backspace/Enter row)
   - Fixed key size, spacing
-- [ ] **1.4** Make window draggable by mouse (override `mouseDown` / `mouseDragged`)
+- [x] **1.4** Make window draggable by mouse (override `mouseDown` / `mouseDragged`)
 - [ ] **1.5** Persist window position between launches (`UserDefaults`)
 - [ ] **1.6** Test: window appears on top of Safari/TextEdit, focus stays in target app
 
