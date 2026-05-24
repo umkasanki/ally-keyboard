@@ -32,23 +32,32 @@ class ViewController: NSViewController {
         buildKeyboard()
     }
 
-    // Key under which AppKit stores the frame: "NSWindow Frame AllyKeyboardMain"
-    private let autosaveName = "AllyKeyboardMain"
+    private let autosaveName    = "AllyKeyboardMain"
+    // Own flag avoids relying on AppKit's internal "NSWindow Frame X" key format.
+    private let hasLaunchedKey  = "AllyKeyboard.hasLaunched"
+    // Prevents running window setup more than once (viewWillAppear can fire on
+    // every Space-switch / hide-show cycle).
+    private var windowConfigured = false
 
     override func viewWillAppear() {
         super.viewWillAppear()
-        guard let window = view.window else { return }
+        guard let window = view.window, !windowConfigured else { return }
+        windowConfigured = true
+
         window.title = "AllyKeyboard"
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
-        // setFrameAutosaveName does two things automatically:
-        //   • saves the window frame to UserDefaults on every move
-        //   • restores the saved frame on next launch
-        // On the very first launch the key doesn't exist yet, so we center.
-        let frameKey = "NSWindow Frame \(autosaveName)"
+        // Register autosave name so AppKit saves/restores position automatically.
         window.setFrameAutosaveName(autosaveName)
-        if UserDefaults.standard.string(forKey: frameKey) == nil {
+
+        // Fix #2: always enforce the correct content size after frame restoration,
+        // so a stale saved size from a previous build doesn't clip keys.
+        window.setContentSize(keyboardSize())
+
+        // Fix #3: use our own first-launch flag instead of AppKit's internal key.
+        if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
+            UserDefaults.standard.set(true, forKey: hasLaunchedKey)
             window.center()
         }
     }
@@ -103,7 +112,13 @@ class ViewController: NSViewController {
     // MARK: - Actions
 
     @objc private func keyPressed(_ sender: NSButton) {
-        let key = sender.identifier?.rawValue ?? sender.title
+        // identifier is always set in buildKeyboard(); guard here catches
+        // any future code path that forgets to set it (Space title is "",
+        // so sender.title fallback would silently send an empty key).
+        guard let key = sender.identifier?.rawValue else {
+            assertionFailure("Key button missing identifier — fix buildKeyboard()")
+            return
+        }
         print("Key pressed: \(key)")
     }
 }
