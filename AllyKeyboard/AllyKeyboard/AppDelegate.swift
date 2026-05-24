@@ -11,12 +11,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var keyboardWindowController: KeyboardWindowController?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        // Hide from Dock and app switcher (equivalent to LSUIElement = YES)
+        // Hide from Dock and app switcher
         NSApp.setActivationPolicy(.accessory)
 
-        // Create and show floating keyboard window
+        // Create floating keyboard window
         keyboardWindowController = KeyboardWindowController()
-        keyboardWindowController?.showWindow(nil)
+
+        // NSPanel with .nonactivatingPanel requires orderFrontRegardless
+        // to appear without the app becoming active
+        keyboardWindowController?.window?.orderFrontRegardless()
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
