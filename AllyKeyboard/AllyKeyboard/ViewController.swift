@@ -32,15 +32,25 @@ class ViewController: NSViewController {
         buildKeyboard()
     }
 
+    // Key under which AppKit stores the frame: "NSWindow Frame AllyKeyboardMain"
+    private let autosaveName = "AllyKeyboardMain"
+
     override func viewWillAppear() {
         super.viewWillAppear()
         guard let window = view.window else { return }
-        // Size is set in the storyboard (520×180). Here we only configure
-        // the window's floating behaviour.
         window.title = "AllyKeyboard"
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
-        window.center()
+
+        // setFrameAutosaveName does two things automatically:
+        //   • saves the window frame to UserDefaults on every move
+        //   • restores the saved frame on next launch
+        // On the very first launch the key doesn't exist yet, so we center.
+        let frameKey = "NSWindow Frame \(autosaveName)"
+        window.setFrameAutosaveName(autosaveName)
+        if UserDefaults.standard.string(forKey: frameKey) == nil {
+            window.center()
+        }
     }
 
     // MARK: - Layout
@@ -97,3 +107,4 @@ class ViewController: NSViewController {
         print("Key pressed: \(key)")
     }
 }
+
