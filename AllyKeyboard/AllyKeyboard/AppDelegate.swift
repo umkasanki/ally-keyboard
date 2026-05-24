@@ -2,29 +2,27 @@
 //  AppDelegate.swift
 //  AllyKeyboard
 //
-//  Created by user945037 on 5/23/26.
-//
 
 import Cocoa
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
 
-    
-
+    var keyboardWindowController: KeyboardWindowController?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        // Insert code here to initialize your application
+        // Hide from Dock and app switcher (equivalent to LSUIElement = YES)
+        NSApp.setActivationPolicy(.accessory)
+
+        // Create and show floating keyboard window
+        keyboardWindowController = KeyboardWindowController()
+        keyboardWindowController?.showWindow(nil)
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-        // Insert code here to tear down your application
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
         return true
     }
-
-
 }
-
