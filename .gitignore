@@ -27,3 +27,6 @@ build/
 
 # Credentials
 *.env
+
+# Claude Code local settings (personal, not for repo)
+.claude/settings.local.json
