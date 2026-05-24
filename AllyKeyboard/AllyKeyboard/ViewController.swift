@@ -18,23 +18,7 @@ class ViewController: NSViewController {
         }
     }
 
-    // MARK: - Layout constants
-
-    private let keyWidth:    CGFloat = 46
-    private let keyHeight:   CGFloat = 36
-    private let keySpacing:  CGFloat = 4
-    private let rowSpacing:  CGFloat = 4
-    private let padding:     CGFloat = 12
-    private let keyFontSize: CGFloat = 14
-
-    private var spaceKeyWidth: CGFloat { keyWidth * 3 + keySpacing * 2 }
-
-    private lazy var keyboardSize: NSSize = {
-        let maxKeys = rows[0].count
-        let w = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
-        let h = CGFloat(rows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2
-        return NSSize(width: w, height: h)
-    }()
+    // MARK: - Keyboard rows
 
     private let rows: [[Key]] = [
         [Key("Q"), Key("W"), Key("E"), Key("R"), Key("T"),
@@ -46,18 +30,47 @@ class ViewController: NSViewController {
         [Key("Space", title: ""), Key("Backspace", title: "⌫"), Key("Return", title: "↩")]
     ]
 
+    // MARK: - Base layout constants (natural size at scale 1.0)
+
+    private let baseKeyWidth:   CGFloat = 46
+    private let baseKeyHeight:  CGFloat = 36
+    private let baseKeySpacing: CGFloat = 4
+    private let baseRowSpacing: CGFloat = 4
+    private let basePadding:    CGFloat = 12
+    private let baseFontSize:   CGFloat = 14
+
+    // MARK: - Natural (unscaled) content size
+
+    private lazy var naturalSize: NSSize = {
+        let cols = rows[0].count
+        let w = CGFloat(cols) * (baseKeyWidth + baseKeySpacing) - baseKeySpacing + basePadding * 2
+        let h = CGFloat(rows.count) * (baseKeyHeight + baseRowSpacing) - baseRowSpacing + basePadding * 2
+        return NSSize(width: w, height: h)
+    }()
+
+    // MARK: - Scale factor and scaled layout values
+
+    private var scale: CGFloat {
+        let w = view.bounds.width
+        return w > 0 ? w / naturalSize.width : 1
+    }
+
+    private var keyWidth:    CGFloat { baseKeyWidth   * scale }
+    private var keyHeight:   CGFloat { baseKeyHeight  * scale }
+    private var keySpacing:  CGFloat { baseKeySpacing * scale }
+    private var rowSpacing:  CGFloat { baseRowSpacing * scale }
+    private var padding:     CGFloat { basePadding    * scale }
+    private var keyFontSize: CGFloat { baseFontSize   * scale }
+    private var spaceKeyWidth: CGFloat { keyWidth * 3 + keySpacing * 2 }
+
     // MARK: - Window state
 
     private let autosaveName   = "AllyKeyboardMain"
     private let hasLaunchedKey = "AllyKeyboard.hasLaunched"
     private var windowConfigured = false
+    private var lastBuildSize:   NSSize = .zero
 
     // MARK: - Lifecycle
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        buildKeyboard()
-    }
 
     override func viewWillAppear() {
         super.viewWillAppear()
@@ -68,14 +81,26 @@ class ViewController: NSViewController {
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
+        window.setContentAspectRatio(naturalSize)
+        window.contentMinSize = NSSize(
+            width:  naturalSize.width  * 0.5,
+            height: naturalSize.height * 0.5
+        )
+
         window.setFrameAutosaveName(autosaveName)
-        // Enforce correct size even if a stale frame was saved from a previous build.
-        window.setContentSize(keyboardSize)
 
         if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
             UserDefaults.standard.set(true, forKey: hasLaunchedKey)
+            window.setContentSize(naturalSize)
             window.center()
         }
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        guard view.bounds.size != lastBuildSize else { return }
+        lastBuildSize = view.bounds.size
+        buildKeyboard()
     }
 
     // MARK: - Keyboard layout
@@ -83,18 +108,18 @@ class ViewController: NSViewController {
     private func buildKeyboard() {
         view.subviews.forEach { $0.removeFromSuperview() }
 
-        let totalWidth = keyboardSize.width - padding * 2
+        let totalWidth = view.bounds.width - padding * 2
 
         for (rowIndex, row) in rows.enumerated() {
             let flippedRow = rows.count - 1 - rowIndex
             let y = padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
-            let rowWidth = row.reduce(0) { $0 + width(for: $1) }
+            let rowWidth = row.reduce(0) { $0 + buttonWidth(for: $1) }
                          + CGFloat(row.count - 1) * keySpacing
             var x = padding + (totalWidth - rowWidth) / 2
 
             for key in row {
-                let w   = width(for: key)
+                let w   = buttonWidth(for: key)
                 let btn = NSButton(frame: NSRect(x: x, y: y, width: w, height: keyHeight))
                 btn.title      = key.title
                 btn.bezelStyle = .rounded
@@ -108,7 +133,7 @@ class ViewController: NSViewController {
         }
     }
 
-    private func width(for key: Key) -> CGFloat {
+    private func buttonWidth(for key: Key) -> CGFloat {
         key.id == "Space" ? spaceKeyWidth : keyWidth
     }
 
