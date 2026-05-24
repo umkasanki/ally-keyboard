@@ -14,7 +14,6 @@ class ViewController: NSViewController {
     private let rowSpacing: CGFloat = 4
     private let padding: CGFloat    = 12
 
-    // MARK: - Key definitions (displayTitle, keyIdentifier)
     private let rows: [[(String, String)]] = [
         [("Q","Q"),("W","W"),("E","E"),("R","R"),("T","T"),
          ("Y","Y"),("U","U"),("I","I"),("O","O"),("P","P")],
@@ -25,30 +24,26 @@ class ViewController: NSViewController {
         [("","Space"),("⌫","Backspace"),("↩","Return")]
     ]
 
-    // MARK: - View lifecycle
+    private var keyboardBuilt = false
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        buildKeyboard()
-    }
+    // MARK: - View lifecycle
 
     override func viewWillAppear() {
         super.viewWillAppear()
-        configureWindow()
-    }
-
-    // MARK: - Window setup
-
-    private func configureWindow() {
         guard let window = view.window else { return }
+
+        // 1. Resize window first
         let size = keyboardSize()
         window.setContentSize(size)
-        view.setFrameSize(size)
         window.title = "AllyKeyboard"
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
-        if UserDefaults.standard.string(forKey: "windowOrigin") == nil {
-            window.center()
+        window.center()
+
+        // 2. Build keyboard using actual view bounds after window resize
+        if !keyboardBuilt {
+            keyboardBuilt = true
+            buildKeyboard(in: size)
         }
     }
 
@@ -56,19 +51,21 @@ class ViewController: NSViewController {
 
     private func keyboardSize() -> NSSize {
         let maxKeys = rows[0].count
-        let width  = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
-        let height = CGFloat(rows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2
-        return NSSize(width: width, height: height)
+        let w = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
+        let h = CGFloat(rows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2
+        return NSSize(width: w, height: h)
     }
 
-    private func buildKeyboard() {
-        let size = keyboardSize()
-        view.setFrameSize(size)
-        let totalWidth = CGFloat(rows[0].count) * (keyWidth + keySpacing) - keySpacing
+    private func buildKeyboard(in size: NSSize) {
+        // Remove any existing buttons
+        view.subviews.forEach { $0.removeFromSuperview() }
+
+        let totalWidth = size.width - padding * 2
 
         for (rowIndex, row) in rows.enumerated() {
             let flippedRow = rows.count - 1 - rowIndex
             let y = padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
+
             let rowWidth = row.reduce(0) { $0 + keyWidthFor($1.1) } + CGFloat(row.count - 1) * keySpacing
             var x = padding + (totalWidth - rowWidth) / 2
 
