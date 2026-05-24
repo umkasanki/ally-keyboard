@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		DB1247882FC2114B0062A615 /* AllyKeyboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AllyKeyboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DB502D892FC2FF1700D90E2B /* AllyKeyboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AllyKeyboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		DB12478A2FC2114B0062A615 /* AllyKeyboard */ = {
+		DB502D8B2FC2FF1700D90E2B /* AllyKeyboard */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = AllyKeyboard;
 			sourceTree = "<group>";
@@ -19,7 +19,7 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		DB1247852FC2114B0062A615 /* Frameworks */ = {
+		DB502D862FC2FF1700D90E2B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -29,18 +29,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		DB12477F2FC2114B0062A615 = {
+		DB502D802FC2FF1700D90E2B = {
 			isa = PBXGroup;
 			children = (
-				DB12478A2FC2114B0062A615 /* AllyKeyboard */,
-				DB1247892FC2114B0062A615 /* Products */,
+				DB502D8B2FC2FF1700D90E2B /* AllyKeyboard */,
+				DB502D8A2FC2FF1700D90E2B /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		DB1247892FC2114B0062A615 /* Products */ = {
+		DB502D8A2FC2FF1700D90E2B /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DB1247882FC2114B0062A615 /* AllyKeyboard.app */,
+				DB502D892FC2FF1700D90E2B /* AllyKeyboard.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,64 +48,64 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		DB1247872FC2114B0062A615 /* AllyKeyboard */ = {
+		DB502D882FC2FF1700D90E2B /* AllyKeyboard */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DB1247962FC2114C0062A615 /* Build configuration list for PBXNativeTarget "AllyKeyboard" */;
+			buildConfigurationList = DB502D972FC2FF1800D90E2B /* Build configuration list for PBXNativeTarget "AllyKeyboard" */;
 			buildPhases = (
-				DB1247842FC2114B0062A615 /* Sources */,
-				DB1247852FC2114B0062A615 /* Frameworks */,
-				DB1247862FC2114B0062A615 /* Resources */,
+				DB502D852FC2FF1700D90E2B /* Sources */,
+				DB502D862FC2FF1700D90E2B /* Frameworks */,
+				DB502D872FC2FF1700D90E2B /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				DB12478A2FC2114B0062A615 /* AllyKeyboard */,
+				DB502D8B2FC2FF1700D90E2B /* AllyKeyboard */,
 			);
 			name = AllyKeyboard;
 			packageProductDependencies = (
 			);
 			productName = AllyKeyboard;
-			productReference = DB1247882FC2114B0062A615 /* AllyKeyboard.app */;
+			productReference = DB502D892FC2FF1700D90E2B /* AllyKeyboard.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		DB1247802FC2114B0062A615 /* Project object */ = {
+		DB502D812FC2FF1700D90E2B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2640;
-				LastUpgradeCheck = 2640;
+				LastSwiftUpdateCheck = 2650;
+				LastUpgradeCheck = 2650;
 				TargetAttributes = {
-					DB1247872FC2114B0062A615 = {
-						CreatedOnToolsVersion = 26.4.1;
+					DB502D882FC2FF1700D90E2B = {
+						CreatedOnToolsVersion = 26.5;
 					};
 				};
 			};
-			buildConfigurationList = DB1247832FC2114B0062A615 /* Build configuration list for PBXProject "AllyKeyboard" */;
+			buildConfigurationList = DB502D842FC2FF1700D90E2B /* Build configuration list for PBXProject "AllyKeyboard" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = DB12477F2FC2114B0062A615;
+			mainGroup = DB502D802FC2FF1700D90E2B;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = DB1247892FC2114B0062A615 /* Products */;
+			productRefGroup = DB502D8A2FC2FF1700D90E2B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				DB1247872FC2114B0062A615 /* AllyKeyboard */,
+				DB502D882FC2FF1700D90E2B /* AllyKeyboard */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		DB1247862FC2114B0062A615 /* Resources */ = {
+		DB502D872FC2FF1700D90E2B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -115,7 +115,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		DB1247842FC2114B0062A615 /* Sources */ = {
+		DB502D852FC2FF1700D90E2B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -125,7 +125,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		DB1247942FC2114C0062A615 /* Debug */ = {
+		DB502D952FC2FF1800D90E2B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -188,7 +188,7 @@
 			};
 			name = Debug;
 		};
-		DB1247952FC2114C0062A615 /* Release */ = {
+		DB502D962FC2FF1800D90E2B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -243,7 +243,7 @@
 			};
 			name = Release;
 		};
-		DB1247972FC2114C0062A615 /* Debug */ = {
+		DB502D982FC2FF1800D90E2B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -255,7 +255,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMainStoryboardFile = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -274,7 +274,7 @@
 			};
 			name = Debug;
 		};
-		DB1247982FC2114C0062A615 /* Release */ = {
+		DB502D992FC2FF1800D90E2B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -286,7 +286,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_NSMainStoryboardFile = "";
+				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -308,25 +308,25 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		DB1247832FC2114B0062A615 /* Build configuration list for PBXProject "AllyKeyboard" */ = {
+		DB502D842FC2FF1700D90E2B /* Build configuration list for PBXProject "AllyKeyboard" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DB1247942FC2114C0062A615 /* Debug */,
-				DB1247952FC2114C0062A615 /* Release */,
+				DB502D952FC2FF1800D90E2B /* Debug */,
+				DB502D962FC2FF1800D90E2B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		DB1247962FC2114C0062A615 /* Build configuration list for PBXNativeTarget "AllyKeyboard" */ = {
+		DB502D972FC2FF1800D90E2B /* Build configuration list for PBXNativeTarget "AllyKeyboard" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				DB1247972FC2114C0062A615 /* Debug */,
-				DB1247982FC2114C0062A615 /* Release */,
+				DB502D982FC2FF1800D90E2B /* Debug */,
+				DB502D992FC2FF1800D90E2B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = DB1247802FC2114B0062A615 /* Project object */;
+	rootObject = DB502D812FC2FF1700D90E2B /* Project object */;
 }
