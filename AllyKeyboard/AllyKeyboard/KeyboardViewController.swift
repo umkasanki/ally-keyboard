@@ -7,25 +7,33 @@ import Cocoa
 
 class KeyboardViewController: NSViewController {
 
-    // QWERTY rows
-    private let rows: [[String]] = [
-        ["Q","W","E","R","T","Y","U","I","O","P"],
-        ["A","S","D","F","G","H","J","K","L"],
-        ["Z","X","C","V","B","N","M"],
-        ["Space", "⌫", "↩"]
-    ]
+    // MARK: - Layout constants
 
-    private let keyWidth: CGFloat  = 46
-    private let keyHeight: CGFloat = 36
+    private let keyWidth: CGFloat   = 46
+    private let keyHeight: CGFloat  = 36
     private let keySpacing: CGFloat = 4
     private let rowSpacing: CGFloat = 4
-    private let padding: CGFloat = 10
+    private let padding: CGFloat    = 10
+
+    // MARK: - Key definitions
+    // Each key: (displayTitle, keyIdentifier)
+
+    private let rows: [[(title: String, key: String)]] = [
+        [("Q","Q"),("W","W"),("E","E"),("R","R"),("T","T"),
+         ("Y","Y"),("U","U"),("I","I"),("O","O"),("P","P")],
+        [("A","A"),("S","S"),("D","D"),("F","F"),("G","G"),
+         ("H","H"),("J","J"),("K","K"),("L","L")],
+        [("Z","Z"),("X","X"),("C","C"),("V","V"),
+         ("B","B"),("N","N"),("M","M")],
+        [("","Space"),("⌫","Backspace"),("↩","Return")]
+    ]
+
+    // MARK: - View
 
     override func loadView() {
-        let totalRows = rows.count
         let maxKeys = rows[0].count
-        let width = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
-        let height = CGFloat(totalRows) * (keyHeight + rowSpacing) - rowSpacing + padding * 2
+        let width  = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
+        let height = CGFloat(rows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2
 
         view = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         view.wantsLayer = true
@@ -37,44 +45,57 @@ class KeyboardViewController: NSViewController {
         buildKeyboard()
     }
 
+    // MARK: - Build layout
+
     private func buildKeyboard() {
-        let totalRows = rows.count
+        let totalRows  = rows.count
+        let totalWidth = CGFloat(rows[0].count) * (keyWidth + keySpacing) - keySpacing
 
         for (rowIndex, row) in rows.enumerated() {
-            // Flip row index so row 0 is at bottom in macOS coordinate system
             let flippedRow = totalRows - 1 - rowIndex
             let y = padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
-            // Center each row horizontally
-            let rowWidth = CGFloat(row.count) * (keyWidth + keySpacing) - keySpacing
-            let totalWidth = CGFloat(rows[0].count) * (keyWidth + keySpacing) - keySpacing
-            let offsetX = padding + (totalWidth - rowWidth) / 2
+            let rowWidth = rowContentWidth(for: row)
+            let offsetX  = padding + (totalWidth - rowWidth) / 2
 
-            for (keyIndex, key) in row.enumerated() {
-                let x = offsetX + CGFloat(keyIndex) * (keyWidth + keySpacing)
-
-                // Special keys get wider
-                var width = keyWidth
-                if key == "Space" { width = keyWidth * 3 + keySpacing * 2 }
-
-                let button = makeKeyButton(title: key, frame: NSRect(x: x, y: y, width: width, height: keyHeight))
+            var x = offsetX
+            for keyDef in row {
+                let w = keyWidth(for: keyDef.key)
+                let button = makeKeyButton(keyDef, frame: NSRect(x: x, y: y, width: w, height: keyHeight))
                 view.addSubview(button)
+                x += w + keySpacing
             }
         }
     }
 
-    private func makeKeyButton(title: String, frame: NSRect) -> NSButton {
+    private func rowContentWidth(for row: [(title: String, key: String)]) -> CGFloat {
+        let widths = row.map { keyWidth(for: $0.key) }
+        return widths.reduce(0, +) + CGFloat(row.count - 1) * keySpacing
+    }
+
+    private func keyWidth(for key: String) -> CGFloat {
+        switch key {
+        case "Space": return keyWidth * 3 + keySpacing * 2
+        default:      return keyWidth
+        }
+    }
+
+    private func makeKeyButton(_ keyDef: (title: String, key: String), frame: NSRect) -> NSButton {
         let button = NSButton(frame: frame)
-        button.title = title == "Space" ? "" : title
+        button.title = keyDef.title
         button.bezelStyle = .rounded
         button.font = NSFont.systemFont(ofSize: 14, weight: .regular)
+        button.identifier = NSUserInterfaceItemIdentifier(keyDef.key)
         button.target = self
         button.action = #selector(keyPressed(_:))
         return button
     }
 
+    // MARK: - Actions
+
     @objc private func keyPressed(_ sender: NSButton) {
-        // Phase 2 will implement actual key sending
-        print("Key pressed: \(sender.title)")
+        let key = sender.identifier?.rawValue ?? sender.title
+        print("Key pressed: \(key)")
+        // Phase 2: KeySender.send(key)
     }
 }

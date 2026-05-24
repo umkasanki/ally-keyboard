@@ -7,8 +7,11 @@ import Cocoa
 
 class KeyboardWindowController: NSWindowController {
 
+    private enum Keys {
+        static let windowOrigin = "windowOrigin"
+    }
+
     convenience init() {
-        // Create window
         let window = DraggableWindow(
             contentRect: NSRect(x: 100, y: 100, width: 520, height: 180),
             styleMask: [.titled, .closable, .resizable],
@@ -17,52 +20,43 @@ class KeyboardWindowController: NSWindowController {
         )
 
         window.title = "AllyKeyboard"
-
-        // Float above all other windows
         window.level = .floating
-
-        // Appear on all Spaces, don't move when switching Spaces
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
-
-        // Don't steal focus from active app
         window.isReleasedWhenClosed = false
 
         self.init(window: window)
 
-        // Restore saved position or center on screen
-        if let savedOrigin = UserDefaults.standard.string(forKey: "windowOrigin") {
-            let point = NSPointFromString(savedOrigin)
-            window.setFrameOrigin(point)
+        // Must set delegate after self.init
+        window.delegate = self
+
+        // Restore saved position or center
+        if let savedOrigin = UserDefaults.standard.string(forKey: Keys.windowOrigin) {
+            window.setFrameOrigin(NSPointFromString(savedOrigin))
         } else {
             window.center()
         }
 
-        // Set view controller
-        let vc = KeyboardViewController()
-        window.contentViewController = vc
-    }
-
-    override func windowDidLoad() {
-        super.windowDidLoad()
+        window.contentViewController = KeyboardViewController()
     }
 }
 
-// MARK: - Save position on move
+// MARK: - NSWindowDelegate
 
 extension KeyboardWindowController: NSWindowDelegate {
     func windowDidMove(_ notification: Notification) {
         guard let origin = window?.frame.origin else { return }
-        UserDefaults.standard.set(NSStringFromPoint(origin), forKey: "windowOrigin")
+        UserDefaults.standard.set(NSStringFromPoint(origin), forKey: Keys.windowOrigin)
     }
 }
 
-// MARK: - Draggable Window
+// MARK: - DraggableWindow
 
 class DraggableWindow: NSWindow {
 
     private var dragOffset: NSPoint = .zero
 
-    override var canBecomeKey: Bool { true }
+    // Don't steal focus from active app
+    override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
     override func mouseDown(with event: NSEvent) {
@@ -71,15 +65,12 @@ class DraggableWindow: NSWindow {
 
     override func mouseDragged(with event: NSEvent) {
         guard let screen = screen else { return }
-        let current = event.locationInWindow
-        let newX = frame.origin.x + current.x - dragOffset.x
-        let newY = frame.origin.y + current.y - dragOffset.y
+        let loc = event.locationInWindow
+        let newX = frame.origin.x + loc.x - dragOffset.x
+        let newY = frame.origin.y + loc.y - dragOffset.y
 
-        // Keep window within screen bounds
-        let maxX = screen.visibleFrame.maxX - frame.width
-        let maxY = screen.visibleFrame.maxY - frame.height
-        let clampedX = max(screen.visibleFrame.minX, min(newX, maxX))
-        let clampedY = max(screen.visibleFrame.minY, min(newY, maxY))
+        let clampedX = max(screen.visibleFrame.minX, min(newX, screen.visibleFrame.maxX - frame.width))
+        let clampedY = max(screen.visibleFrame.minY, min(newY, screen.visibleFrame.maxY - frame.height))
 
         setFrameOrigin(NSPoint(x: clampedX, y: clampedY))
     }
