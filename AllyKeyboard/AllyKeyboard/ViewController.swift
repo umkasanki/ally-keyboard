@@ -7,7 +7,6 @@ import Cocoa
 
 class ViewController: NSViewController {
 
-    // MARK: - Layout constants
     private let keyWidth: CGFloat   = 46
     private let keyHeight: CGFloat  = 36
     private let keySpacing: CGFloat = 4
@@ -24,31 +23,29 @@ class ViewController: NSViewController {
         [("","Space"),("⌫","Backspace"),("↩","Return")]
     ]
 
-    private var keyboardBuilt = false
+    // MARK: - Lifecycle
 
-    // MARK: - View lifecycle
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        // Build keyboard here — viewDidLoad doesn't need a window,
+        // and buildKeyboard() uses keyboardSize() not view.bounds.
+        buildKeyboard()
+    }
 
     override func viewWillAppear() {
         super.viewWillAppear()
         guard let window = view.window else { return }
-
-        // 1. Resize window first
-        let size = keyboardSize()
-        window.setContentSize(size)
+        // Size is set in the storyboard (520×180). Here we only configure
+        // the window's floating behaviour.
         window.title = "AllyKeyboard"
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
         window.center()
-
-        // 2. Build keyboard using actual view bounds after window resize
-        if !keyboardBuilt {
-            keyboardBuilt = true
-            buildKeyboard(in: size)
-        }
     }
 
-    // MARK: - Keyboard layout
+    // MARK: - Layout
 
+    /// Returns the window content size that fits the keyboard exactly.
     private func keyboardSize() -> NSSize {
         let maxKeys = rows[0].count
         let w = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
@@ -56,28 +53,33 @@ class ViewController: NSViewController {
         return NSSize(width: w, height: h)
     }
 
-    private func buildKeyboard(in size: NSSize) {
-        // Remove any existing buttons
+    /// Places key buttons using fixed geometry derived from keyboardSize().
+    /// Never reads view.bounds — so it works correctly even before the
+    /// window has been shown or resized.
+    private func buildKeyboard() {
         view.subviews.forEach { $0.removeFromSuperview() }
 
-        let totalWidth = size.width - padding * 2
+        let kbSize     = keyboardSize()
+        let totalWidth = kbSize.width - padding * 2
 
         for (rowIndex, row) in rows.enumerated() {
+            // AppKit y=0 is at the bottom, so flip the row index.
             let flippedRow = rows.count - 1 - rowIndex
             let y = padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
-            let rowWidth = row.reduce(0) { $0 + keyWidthFor($1.1) } + CGFloat(row.count - 1) * keySpacing
+            let rowWidth = row.reduce(0) { $0 + keyWidthFor($1.1) }
+                         + CGFloat(row.count - 1) * keySpacing
             var x = padding + (totalWidth - rowWidth) / 2
 
             for (title, key) in row {
-                let w = keyWidthFor(key)
+                let w   = keyWidthFor(key)
                 let btn = NSButton(frame: NSRect(x: x, y: y, width: w, height: keyHeight))
-                btn.title = title
+                btn.title      = title
                 btn.bezelStyle = .rounded
-                btn.font = NSFont.systemFont(ofSize: 14)
+                btn.font       = NSFont.systemFont(ofSize: 14)
                 btn.identifier = NSUserInterfaceItemIdentifier(key)
-                btn.target = self
-                btn.action = #selector(keyPressed(_:))
+                btn.target     = self
+                btn.action     = #selector(keyPressed(_:))
                 view.addSubview(btn)
                 x += w + keySpacing
             }
