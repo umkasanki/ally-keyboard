@@ -44,10 +44,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [x] **1.4** Make window draggable by mouse (override `mouseDown` / `mouseDragged`)
 - [x] **1.4a** Fix window size: set contentRect 520×180 in storyboard, remove resizable
 - [x] **1.5** Persist window position between launches (`setFrameAutosaveName`)
-- [x] **1.6** Proportional resize: window is resizable, keys and font scale with window size
-  - `viewDidLayout` rebuilds keyboard at current scale; aspect ratio locked via `setContentAspectRatio`
-  - Minimum size: 50% of natural (260×90)
-- [ ] **1.7** Test: window appears on top of Safari/TextEdit, focus stays in target app; resize works
+- [ ] **1.6** Test: window appears on top of Safari/TextEdit, focus stays in target app
 
 ---
 
@@ -89,7 +86,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 > Goal: keyboard is comfortable to use with head tracker, correct key sizes and visual feedback
 
 - [ ] **4.1** Visual hover highlight — key changes color on mouseEnter
-- [~] **4.2** Keyboard size presets: Small / Medium / Large — replaced by free proportional resize (done in Phase 1.6)
+- [ ] **4.2** Keyboard size presets: Small / Medium / Large (affects key size + font)
 - [ ] **4.3** Keyboard opacity setting (0.7–1.0, for seeing content behind)
 - [ ] **4.4** Test with actual head tracker device
 
@@ -131,5 +128,5 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Last session:** Phase 1 extended — added proportional resize (keys scale with window, aspect ratio locked).  
+**Last session:** Phase 1 complete — floating QWERTY keyboard (520×180), window position persists between launches.  
 **Next step:** Phase 2 — key press simulation (CGEvent, Accessibility permissions).
