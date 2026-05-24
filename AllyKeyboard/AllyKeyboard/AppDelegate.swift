@@ -21,7 +21,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let bundleID = Bundle.main.bundleIdentifier else { return }
         if NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).count > 1 {
             NSApp.terminate(nil)
+            return
         }
+
+        // Request Accessibility permission needed for CGEvent key simulation.
+        KeySender.requestAccessibilityIfNeeded()
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {

@@ -10,7 +10,7 @@ class ViewController: NSViewController {
     // MARK: - Key definition
 
     private struct Key {
-        let id:    String   // used for key simulation (CGEvent in Phase 2)
+        let id:    String   // used for key simulation (CGEvent)
         let title: String   // displayed on the button face
         init(_ id: String, title: String? = nil) {
             self.id    = id
@@ -41,10 +41,15 @@ class ViewController: NSViewController {
          Key("Y"), Key("U"), Key("I"), Key("O"), Key("P")],
         [Key("A"), Key("S"), Key("D"), Key("F"), Key("G"),
          Key("H"), Key("J"), Key("K"), Key("L")],
-        [Key("Z"), Key("X"), Key("C"), Key("V"),
+        [Key("Shift", title: "⇧"), Key("Z"), Key("X"), Key("C"), Key("V"),
          Key("B"), Key("N"), Key("M")],
         [Key("Space", title: ""), Key("Backspace", title: "⌫"), Key("Return", title: "↩")]
     ]
+
+    // MARK: - Shift state
+
+    private var isShifted = false
+    private weak var shiftButton: NSButton?
 
     // MARK: - Window state
 
@@ -69,7 +74,6 @@ class ViewController: NSViewController {
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
         window.setFrameAutosaveName(autosaveName)
-        // Enforce correct size even if a stale frame was saved from a previous build.
         window.setContentSize(keyboardSize)
 
         if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
@@ -82,6 +86,7 @@ class ViewController: NSViewController {
 
     private func buildKeyboard() {
         view.subviews.forEach { $0.removeFromSuperview() }
+        shiftButton = nil
 
         let totalWidth = keyboardSize.width - padding * 2
 
@@ -102,6 +107,13 @@ class ViewController: NSViewController {
                 btn.identifier = NSUserInterfaceItemIdentifier(key.id)
                 btn.target     = self
                 btn.action     = #selector(keyPressed(_:))
+
+                if key.id == "Shift" {
+                    btn.buttonType    = .toggle
+                    btn.alternateTitle = "⇪"
+                    shiftButton = btn
+                }
+
                 view.addSubview(btn)
                 x += w + keySpacing
             }
@@ -119,6 +131,18 @@ class ViewController: NSViewController {
             assertionFailure("Key button missing identifier — fix buildKeyboard()")
             return
         }
-        print("Key pressed: \(key)")
+
+        if key == "Shift" {
+            isShifted = sender.state == .on
+            return
+        }
+
+        KeySender.send(key, shifted: isShifted)
+
+        // One-shot shift: reset after typing any key
+        if isShifted {
+            isShifted = false
+            shiftButton?.state = .off
+        }
     }
 }

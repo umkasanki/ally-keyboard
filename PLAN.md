@@ -51,13 +51,14 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Phase 2 — Key Press Simulation
 > Goal: clicking a key on the keyboard types the character in the active app
 
-- [ ] **2.1** Request Accessibility permission at launch (`AXIsProcessTrusted`)
-  - Show alert if not granted, open System Preferences
-- [ ] **2.2** Create `KeySender` — wrapper around `CGEvent` for sending keystrokes
-  - Map character → `CGKeyCode` (use `CGEventKeyboardSetUnicodeString` for Unicode)
-- [ ] **2.3** Handle basic keys: letters a–z, digits 0–9
-- [ ] **2.4** Handle Shift key — toggle uppercase mode, visual indicator on button
-- [ ] **2.5** Handle special keys: Space, Backspace, Enter, Tab
+- [x] **2.1** Request Accessibility permission at launch (`AXIsProcessTrusted`)
+  - `KeySender.requestAccessibilityIfNeeded()` called from `applicationDidFinishLaunching`
+- [x] **2.2** Create `KeySender.swift` — wrapper around `CGEvent`
+  - Letters/symbols via `CGEventKeyboardSetUnicodeString` (no keycode table needed)
+  - Special keys via `CGKeyCode`: Space=49, Backspace=51, Return=36
+- [x] **2.3** Handle basic keys: letters a–z
+- [x] **2.4** Handle Shift key — one-shot toggle (⇧/⇪), resets after first keystroke
+- [x] **2.5** Handle special keys: Space, Backspace, Return
 - [ ] **2.6** Handle modifier combos: Cmd+C, Cmd+V, Cmd+Z (copy/paste/undo row)
 - [ ] **2.7** Test: type into TextEdit, Safari URL bar, Terminal
 
@@ -128,5 +129,5 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Last session:** Phase 1 complete — floating QWERTY keyboard (520×180), window position persists between launches.  
-**Next step:** Phase 2 — key press simulation (CGEvent, Accessibility permissions).
+**Last session:** Phase 2 implemented — `KeySender` with CGEvent, Shift toggle, Accessibility permission request.  
+**Next step:** Test on MacInCloud (build + verify typing in TextEdit/Safari). Then Phase 2.6 (Cmd combos) or Phase 3.
