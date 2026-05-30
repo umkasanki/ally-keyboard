@@ -5,15 +5,22 @@
 
 import Cocoa
 
+// MARK: - Theme
+
+enum Theme {
+    static let panelBg     = NSColor(white: 0.22, alpha: 1)  // title bar, drag handle
+    static let keyboardBg  = NSColor(white: 0.13, alpha: 1)  // keyboard area background
+    static let keyNormal   = NSColor(white: 0.22, alpha: 1)  // key default state
+    static let keyHover    = NSColor(white: 0.36, alpha: 1)  // key hover state
+    static let keyPressed  = NSColor(red: 0.72, green: 0.13, blue: 0.13, alpha: 1) // key press
+    static let keyActive   = NSColor(red: 0.20, green: 0.45, blue: 0.80, alpha: 1) // shift on
+}
+
 // MARK: - KeyButton
 
 /// Custom keyboard key with dark styling, hover highlight, and red press feedback.
 final class KeyButton: NSButton {
 
-    private static let normalBg  = NSColor(white: 0.22, alpha: 1)
-    private static let hoverBg   = NSColor(white: 0.36, alpha: 1)
-    private static let pressedBg = NSColor(red: 0.72, green: 0.13, blue: 0.13, alpha: 1)
-    private static let activeBg  = NSColor(red: 0.20, green: 0.45, blue: 0.80, alpha: 1)
 
     private var isHovered = false
 
@@ -47,12 +54,12 @@ final class KeyButton: NSButton {
 
     override func highlight(_ flag: Bool) {
         super.highlight(flag)
-        layer?.backgroundColor = flag ? Self.pressedBg.cgColor : nil
+        layer?.backgroundColor = flag ? Theme.keyPressed.cgColor : nil
         if !flag { updateBackground() }
     }
 
     private func updateBackground() {
-        layer?.backgroundColor = (isActive ? Self.activeBg : isHovered ? Self.hoverBg : Self.normalBg).cgColor
+        layer?.backgroundColor = (isActive ? Theme.keyActive : isHovered ? Theme.keyHover : Theme.keyNormal).cgColor
     }
 }
 
@@ -70,6 +77,7 @@ class ViewController: NSViewController {
             self.title = title ?? id
         }
     }
+
 
     // MARK: - Layout constants
 
@@ -120,7 +128,7 @@ class ViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.wantsLayer = true
-        view.layer?.backgroundColor = NSColor(white: 0.13, alpha: 1).cgColor
+        view.layer?.backgroundColor = Theme.keyboardBg.cgColor
         buildKeyboard()
     }
 
@@ -132,7 +140,7 @@ class ViewController: NSViewController {
         window.title = "AllyKeyboard"
         window.appearance = NSAppearance(named: .darkAqua)
         window.titlebarAppearsTransparent = true
-        window.backgroundColor = NSColor(white: 0.22, alpha: 1)
+        window.backgroundColor = Theme.panelBg
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
