@@ -73,6 +73,8 @@ class ViewController: NSViewController {
 
         window.title = "AllyKeyboard"
         window.appearance = NSAppearance(named: .darkAqua)
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = NSColor(white: 0.22, alpha: 1)
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
