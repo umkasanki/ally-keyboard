@@ -73,12 +73,12 @@ class ViewController: NSViewController {
 
     // MARK: - Layout constants
 
-    private let keyWidth:    CGFloat = 46
-    private let keyHeight:   CGFloat = 36
-    private let keySpacing:  CGFloat = 4
-    private let rowSpacing:  CGFloat = 4
-    private let padding:     CGFloat = 12
-    private let keyFontSize: CGFloat = 14
+    private let keyWidth:    CGFloat = 92
+    private let keyHeight:   CGFloat = 72
+    private let keySpacing:  CGFloat = 8
+    private let rowSpacing:  CGFloat = 8
+    private let padding:     CGFloat = 24
+    private let keyFontSize: CGFloat = 28
 
     private var spaceKeyWidth: CGFloat { keyWidth * 3 + keySpacing * 2 }
 
@@ -165,6 +165,7 @@ class ViewController: NSViewController {
                 let w   = width(for: key)
                 let btn = KeyButton(frame: NSRect(x: x, y: y, width: w, height: keyHeight))
                 btn.title      = key.title
+                btn.font       = NSFont.systemFont(ofSize: keyFontSize, weight: .medium)
                 btn.identifier = NSUserInterfaceItemIdentifier(key.id)
                 btn.target     = self
                 btn.action     = #selector(keyPressed(_:))
