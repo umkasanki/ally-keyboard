@@ -17,6 +17,41 @@ enum Theme {
     static let tempBg      = NSColor.red                     // temporary, for visual testing
 }
 
+// MARK: - DragHandle
+
+private class DragHandle: NSView {
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.backgroundColor = Theme.panelBg.cgColor
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let dotDiameter: CGFloat = 6
+        let dotGap:      CGFloat = 8
+        let totalWidth = 3 * dotDiameter + 2 * dotGap
+        var x = (bounds.width - totalWidth) / 2
+        let y = (bounds.height - dotDiameter) / 2
+
+        NSColor(white: 1.0, alpha: 0.5).setFill()
+        for _ in 0..<3 {
+            NSBezierPath(ovalIn: NSRect(x: x, y: y, width: dotDiameter, height: dotDiameter)).fill()
+            x += dotDiameter + dotGap
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
+
+    override var mouseDownCanMoveWindow: Bool { false }
+}
+
 // MARK: - KeyButton
 
 /// Custom keyboard key with dark styling, hover highlight, and red press feedback.
@@ -82,7 +117,8 @@ class ViewController: NSViewController {
 
     // MARK: - Layout constants
 
-    private let keyWidth:    CGFloat = 92
+    private let dragHandleHeight: CGFloat = 40
+    private let keyWidth:         CGFloat = 92
     private let keyHeight:   CGFloat = 72
     private let keySpacing:  CGFloat = 8
     private let rowSpacing:  CGFloat = 8
@@ -94,7 +130,7 @@ class ViewController: NSViewController {
     private lazy var keyboardSize: NSSize = {
         let maxKeys = rows.map { $0.count }.max() ?? 0
         let w = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
-        let h = CGFloat(rows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2
+        let h = CGFloat(rows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragHandleHeight
         return NSSize(width: w, height: h)
     }()
 
@@ -160,11 +196,14 @@ class ViewController: NSViewController {
         view.subviews.forEach { $0.removeFromSuperview() }
         shiftButton = nil
 
+        let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: keyboardSize.width, height: dragHandleHeight))
+        view.addSubview(handle)
+
         let totalWidth = keyboardSize.width - padding * 2
 
         for (rowIndex, row) in rows.enumerated() {
             let flippedRow = rows.count - 1 - rowIndex
-            let y = padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
+            let y = dragHandleHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
             let rowWidth = row.reduce(0) { $0 + width(for: $1) }
                          + CGFloat(row.count - 1) * keySpacing
