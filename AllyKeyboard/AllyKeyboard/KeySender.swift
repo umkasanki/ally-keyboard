@@ -42,12 +42,10 @@ enum KeySender {
     }
 
     private static func sendUnicode(_ string: String) {
-        let src = eventSource
         var chars = Array(string.utf16)
-        let down = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true)
+        let down = CGEvent(keyboardEventSource: eventSource, virtualKey: 0, keyDown: true)
         down?.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
-        let up = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: false)
-        up?.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
+        let up = CGEvent(keyboardEventSource: eventSource, virtualKey: 0, keyDown: false)
         down?.post(tap: .cghidEventTap)
         up?.post(tap: .cghidEventTap)
     }
