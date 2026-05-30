@@ -101,7 +101,12 @@ class ViewController: NSViewController {
 
     // MARK: - Shift state
 
-    private var isShifted = false
+    private var isShifted = false {
+        didSet {
+            shiftButton?.isActive = isShifted
+            if !isShifted { shiftButton?.state = .off }
+        }
+    }
     private weak var shiftButton: KeyButton?
 
     // MARK: - Window state
@@ -190,17 +195,13 @@ class ViewController: NSViewController {
 
         if key == "Shift" {
             isShifted = sender.state == .on
-            shiftButton?.isActive = isShifted
             return
         }
 
         KeySender.send(key, shifted: isShifted)
 
         // One-shot shift: reset after typing any key
-        if isShifted {
-            isShifted = false
-            shiftButton?.isActive = false
-            shiftButton?.state = .off
-        }
+        if isShifted { isShifted = false }
+
     }
 }
