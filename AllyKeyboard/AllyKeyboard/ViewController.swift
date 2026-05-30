@@ -121,24 +121,37 @@ class ViewController: NSViewController {
     }
 
 
-    // MARK: - Layout constants
+    // MARK: - Scale
 
-    private let dragHandleHeight: CGFloat = 40
-    private let keyWidth:         CGFloat = 92
-    private let keyHeight:   CGFloat = 72
-    private let keySpacing:  CGFloat = 8
-    private let rowSpacing:  CGFloat = 8
-    private let padding:     CGFloat = 24
-    private let keyFontSize: CGFloat = 28
+    var scale: CGFloat = 2.0
 
-    private var spaceKeyWidth: CGFloat { keyWidth * 3 + keySpacing * 2 }
+    // MARK: - Base layout constants (at scale = 1.0)
 
-    private lazy var keyboardSize: NSSize = {
+    private let baseKeyWidth:         CGFloat = 46
+    private let baseKeyHeight:        CGFloat = 36
+    private let baseKeySpacing:       CGFloat = 4
+    private let baseRowSpacing:       CGFloat = 4
+    private let basePadding:          CGFloat = 12
+    private let baseKeyFontSize:      CGFloat = 14
+    // MARK: - Scaled layout values
+
+    private var keyWidth:         CGFloat { baseKeyWidth    * scale }
+    private var keyHeight:        CGFloat { baseKeyHeight   * scale }
+    private var keySpacing:       CGFloat { baseKeySpacing  * scale }
+    private var rowSpacing:       CGFloat { baseRowSpacing  * scale }
+    private var padding:          CGFloat { basePadding     * scale }
+    private var keyFontSize:      CGFloat { baseKeyFontSize * scale }
+    private var spaceKeyWidth:    CGFloat { keyWidth * 3 + keySpacing * 2 }
+
+    /// Set from actual window title bar height in viewWillAppear.
+    private var dragHandleHeight: CGFloat = 28
+
+    private var keyboardSize: NSSize {
         let maxKeys = rows.map { $0.count }.max() ?? 0
         let w = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
         let h = CGFloat(rows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragHandleHeight
         return NSSize(width: w, height: h)
-    }()
+    }
 
     private let rows: [[Key]] = [
         [Key("Q"), Key("W"), Key("E"), Key("R"), Key("T"),
@@ -172,7 +185,6 @@ class ViewController: NSViewController {
         super.viewDidLoad()
         view.wantsLayer = true
         view.layer?.backgroundColor = Theme.keyboardBg.cgColor
-        buildKeyboard()
     }
 
     override func viewWillAppear() {
@@ -187,8 +199,12 @@ class ViewController: NSViewController {
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
+        // Match drag handle height to actual title bar height
+        dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
+
         window.setFrameAutosaveName(autosaveName)
         window.setContentSize(keyboardSize)
+        buildKeyboard()
 
         if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
             UserDefaults.standard.set(true, forKey: hasLaunchedKey)
