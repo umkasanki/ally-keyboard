@@ -17,6 +17,8 @@ enum KeySender {
         case "Space":     sendKeyCode(49)
         case "Backspace": sendKeyCode(51)
         case "Return":    sendKeyCode(36)
+        case "Tab":       sendKeyCode(48)
+        case "Escape":    sendKeyCode(53)
         default:
             let char = shifted ? keyID.uppercased() : keyID.lowercased()
             sendUnicode(char)
