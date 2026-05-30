@@ -46,6 +46,7 @@ enum KeySender {
         let down = CGEvent(keyboardEventSource: eventSource, virtualKey: 0, keyDown: true)
         down?.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
         let up = CGEvent(keyboardEventSource: eventSource, virtualKey: 0, keyDown: false)
+        up?.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
         down?.post(tap: .cghidEventTap)
         up?.post(tap: .cghidEventTap)
     }
