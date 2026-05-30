@@ -126,7 +126,14 @@ class ViewController: NSViewController {
 
     // MARK: - Scale
 
-    var scale: CGFloat = 2.0
+    var scale: CGFloat = 2.0 {
+        didSet {
+            guard windowConfigured, let window = view.window else { return }
+            let size = keyboardSize
+            window.setContentSize(size)
+            buildKeyboard()
+        }
+    }
 
     // MARK: - Base layout constants (at scale = 1.0)
 
@@ -147,7 +154,7 @@ class ViewController: NSViewController {
     private var spaceKeyWidth:    CGFloat { keyWidth * 3 + keySpacing * 2 }
 
     /// Set from actual window title bar height in viewWillAppear.
-    private var dragHandleHeight: CGFloat = 28
+    private var dragHandleHeight: CGFloat = 0
 
     private var keyboardSize: NSSize {
         let maxKeys = rows.map { $0.count }.max() ?? 0
@@ -206,7 +213,10 @@ class ViewController: NSViewController {
         dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
 
         window.setFrameAutosaveName(autosaveName)
-        window.setContentSize(keyboardSize)
+        // setContentSize enforces the scale-based size on every launch.
+        // Autosave persists position only (size is always derived from scale).
+        let size = keyboardSize
+        window.setContentSize(size)
         buildKeyboard()
 
         if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
@@ -221,10 +231,12 @@ class ViewController: NSViewController {
         view.subviews.forEach { $0.removeFromSuperview() }
         shiftButton = nil
 
-        let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: keyboardSize.width, height: dragHandleHeight))
+        let size = keyboardSize  // compute once, reuse below
+
+        let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: size.width, height: dragHandleHeight))
         view.addSubview(handle)
 
-        let totalWidth = keyboardSize.width - padding * 2
+        let totalWidth = size.width - padding * 2
 
         for (rowIndex, row) in rows.enumerated() {
             let flippedRow = rows.count - 1 - rowIndex
