@@ -83,7 +83,7 @@ class ViewController: NSViewController {
     private var spaceKeyWidth: CGFloat { keyWidth * 3 + keySpacing * 2 }
 
     private lazy var keyboardSize: NSSize = {
-        let maxKeys = rows[0].count
+        let maxKeys = rows.map { $0.count }.max() ?? 0
         let w = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
         let h = CGFloat(rows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2
         return NSSize(width: w, height: h)
