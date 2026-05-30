@@ -14,6 +14,7 @@ enum Theme {
     static let keyHover    = NSColor(white: 0.36, alpha: 1)  // key hover state
     static let keyPressed  = NSColor(red: 0.72, green: 0.13, blue: 0.13, alpha: 1) // key press
     static let keyActive   = NSColor(red: 0.20, green: 0.45, blue: 0.80, alpha: 1) // shift on
+    static let tempBg      = NSColor.red                     // temporary, for visual testing
 }
 
 // MARK: - KeyButton
