@@ -49,8 +49,11 @@ private class DragHandle: NSView {
         }
     }
 
-    // Returning true lets NSWindow handle dragging natively — no mouseDown override needed.
-    override var mouseDownCanMoveWindow: Bool { true }
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
+
+    override var mouseDownCanMoveWindow: Bool { false }
 }
 
 // MARK: - KeyButton
