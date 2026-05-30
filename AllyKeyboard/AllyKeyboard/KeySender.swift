@@ -34,14 +34,15 @@ enum KeySender {
 
     // MARK: - Private helpers
 
+    private static let eventSource = CGEventSource(stateID: .hidSystemState)
+
     private static func sendKeyCode(_ keyCode: CGKeyCode) {
-        let src = CGEventSource(stateID: .hidSystemState)
-        CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: true)?.post(tap: .cghidEventTap)
-        CGEvent(keyboardEventSource: src, virtualKey: keyCode, keyDown: false)?.post(tap: .cghidEventTap)
+        CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: true)?.post(tap: .cghidEventTap)
+        CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: false)?.post(tap: .cghidEventTap)
     }
 
     private static func sendUnicode(_ string: String) {
-        let src = CGEventSource(stateID: .hidSystemState)
+        let src = eventSource
         var chars = Array(string.utf16)
         let down = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: true)
         down?.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
