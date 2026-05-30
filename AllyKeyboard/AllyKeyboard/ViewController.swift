@@ -53,7 +53,19 @@ private class DragHandle: NSView {
         window?.performDrag(with: event)
     }
 
+    override func rightMouseDown(with event: NSEvent) {
+        NSMenu.popUpContextMenu(DragHandle.appMenu, with: event, for: self)
+    }
+
     override var mouseDownCanMoveWindow: Bool { false }
+
+    static let appMenu: NSMenu = {
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "Quit AllyKeyboard",
+                                action: #selector(NSApp.terminate(_:)),
+                                keyEquivalent: ""))
+        return menu
+    }()
 }
 
 // MARK: - KeyButton
@@ -208,6 +220,7 @@ class ViewController: NSViewController {
         window.backgroundColor = Theme.panelBg
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        window.standardWindowButton(.closeButton)?.isHidden = true
 
         // Match drag handle height to actual title bar height
         dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
@@ -269,6 +282,12 @@ class ViewController: NSViewController {
 
     private func width(for key: Key) -> CGFloat {
         key.id == "Space" ? spaceKeyWidth : keyWidth
+    }
+
+    // MARK: - Context menu
+
+    override func rightMouseDown(with event: NSEvent) {
+        NSMenu.popUpContextMenu(DragHandle.appMenu, with: event, for: view)
     }
 
     // MARK: - Actions
