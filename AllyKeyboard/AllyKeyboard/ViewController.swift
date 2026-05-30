@@ -109,7 +109,7 @@ class ViewController: NSViewController {
                 btn.action     = #selector(keyPressed(_:))
 
                 if key.id == "Shift" {
-                    btn.buttonType    = .toggle
+                    btn.setButtonType(.toggle)
                     btn.alternateTitle = "⇪"
                     shiftButton = btn
                 }
