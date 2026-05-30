@@ -49,7 +49,7 @@ class ViewController: NSViewController {
     // MARK: - Shift state
 
     private var isShifted = false
-    private weak var shiftButton: NSButton?
+    private weak var shiftButton: KeyButton?
 
     // MARK: - Window state
 
@@ -61,6 +61,8 @@ class ViewController: NSViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        view.wantsLayer = true
+        view.layer?.backgroundColor = NSColor(white: 0.13, alpha: 1).cgColor
         buildKeyboard()
     }
 
@@ -70,6 +72,7 @@ class ViewController: NSViewController {
         windowConfigured = true
 
         window.title = "AllyKeyboard"
+        window.appearance = NSAppearance(named: .darkAqua)
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
@@ -100,10 +103,8 @@ class ViewController: NSViewController {
 
             for key in row {
                 let w   = width(for: key)
-                let btn = NSButton(frame: NSRect(x: x, y: y, width: w, height: keyHeight))
+                let btn = KeyButton(frame: NSRect(x: x, y: y, width: w, height: keyHeight))
                 btn.title      = key.title
-                btn.bezelStyle = .rounded
-                btn.font       = NSFont.systemFont(ofSize: keyFontSize)
                 btn.identifier = NSUserInterfaceItemIdentifier(key.id)
                 btn.target     = self
                 btn.action     = #selector(keyPressed(_:))
@@ -134,6 +135,7 @@ class ViewController: NSViewController {
 
         if key == "Shift" {
             isShifted = sender.state == .on
+            shiftButton?.isActive = isShifted
             return
         }
 
@@ -142,6 +144,7 @@ class ViewController: NSViewController {
         // One-shot shift: reset after typing any key
         if isShifted {
             isShifted = false
+            shiftButton?.isActive = false
             shiftButton?.state = .off
         }
     }
