@@ -397,8 +397,8 @@ class ViewController: NSViewController {
                     lbl.alignment = .right
                     let lblH = keyFontSizeSecondary * scale + 2
                     let lblW = w / 2
-                    lbl.frame = NSRect(x: w - lblW - 4 * scale,
-                                       y: keyHeight - lblH - 2 * scale,
+                    lbl.frame = NSRect(x: w - lblW - 3 * scale,
+                                       y: keyHeight - lblH,
                                        width: lblW,
                                        height: lblH)
                     btn.addSubview(lbl)
