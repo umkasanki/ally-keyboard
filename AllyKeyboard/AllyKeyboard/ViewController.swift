@@ -281,9 +281,9 @@ class ViewController: NSViewController {
         // Bottom row
         [Key("Ctrl",       title: "^"),
          Key("Alt",        title: "⌥"),
-         Key("Cmd",        title: "⌘",  w: 1.25),
-         Key("Space",      title: "",   w: 5.0),
-         Key("Cmd",        title: "⌘",  w: 1.25),
+         Key("Cmd",        title: "⌘",  w: 1.75),
+         Key("Space",      title: "",   w: 6.0),
+         Key("Cmd",        title: "⌘",  w: 1.75),
          Key("Alt",        title: "⌥"),
          Key("ArrowLeft",  image: "arrow.left"),
          Key("ArrowDown",  image: "arrow.down"),
