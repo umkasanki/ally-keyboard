@@ -28,6 +28,10 @@ enum KeySender {
         case "ArrowDown":  sendKeyCode(125)
         case "ArrowLeft":  sendKeyCode(123)
         case "ArrowRight": sendKeyCode(124)
+        case "Home":       sendKeyCode(115)
+        case "End":        sendKeyCode(119)
+        case "PageUp":     sendKeyCode(116)
+        case "PageDown":   sendKeyCode(121)
         case "fn", "Ctrl", "Alt", "Cmd", "CapsLock":
             break // modifier-only keys — no action yet
         default:

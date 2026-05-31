@@ -276,7 +276,8 @@ class ViewController: NSViewController {
          Key(".", secondary: ">"),
          Key("/", secondary: "?"),
          Key("Shift",      image: "shift", w: 1.75),
-         Key("ArrowUp",    image: "arrow.up")],
+         Key("ArrowUp",    image: "arrow.up"),
+         Key("End",        title: "End")],
         // Bottom row
         [Key("fn",         title: "fn"),
          Key("Ctrl",       title: "^"),
