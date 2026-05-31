@@ -264,9 +264,13 @@ class ViewController: NSViewController {
          Key("Return", image: "return", w: 1.5)],
         // ASDF row
         [Key("CapsLock", title: "Caps", w: 1.75),
-         Key("A"), Key("S"), Key("D"), Key("F"), Key("G"),
-         Key("H"), Key("J"), Key("K"), Key("L"),
-         Key("Return", image: "return", w: 1.75)],
+         Key("A", title: "a"), Key("S", title: "s"), Key("D", title: "d"),
+         Key("F", title: "f"), Key("G", title: "g"), Key("H", title: "h"),
+         Key("J", title: "j"), Key("K", title: "k"), Key("L", title: "l"),
+         Key(";", secondary: ":"),
+         Key("'", secondary: "\""),
+         Key("Return", image: "return", w: 1.75),
+         Key("PageDown", title: "down")],
         // ZXCV row
         [Key("Shift",      image: "shift", w: 1.75),
          Key("Z", title: "z"), Key("X", title: "x"), Key("C", title: "c"),
