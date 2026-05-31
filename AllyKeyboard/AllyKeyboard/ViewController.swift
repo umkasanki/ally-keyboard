@@ -268,27 +268,26 @@ class ViewController: NSViewController {
          Key("H"), Key("J"), Key("K"), Key("L"),
          Key("Return", image: "return", w: 1.75)],
         // ZXCV row
-        [Key("Shift",      image: "shift", w: 1.75),
+        [Key("Shift",      image: "shift", w: 1.5),
          Key("Z", title: "z"), Key("X", title: "x"), Key("C", title: "c"),
          Key("V", title: "v"), Key("B", title: "b"), Key("N", title: "n"),
          Key("M", title: "m"),
          Key(",", secondary: "<"),
          Key(".", secondary: ">"),
          Key("/", secondary: "?"),
-         Key("Shift",      image: "shift", w: 1.75),
+         Key("Shift",      image: "shift", w: 1.5),
          Key("ArrowUp",    image: "arrow.up"),
          Key("End",        title: "end")],
         // Bottom row
         [Key("Ctrl",       title: "^",  w: 1.5),
          Key("Alt",        title: "⌥", w: 1.5),
          Key("Cmd",        title: "⌘", w: 1.5),
-         Key("Space",      title: "",  w: 5.0),
+         Key("Space",      title: "",  w: 4.5),
          Key("Cmd",        title: "⌘", w: 1.5),
          Key("Alt",        title: "⌥", w: 1.5),
          Key("ArrowLeft",  image: "arrow.left"),
          Key("ArrowDown",  image: "arrow.down"),
-         Key("ArrowRight", image: "arrow.right"),
-         Key("PageDown",   title: "down")],
+         Key("ArrowRight", image: "arrow.right")],
     ]
 
     private var allRows: [[Key]] { [numberRow] + letterRows }
