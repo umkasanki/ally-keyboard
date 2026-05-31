@@ -243,7 +243,7 @@ class ViewController: NSViewController {
     // MARK: - Keyboard rows
 
     private let functionRow: [Key] = [
-        Key("Escape", title: "esc", w: 1.5),
+        Key("Escape", title: "esc", w: 1.5, fontScale: 0.7),
         Key("Hi",     image: "list.bullet"),
         Key("@",  title: "@"),
         Key("!",  title: "!"),
@@ -280,7 +280,7 @@ class ViewController: NSViewController {
 
     private let letterRows: [[Key]] = [
         // QWERTY row
-        [Key("Tab",     title: "Tab", w: 1.5),
+        [Key("Tab",     title: "tab", w: 1.5, fontScale: 0.7),
          Key("Q", title: "q"), Key("W", title: "w"), Key("E", title: "e"),
          Key("R", title: "r"), Key("T", title: "t"), Key("Y", title: "y"),
          Key("U", title: "u"), Key("I", title: "i"), Key("O", title: "o"),
@@ -290,7 +290,7 @@ class ViewController: NSViewController {
          Key("\\",       secondary: "|"),
          Key("PageUp",   title: "up",   fontScale: 0.7)],
         // ASDF row
-        [Key("CapsLock", title: "Caps", w: 1.75),
+        [Key("CapsLock", title: "caps", w: 1.75, fontScale: 0.7),
          Key("A", title: "a"), Key("S", title: "s"), Key("D", title: "d"),
          Key("F", title: "f"), Key("G", title: "g"), Key("H", title: "h"),
          Key("J", title: "j"), Key("K", title: "k"), Key("L", title: "l"),
