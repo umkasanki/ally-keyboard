@@ -268,14 +268,14 @@ class ViewController: NSViewController {
          Key("H"), Key("J"), Key("K"), Key("L"),
          Key("Return", image: "return", w: 1.75)],
         // ZXCV row
-        [Key("Shift",      image: "shift", w: 2.25),
+        [Key("Shift",      image: "shift", w: 1.75),
          Key("Z", title: "z"), Key("X", title: "x"), Key("C", title: "c"),
          Key("V", title: "v"), Key("B", title: "b"), Key("N", title: "n"),
          Key("M", title: "m"),
          Key(",", secondary: "<"),
          Key(".", secondary: ">"),
          Key("/", secondary: "?"),
-         Key("Shift",      image: "shift", w: 2.25),
+         Key("Shift",      image: "shift", w: 1.75),
          Key("ArrowUp",    image: "arrow.up")],
         // Bottom row
         [Key("fn",         title: "fn"),
