@@ -6,6 +6,8 @@
 //  These will be driven by SettingsManager (UserDefaults) in Phase 5.
 //
 
+import CoreGraphics
+
 enum AppConfig {
 
     // MARK: - Title bar
