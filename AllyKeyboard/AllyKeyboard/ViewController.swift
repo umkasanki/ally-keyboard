@@ -23,7 +23,7 @@ final class CustomStatusBar: NSView {
         NSLayoutConstraint.activate([
             titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            minimizeBtn.widthAnchor.constraint(equalToConstant: 12),
+            minimizeBtn.widthAnchor.constraint(equalToConstant: 36),
             minimizeBtn.heightAnchor.constraint(equalToConstant: 12),
             minimizeBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
             minimizeBtn.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
