@@ -112,10 +112,12 @@ private class DragHandle: NSView {
 /// Custom keyboard key with dark styling, hover highlight, and red press feedback.
 final class KeyButton: NSButton {
 
-
     private var isHovered = false
-
     var isActive = false { didSet { updateBackground() } }
+
+    /// Secondary symbol drawn in the top-right corner of the key (e.g. shifted character).
+    var secondaryText: String? { didSet { needsDisplay = true } }
+    var secondaryFontSize: CGFloat = 8
 
     override init(frame: NSRect) { super.init(frame: frame); configure() }
     required init?(coder: NSCoder) { super.init(coder: coder); configure() }
@@ -156,6 +158,22 @@ final class KeyButton: NSButton {
 
     private func updateBackground() {
         layer?.backgroundColor = (isActive ? AppConfig.Colors.keyActive : isHovered ? AppConfig.Colors.keyHover : AppConfig.Colors.keyNormal).cgColor
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard let text = secondaryText else { return }
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: secondaryFontSize, weight: .regular),
+            .foregroundColor: NSColor(white: 1.0, alpha: 0.5)
+        ]
+        let str = NSAttributedString(string: text, attributes: attrs)
+        let size = str.size()
+        // Top-right corner: x from right edge, y from top edge (flipped: y=0 is top in draw)
+        let margin: CGFloat = 3
+        let x = bounds.width  - size.width  - margin
+        let y = margin
+        str.draw(at: NSPoint(x: x, y: y))
     }
 }
 
@@ -389,19 +407,10 @@ class ViewController: NSViewController {
                     btn.font  = NSFont.systemFont(ofSize: keyFontSizePrimary, weight: .medium)
                 }
 
-                // Secondary label (top-left corner, small font)
+                // Secondary symbol drawn in top-right corner via KeyButton.draw()
                 if let secondary = key.secondary {
-                    let lbl = NSTextField(labelWithString: secondary)
-                    lbl.font      = NSFont.systemFont(ofSize: keyFontSizeSecondary, weight: .regular)
-                    lbl.textColor = NSColor(white: 1.0, alpha: 0.5)
-                    lbl.alignment = .right
-                    let lblH = keyFontSizeSecondary * scale + 2
-                    let lblW = w / 2
-                    lbl.frame = NSRect(x: w - lblW - 3 * scale,
-                                       y: keyHeight - lblH,
-                                       width: lblW,
-                                       height: lblH)
-                    btn.addSubview(lbl)
+                    btn.secondaryText     = secondary
+                    btn.secondaryFontSize = keyFontSizeSecondary
                 }
 
                 if key.id == "Shift" {
