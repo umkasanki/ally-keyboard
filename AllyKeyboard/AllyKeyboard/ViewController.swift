@@ -246,7 +246,10 @@ class ViewController: NSViewController {
         Key("!",  title: "!"),
         Key("?",  title: "?"),
         Key(".",  title: "."),
-        Key(",",  title: ","),
+        Key(",",          title: ","),
+        Key("Mute",       image: "speaker.slash.fill"),
+        Key("VolumeDown", image: "speaker.minus.fill"),
+        Key("VolumeUp",   image: "speaker.plus.fill"),
     ]
 
     private let numberRow: [Key] = [

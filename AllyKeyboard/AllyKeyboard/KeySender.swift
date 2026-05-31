@@ -32,6 +32,9 @@ enum KeySender {
         case "End":        sendKeyCode(119)
         case "PageUp":     sendKeyCode(116)
         case "PageDown":   sendKeyCode(121)
+        case "Mute":       sendMediaKey(7)
+        case "VolumeDown": sendMediaKey(1)
+        case "VolumeUp":   sendMediaKey(0)
         case "fn", "Ctrl", "Alt", "Cmd", "CapsLock":
             break // modifier-only keys — no action yet
         case "Hi":
@@ -60,6 +63,22 @@ enum KeySender {
         up?.flags = flags
         down?.post(tap: .cghidEventTap)
         up?.post(tap: .cghidEventTap)
+    }
+
+    private static func sendMediaKey(_ keyCode: Int32) {
+        let flags: Int = 0
+        let data1down = Int((keyCode << 16) | (0xa << 8))
+        let data1up   = Int((keyCode << 16) | (0xb << 8))
+        let down = NSEvent.otherEvent(with: .systemDefined, location: .zero,
+            modifierFlags: NSEvent.ModifierFlags(rawValue: 0xa00),
+            timestamp: 0, windowNumber: 0, context: nil,
+            subtype: 8, data1: data1down, data2: flags)
+        let up = NSEvent.otherEvent(with: .systemDefined, location: .zero,
+            modifierFlags: NSEvent.ModifierFlags(rawValue: 0xb00),
+            timestamp: 0, windowNumber: 0, context: nil,
+            subtype: 8, data1: data1up, data2: flags)
+        down?.cgEvent?.post(tap: .cghidEventTap)
+        up?.cgEvent?.post(tap: .cghidEventTap)
     }
 
     private static func sendUnicode(_ string: String) {
