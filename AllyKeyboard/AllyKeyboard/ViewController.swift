@@ -293,6 +293,10 @@ class ViewController: NSViewController {
             UserDefaults.standard.set(true, forKey: hasLaunchedKey)
             window.center()
         }
+
+        // With .accessory policy and borderless styleMask the window must be
+        // brought to front explicitly — makeKeyAndOrderFront is not enough.
+        window.orderFrontRegardless()
     }
 
     // MARK: - Keyboard layout
