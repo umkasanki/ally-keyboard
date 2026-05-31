@@ -239,6 +239,8 @@ class ViewController: NSViewController {
         window.backgroundColor = Theme.panelBg
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        window.standardWindowButton(.zoomButton)?.isEnabled = false
+
         // Match drag handle height to actual title bar height
         dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
 
