@@ -242,6 +242,11 @@ class ViewController: NSViewController {
     private let functionRow: [Key] = [
         Key("Escape", title: "esc", w: 1.5),
         Key("Hi",     image: "list.bullet"),
+        Key("@",  title: "@"),
+        Key("!",  title: "!"),
+        Key("?",  title: "?"),
+        Key(".",  title: "."),
+        Key(",",  title: ","),
     ]
 
     private let numberRow: [Key] = [
