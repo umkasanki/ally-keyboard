@@ -250,6 +250,10 @@ class ViewController: NSViewController {
         Key("Mute",       image: "speaker.slash.fill"),
         Key("VolumeDown", image: "speaker.minus.fill"),
         Key("VolumeUp",   image: "speaker.plus.fill"),
+        Key("Cmd+C",      image: "doc.on.doc"),
+        Key("Cmd+V",      image: "doc.on.clipboard"),
+        Key("Cmd+X",      image: "scissors"),
+        Key("Cmd+Z",      image: "arrow.uturn.backward"),
     ]
 
     private let numberRow: [Key] = [
