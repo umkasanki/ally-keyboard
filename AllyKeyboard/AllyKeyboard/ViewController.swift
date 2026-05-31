@@ -339,11 +339,13 @@ class ViewController: NSViewController {
 
     private var isShifted = false {
         didSet {
-            shiftButton?.isActive = isShifted
-            if !isShifted { shiftButton?.state = .off }
+            shiftButtons.forEach {
+                $0.isActive = isShifted
+                if !isShifted { $0.state = .off }
+            }
         }
     }
-    private weak var shiftButton: KeyButton?
+    private var shiftButtons: [KeyButton] = []
 
     // MARK: - Window state
 
@@ -405,7 +407,7 @@ class ViewController: NSViewController {
 
     private func buildKeyboard() {
         view.subviews.forEach { $0.removeFromSuperview() }
-        shiftButton = nil
+        shiftButtons = []
 
         let size       = keyboardSize  // compute once
         let contentW   = size.width - padding * 2
@@ -463,7 +465,7 @@ class ViewController: NSViewController {
                         let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize, weight: .bold)
                         btn.alternateImage = altImg.withSymbolConfiguration(cfg)
                     }
-                    shiftButton = btn
+                    shiftButtons.append(btn)
                 }
 
                 view.addSubview(btn)

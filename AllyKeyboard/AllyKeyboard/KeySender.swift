@@ -68,17 +68,16 @@ enum KeySender {
     }
 
     private static func sendMediaKey(_ keyCode: Int32) {
-        let flags: Int = 0
         let data1down = Int((keyCode << 16) | (0xa << 8))
         let data1up   = Int((keyCode << 16) | (0xb << 8))
         let down = NSEvent.otherEvent(with: .systemDefined, location: .zero,
             modifierFlags: NSEvent.ModifierFlags(rawValue: 0xa00),
             timestamp: 0, windowNumber: 0, context: nil,
-            subtype: 8, data1: data1down, data2: flags)
+            subtype: 8, data1: data1down, data2: -1)
         let up = NSEvent.otherEvent(with: .systemDefined, location: .zero,
             modifierFlags: NSEvent.ModifierFlags(rawValue: 0xb00),
             timestamp: 0, windowNumber: 0, context: nil,
-            subtype: 8, data1: data1up, data2: flags)
+            subtype: 8, data1: data1up, data2: -1)
         down?.cgEvent?.post(tap: .cghidEventTap)
         up?.cgEvent?.post(tap: .cghidEventTap)
     }
