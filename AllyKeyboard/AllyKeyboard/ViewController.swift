@@ -268,16 +268,27 @@ class ViewController: NSViewController {
         guard let window = view.window, !windowConfigured else { return }
         windowConfigured = true
 
-        window.title = "AllyKeyboard"
         window.appearance = NSAppearance(named: .darkAqua)
-        window.titlebarAppearsTransparent = true
         window.backgroundColor = AppConfig.Colors.statusBarBg
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
-        window.standardWindowButton(.zoomButton)?.isEnabled = false
+        window.titlebarAppearsTransparent = true
 
         // Match drag handle height to actual title bar height
         dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
+
+        if AppConfig.useCustomTitleBar {
+            // Hide all native traffic-light buttons and title — CustomStatusBar takes over
+            window.title = ""
+            [NSWindow.ButtonType.closeButton,
+             NSWindow.ButtonType.miniaturizeButton,
+             NSWindow.ButtonType.zoomButton].forEach {
+                window.standardWindowButton($0)?.isHidden = true
+            }
+        } else {
+            window.title = "AllyKeyboard"
+            window.standardWindowButton(.zoomButton)?.isEnabled = false
+        }
 
         window.setFrameAutosaveName(autosaveName)
         // setContentSize enforces the scale-based size on every launch.
