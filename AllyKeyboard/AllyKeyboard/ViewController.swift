@@ -33,7 +33,6 @@ final class CustomStatusBar: NSView {
     private func setupTitle() {
         titleLabel.font      = NSFont.systemFont(ofSize: 13, weight: .regular)
         titleLabel.textColor = NSColor(white: 1.0, alpha: 0.85)
-        titleLabel.alignment = .center
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
     }
@@ -196,8 +195,7 @@ class ViewController: NSViewController {
     private var keySpacing:       CGFloat { AppConfig.Layout.keySpacing  * scale }
     private var rowSpacing:       CGFloat { AppConfig.Layout.rowSpacing  * scale }
     private var padding:          CGFloat { AppConfig.Layout.padding     * scale }
-    private var keyFontSizePrimary:   CGFloat { AppConfig.Layout.fontSizePrimary   * scale }
-    private var keyFontSizeSecondary: CGFloat { AppConfig.Layout.fontSizeSecondary * scale }
+    private var keyFontSizePrimary: CGFloat { AppConfig.Layout.fontSizePrimary * scale }
     private var spaceKeyWidth:    CGFloat { keyWidth * 3 + keySpacing * 2 }
 
     /// Set from actual window title bar height in viewWillAppear.
