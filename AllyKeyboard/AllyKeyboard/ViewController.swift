@@ -5,6 +5,57 @@
 
 import Cocoa
 
+// MARK: - CustomStatusBar
+
+final class CustomStatusBar: NSView {
+
+    private let titleLabel  = NSTextField(labelWithString: "AllyKeyboard")
+    private let minimizeBtn = NSButton()
+
+    override init(frame: NSRect) { super.init(frame: frame); setup() }
+    required init?(coder: NSCoder) { super.init(coder: coder); setup() }
+
+    private func setup() {
+        wantsLayer = true
+        layer?.backgroundColor = AppConfig.Colors.statusBarBg.cgColor
+        setupTitle()
+        setupMinimizeButton()
+        NSLayoutConstraint.activate([
+            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            minimizeBtn.widthAnchor.constraint(equalToConstant: 12),
+            minimizeBtn.heightAnchor.constraint(equalToConstant: 12),
+            minimizeBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
+            minimizeBtn.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+        ])
+    }
+
+    private func setupTitle() {
+        titleLabel.font      = NSFont.systemFont(ofSize: 13, weight: .regular)
+        titleLabel.textColor = NSColor(white: 1.0, alpha: 0.85)
+        titleLabel.alignment = .center
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(titleLabel)
+    }
+
+    private func setupMinimizeButton() {
+        minimizeBtn.isBordered             = false
+        minimizeBtn.wantsLayer             = true
+        minimizeBtn.layer?.cornerRadius    = 6
+        minimizeBtn.layer?.backgroundColor = NSColor.systemYellow.cgColor
+        minimizeBtn.layer?.masksToBounds   = true
+        minimizeBtn.translatesAutoresizingMaskIntoConstraints = false
+        minimizeBtn.target = self
+        minimizeBtn.action = #selector(minimizeTapped)
+        addSubview(minimizeBtn)
+    }
+
+    @objc private func minimizeTapped() { window?.miniaturize(nil) }
+
+    override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
+    override var mouseDownCanMoveWindow: Bool { false }
+}
+
 // MARK: - DragHandle
 
 private class DragHandle: NSView {
@@ -151,6 +202,8 @@ class ViewController: NSViewController {
 
     /// Set from actual window title bar height in viewWillAppear.
     private var dragHandleHeight: CGFloat = 0
+    /// Matches dragHandleHeight — all three bars (native, custom, drag) are the same height.
+    private var customStatusBarHeight: CGFloat { dragHandleHeight }
 
     // Number row fits the keyboard content width (14 keys auto-sized)
     private let numberRow: [Key] = [
@@ -182,7 +235,7 @@ class ViewController: NSViewController {
         // Width from letter rows only — number row auto-fits this width
         let maxKeys = letterRows.map { $0.count }.max() ?? 0
         let w = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
-        let h = CGFloat(allRows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragHandleHeight
+        let h = CGFloat(allRows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragHandleHeight + customStatusBarHeight
         return NSSize(width: w, height: h)
     }
 
@@ -255,9 +308,18 @@ class ViewController: NSViewController {
         let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: size.width, height: dragHandleHeight))
         view.addSubview(handle)
 
+        // CustomStatusBar sits directly above the drag handle (below the native title bar)
+        let statusBar = CustomStatusBar(frame: NSRect(
+            x: 0,
+            y: dragHandleHeight,
+            width: size.width,
+            height: customStatusBarHeight
+        ))
+        view.addSubview(statusBar)
+
         for (rowIndex, row) in allRows.enumerated() {
             let flippedRow = allRows.count - 1 - rowIndex
-            let y = dragHandleHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
+            let y = dragHandleHeight + customStatusBarHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
             let isNumRow = rowIndex == 0
             let rowWidth = isNumRow
