@@ -272,13 +272,14 @@ class ViewController: NSViewController {
         window.backgroundColor = AppConfig.Colors.statusBarBg
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
-        window.titlebarAppearsTransparent = true
 
-        // Match drag handle height to actual title bar height
+        // Compute title bar height BEFORE fullSizeContentView changes the geometry
         dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
 
         if AppConfig.useCustomTitleBar {
-            // Hide all native traffic-light buttons and title — CustomStatusBar takes over
+            // Expand content into title bar zone so CustomStatusBar can sit there
+            window.titlebarAppearsTransparent = true
+            window.styleMask.insert(.fullSizeContentView)
             window.title = ""
             [NSWindow.ButtonType.closeButton,
              NSWindow.ButtonType.miniaturizeButton,
@@ -286,6 +287,7 @@ class ViewController: NSViewController {
                 window.standardWindowButton($0)?.isHidden = true
             }
         } else {
+            window.titlebarAppearsTransparent = true
             window.title = "AllyKeyboard"
             window.standardWindowButton(.zoomButton)?.isEnabled = false
         }
