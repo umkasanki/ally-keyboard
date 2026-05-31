@@ -20,13 +20,6 @@ enum Theme {
 
 private class DragHandle: NSView {
 
-    // MARK: - Subviews
-
-    private let titleLabel   = NSTextField(labelWithString: "AllyKeyboard")
-    private let minimizeBtn  = NSButton()
-
-    // MARK: - Init
-
     override init(frame: NSRect) {
         super.init(frame: frame)
         setup()
@@ -40,43 +33,21 @@ private class DragHandle: NSView {
     private func setup() {
         wantsLayer = true
         layer?.backgroundColor = Theme.panelBg.cgColor
-
-        // Title label
-        titleLabel.font      = NSFont.systemFont(ofSize: 12, weight: .medium)
-        titleLabel.textColor = NSColor(white: 1.0, alpha: 0.7)
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(titleLabel)
-
-        // Minimize button — yellow circle
-        minimizeBtn.bezelStyle              = .circular
-        minimizeBtn.isBordered              = false
-        minimizeBtn.wantsLayer              = true
-        minimizeBtn.layer?.cornerRadius     = 6
-        minimizeBtn.layer?.backgroundColor  = NSColor.systemYellow.cgColor
-        minimizeBtn.layer?.masksToBounds    = true
-        minimizeBtn.translatesAutoresizingMaskIntoConstraints = false
-        minimizeBtn.target = self
-        minimizeBtn.action = #selector(minimizeWindow)
-        addSubview(minimizeBtn)
-
-        NSLayoutConstraint.activate([
-            // Title: vertically centered, left-aligned with padding
-            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-
-            // Minimize button: 12×12, vertically centered, right-aligned
-            minimizeBtn.widthAnchor.constraint(equalToConstant: 12),
-            minimizeBtn.heightAnchor.constraint(equalToConstant: 12),
-            minimizeBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
-            minimizeBtn.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-        ])
     }
 
-    @objc private func minimizeWindow() {
-        window?.miniaturize(nil)
-    }
+    override func draw(_ dirtyRect: NSRect) {
+        let dotDiameter: CGFloat = 6
+        let dotGap:      CGFloat = 8
+        let totalWidth = 3 * dotDiameter + 2 * dotGap
+        var x = (bounds.width - totalWidth) / 2
+        let y = (bounds.height - dotDiameter) / 2
 
-    // MARK: - Drag
+        NSColor(white: 1.0, alpha: 0.5).setFill()
+        for _ in 0..<3 {
+            NSBezierPath(ovalIn: NSRect(x: x, y: y, width: dotDiameter, height: dotDiameter)).fill()
+            x += dotDiameter + dotGap
+        }
+    }
 
     override func mouseDown(with event: NSEvent) {
         window?.performDrag(with: event)
@@ -87,8 +58,6 @@ private class DragHandle: NSView {
     }
 
     override var mouseDownCanMoveWindow: Bool { false }
-
-    // MARK: - Context menu
 
     static let appMenu: NSMenu = {
         let menu = NSMenu()
@@ -171,7 +140,7 @@ class ViewController: NSViewController {
 
     // MARK: - Scale
 
-    var scale: CGFloat = AppConfig.defaultScale {
+    var scale: CGFloat = 2.0 {
         didSet {
             guard windowConfigured, let window = view.window else { return }
             let size = keyboardSize
@@ -264,31 +233,16 @@ class ViewController: NSViewController {
         guard let window = view.window, !windowConfigured else { return }
         windowConfigured = true
 
+        window.title = "AllyKeyboard"
         window.appearance = NSAppearance(named: .darkAqua)
+        window.titlebarAppearsTransparent = true
         window.backgroundColor = Theme.panelBg
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        window.standardWindowButton(.zoomButton)?.isEnabled = false
 
-        if AppConfig.useCustomTitleBar {
-            // Custom title bar: hide all native traffic-light buttons,
-            // make the native titlebar transparent so our DragHandle shows through.
-            window.titlebarAppearsTransparent = true
-            window.title = ""
-            window.styleMask.insert(.fullSizeContentView)
-            window.isMovableByWindowBackground = false
-            [NSWindow.ButtonType.closeButton,
-             NSWindow.ButtonType.miniaturizeButton,
-             NSWindow.ButtonType.zoomButton].forEach {
-                window.standardWindowButton($0)?.isHidden = true
-            }
-            dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
-        } else {
-            // Native title bar: transparent, close active, zoom disabled
-            window.title = "AllyKeyboard"
-            window.titlebarAppearsTransparent = true
-            window.standardWindowButton(.zoomButton)?.isEnabled = false
-            dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
-        }
+        // Match drag handle height to actual title bar height
+        dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
 
         window.setFrameAutosaveName(autosaveName)
         // setContentSize enforces the scale-based size on every launch.
@@ -301,10 +255,6 @@ class ViewController: NSViewController {
             UserDefaults.standard.set(true, forKey: hasLaunchedKey)
             window.center()
         }
-
-        // With .accessory policy and borderless styleMask the window must be
-        // brought to front explicitly — makeKeyAndOrderFront is not enough.
-        window.orderFrontRegardless()
     }
 
     // MARK: - Keyboard layout
@@ -320,13 +270,12 @@ class ViewController: NSViewController {
         // Number row: auto-size keys to fill content width
         let numKeyW = (contentW - CGFloat(numberRow.count - 1) * keySpacing) / CGFloat(numberRow.count)
 
-        // DragHandle sits at the TOP of the window (high y in AppKit coords)
-        let handle = DragHandle(frame: NSRect(x: 0, y: size.height - dragHandleHeight, width: size.width, height: dragHandleHeight))
+        let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: size.width, height: dragHandleHeight))
         view.addSubview(handle)
 
         for (rowIndex, row) in allRows.enumerated() {
             let flippedRow = allRows.count - 1 - rowIndex
-            let y = padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
+            let y = dragHandleHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
             let isNumRow = rowIndex == 0
             let rowWidth = isNumRow
