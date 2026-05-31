@@ -45,6 +45,11 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [x] **1.4a** Fix window size: set contentRect 520×180 in storyboard, remove resizable
 - [x] **1.5** Persist window position between launches (`setFrameAutosaveName`)
 - [ ] **1.6** Test: window appears on top of Safari/TextEdit, focus stays in target app
+- [x] **1.7** Custom status bar:
+  - `AppConfig.swift` — global settings file (colors, layout, feature flags)
+  - `useCustomTitleBar` flag — switches between native and custom title bar
+  - `CustomStatusBar` view — app name left, yellow rounded-rect minimize button right
+  - Native title bar hidden via `fullSizeContentView` + transparent titlebar when flag is on
 
 ---
 
@@ -129,5 +134,5 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Last session:** Phase 2 complete — Cmd+C/V/Z/A/X row added, number row, SF Symbol icons.  
-**Next step:** Test on MacInCloud (2.7). Then Phase 3 — Word Prediction Bar.
+**Last session:** Phase 1.7 complete — AppConfig, CustomStatusBar with useCustomTitleBar flag.  
+**Next step:** Test on MacInCloud (1.6, 2.7). Then Phase 3 — Word Prediction Bar.
