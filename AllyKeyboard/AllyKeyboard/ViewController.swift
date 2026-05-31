@@ -258,10 +258,15 @@ class ViewController: NSViewController {
 
     private let letterRows: [[Key]] = [
         // QWERTY row
-        [Key("Tab",  title: "Tab",  w: 1.5),
-         Key("Q"), Key("W"), Key("E"), Key("R"), Key("T"),
-         Key("Y"), Key("U"), Key("I"), Key("O"), Key("P"),
-         Key("Return", image: "return", w: 1.5)],
+        [Key("Tab",     title: "Tab", w: 1.5),
+         Key("Q", title: "q"), Key("W", title: "w"), Key("E", title: "e"),
+         Key("R", title: "r"), Key("T", title: "t"), Key("Y", title: "y"),
+         Key("U", title: "u"), Key("I", title: "i"), Key("O", title: "o"),
+         Key("P", title: "p"),
+         Key("[",        secondary: "{"),
+         Key("]",        secondary: "}"),
+         Key("\\",       secondary: "|"),
+         Key("PageUp",   title: "up")],
         // ASDF row
         [Key("CapsLock", title: "Caps", w: 1.75),
          Key("A", title: "a"), Key("S", title: "s"), Key("D", title: "d"),
