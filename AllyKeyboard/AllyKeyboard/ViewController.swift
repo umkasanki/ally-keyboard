@@ -140,7 +140,7 @@ class ViewController: NSViewController {
 
     // MARK: - Scale
 
-    var scale: CGFloat = 2.0 {
+    var scale: CGFloat = AppConfig.defaultScale {
         didSet {
             guard windowConfigured, let window = view.window else { return }
             let size = keyboardSize
@@ -233,16 +233,23 @@ class ViewController: NSViewController {
         guard let window = view.window, !windowConfigured else { return }
         windowConfigured = true
 
-        window.title = "AllyKeyboard"
         window.appearance = NSAppearance(named: .darkAqua)
-        window.titlebarAppearsTransparent = true
         window.backgroundColor = Theme.panelBg
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
-        window.standardWindowButton(.zoomButton)?.isEnabled = false
 
-        // Match drag handle height to actual title bar height
-        dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
+        if AppConfig.useCustomTitleBar {
+            // Borderless: hide native title bar entirely, DragHandle provides drag
+            window.styleMask = [.borderless, .fullSizeContentView]
+            window.isMovable = false
+            dragHandleHeight = 28
+        } else {
+            // Native title bar: transparent, close active, zoom disabled
+            window.title = "AllyKeyboard"
+            window.titlebarAppearsTransparent = true
+            window.standardWindowButton(.zoomButton)?.isEnabled = false
+            dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
+        }
 
         window.setFrameAutosaveName(autosaveName)
         // setContentSize enforces the scale-based size on every launch.
