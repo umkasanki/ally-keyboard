@@ -320,12 +320,13 @@ class ViewController: NSViewController {
         // Number row: auto-size keys to fill content width
         let numKeyW = (contentW - CGFloat(numberRow.count - 1) * keySpacing) / CGFloat(numberRow.count)
 
-        let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: size.width, height: dragHandleHeight))
+        // DragHandle sits at the TOP of the window (high y in AppKit coords)
+        let handle = DragHandle(frame: NSRect(x: 0, y: size.height - dragHandleHeight, width: size.width, height: dragHandleHeight))
         view.addSubview(handle)
 
         for (rowIndex, row) in allRows.enumerated() {
             let flippedRow = allRows.count - 1 - rowIndex
-            let y = dragHandleHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
+            let y = padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
             let isNumRow = rowIndex == 0
             let rowWidth = isNumRow
