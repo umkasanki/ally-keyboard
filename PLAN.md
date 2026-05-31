@@ -45,7 +45,12 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [x] **1.4a** Fix window size: set contentRect 520×180 in storyboard, remove resizable
 - [x] **1.5** Persist window position between launches (`setFrameAutosaveName`)
 - [ ] **1.6** Test: window appears on top of Safari/TextEdit, focus stays in target app
-- [ ] **1.9** Increase keyboard layout size
+- [x] **1.9** Increase keyboard layout size:
+  - Variable key widths (`widthMultiplier`), secondary labels, `fontScale` per key
+  - New 6-row layout: function row (esc, hi, @!?,., volume, copy/paste/cut/undo, 🇺🇸), number row, QWERTY, ASDF, ZXCV, bottom
+  - Nav keys: Home, End, PageUp/Down, arrows
+  - Both Shift buttons tracked via `shiftButtons` array
+  - Media keys via `sendMediaKey`
 - [x] **1.7** Custom status bar:
   - `AppConfig.swift` — global settings file (colors, layout, feature flags)
   - `useCustomTitleBar` flag — switches between native and custom title bar
@@ -141,5 +146,5 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Last session:** Phase 1.7 complete — AppConfig, CustomStatusBar with useCustomTitleBar flag.  
+**Last session:** Phase 1.9 complete — new 6-row layout, variable key widths, secondary labels, nav/media keys.  
 **Next step:** Test on MacInCloud (1.6, 2.7). Then Phase 3 — Word Prediction Bar.
