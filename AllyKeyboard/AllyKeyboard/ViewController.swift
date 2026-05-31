@@ -166,13 +166,22 @@ class ViewController: NSViewController {
     // MARK: - Key definition
 
     private struct Key {
-        let id:    String       // used for key simulation (CGEvent)
-        let title: String       // displayed on the button face
-        let image: String?      // SF Symbol name — overrides title when set
-        init(_ id: String, title: String? = nil, image: String? = nil) {
-            self.id    = id
-            self.title = title ?? id
-            self.image = image
+        let id:             String      // used for key simulation (CGEvent)
+        let title:          String      // primary label on the key face
+        let secondary:      String?     // secondary label (top-left, small) — e.g. shifted symbol
+        let image:          String?     // SF Symbol — overrides title when set
+        let widthMultiplier: CGFloat    // 1.0 = standard key width
+
+        init(_ id: String,
+             title: String? = nil,
+             secondary: String? = nil,
+             image: String? = nil,
+             w: CGFloat = 1.0) {
+            self.id             = id
+            self.title          = title ?? id
+            self.secondary      = secondary
+            self.image          = image
+            self.widthMultiplier = w
         }
     }
 
@@ -195,44 +204,72 @@ class ViewController: NSViewController {
     private var keySpacing:       CGFloat { AppConfig.Layout.keySpacing  * scale }
     private var rowSpacing:       CGFloat { AppConfig.Layout.rowSpacing  * scale }
     private var padding:          CGFloat { AppConfig.Layout.padding     * scale }
-    private var keyFontSizePrimary: CGFloat { AppConfig.Layout.fontSizePrimary * scale }
-    private var spaceKeyWidth:    CGFloat { keyWidth * 3 + keySpacing * 2 }
+    private var keyFontSizePrimary:   CGFloat { AppConfig.Layout.fontSizePrimary   * scale }
+    private var keyFontSizeSecondary: CGFloat { AppConfig.Layout.fontSizeSecondary * scale }
+    private func keyW(_ key: Key) -> CGFloat {
+        key.widthMultiplier == 1.0
+            ? keyWidth
+            : keyWidth * key.widthMultiplier + keySpacing * (key.widthMultiplier - 1)
+    }
 
     /// Set from actual window title bar height in viewWillAppear.
     private var dragHandleHeight: CGFloat = 0
     /// Matches dragHandleHeight — all three bars (native, custom, drag) are the same height.
     private var customStatusBarHeight: CGFloat { dragHandleHeight }
 
-    // Number row fits the keyboard content width (14 keys auto-sized)
+    // MARK: - Keyboard rows
+
     private let numberRow: [Key] = [
-        Key("`"),
-        Key("1"), Key("2"), Key("3"), Key("4"), Key("5"),
-        Key("6"), Key("7"), Key("8"), Key("9"), Key("0"),
-        Key("-"), Key("="),
-        Key("Backspace", image: "delete.backward")
+        Key("`",   secondary: "~"),
+        Key("1",   secondary: "!"),
+        Key("2",   secondary: "@"),
+        Key("3",   secondary: "#"),
+        Key("4",   secondary: "$"),
+        Key("5",   secondary: "%"),
+        Key("6",   secondary: "^"),
+        Key("7",   secondary: "&"),
+        Key("8",   secondary: "*"),
+        Key("9",   secondary: "("),
+        Key("0",   secondary: ")"),
+        Key("-",   secondary: "_"),
+        Key("=",   secondary: "+"),
+        Key("Backspace", image: "delete.backward", w: 1.5),
     ]
 
-    // Letter/special rows — define keyboard width
     private let letterRows: [[Key]] = [
-        [Key("Q"), Key("W"), Key("E"), Key("R"), Key("T"),
-         Key("Y"), Key("U"), Key("I"), Key("O"), Key("P")],
-        [Key("A"), Key("S"), Key("D"), Key("F"), Key("G"),
-         Key("H"), Key("J"), Key("K"), Key("L")],
-        [Key("Shift", image: "shift"), Key("Z"), Key("X"), Key("C"), Key("V"),
-         Key("B"), Key("N"), Key("M")],
+        // QWERTY row
+        [Key("Tab",  title: "tab",  w: 1.5),
+         Key("Q"), Key("W"), Key("E"), Key("R"), Key("T"),
+         Key("Y"), Key("U"), Key("I"), Key("O"), Key("P"),
+         Key("Return", image: "return", w: 1.5)],
+        // ASDF row
+        [Key("CapsLock", title: "caps", w: 1.75),
+         Key("A"), Key("S"), Key("D"), Key("F"), Key("G"),
+         Key("H"), Key("J"), Key("K"), Key("L"),
+         Key("Return", image: "return", w: 1.75)],
+        // ZXCV row
+        [Key("Shift", image: "shift", w: 2.25),
+         Key("Z"), Key("X"), Key("C"), Key("V"),
+         Key("B"), Key("N"), Key("M"),
+         Key("Shift", image: "shift", w: 2.25)],
+        // Bottom row
         [Key("Cmd+A", title: "All"), Key("Cmd+X", title: "Cut"),
          Key("Cmd+C", title: "Copy"), Key("Cmd+V", title: "Paste"),
          Key("Cmd+Z", title: "Undo"),
-         Key("Space", title: ""), Key("Backspace", image: "delete.backward"),
-         Key("Return", image: "return")]
+         Key("Space", title: "", w: 4.0),
+         Key("Backspace", image: "delete.backward"),
+         Key("Return", image: "return")],
     ]
 
     private var allRows: [[Key]] { [numberRow] + letterRows }
 
+    private func rowPixelWidth(_ row: [Key]) -> CGFloat {
+        row.reduce(0) { $0 + keyW($1) } + CGFloat(row.count - 1) * keySpacing
+    }
+
     private var keyboardSize: NSSize {
-        // Width from letter rows only — number row auto-fits this width
-        let maxKeys = letterRows.map { $0.count }.max() ?? 0
-        let w = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
+        let contentW = letterRows.map { rowPixelWidth($0) }.max() ?? 0
+        let w = contentW + padding * 2
         let statusBarH = AppConfig.useCustomTitleBar ? customStatusBarHeight : 0
         let h = CGFloat(allRows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragHandleHeight + statusBarH
         return NSSize(width: w, height: h)
@@ -310,17 +347,13 @@ class ViewController: NSViewController {
         view.subviews.forEach { $0.removeFromSuperview() }
         shiftButton = nil
 
-        let size        = keyboardSize  // compute once
-        let contentW    = size.width - padding * 2
-        let symbolSize  = keyFontSizePrimary * 0.65
-
-        // Number row: auto-size keys to fill content width
-        let numKeyW = (contentW - CGFloat(numberRow.count - 1) * keySpacing) / CGFloat(numberRow.count)
+        let size       = keyboardSize  // compute once
+        let contentW   = size.width - padding * 2
+        let symbolSize = keyFontSizePrimary * 0.65
 
         let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: size.width, height: dragHandleHeight))
         view.addSubview(handle)
 
-        // CustomStatusBar: only shown when useCustomTitleBar is enabled
         if AppConfig.useCustomTitleBar {
             let statusBar = CustomStatusBar(frame: NSRect(
                 x: 0,
@@ -335,14 +368,11 @@ class ViewController: NSViewController {
             let flippedRow = allRows.count - 1 - rowIndex
             let y = dragHandleHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
-            let isNumRow = rowIndex == 0
-            let rowWidth = isNumRow
-                ? contentW
-                : row.reduce(0) { $0 + letterKeyWidth(for: $1) } + CGFloat(row.count - 1) * keySpacing
+            let rowWidth = rowPixelWidth(row)
             var x = padding + (contentW - rowWidth) / 2
 
             for key in row {
-                let w   = isNumRow ? numKeyW : letterKeyWidth(for: key)
+                let w   = keyW(key)
                 let btn = KeyButton(frame: NSRect(x: x, y: y, width: w, height: keyHeight))
                 btn.identifier = NSUserInterfaceItemIdentifier(key.id)
                 btn.target     = self
@@ -359,6 +389,16 @@ class ViewController: NSViewController {
                     btn.font  = NSFont.systemFont(ofSize: keyFontSizePrimary, weight: .medium)
                 }
 
+                // Secondary label (top-left corner, small font)
+                if let secondary = key.secondary {
+                    let lbl = NSTextField(labelWithString: secondary)
+                    lbl.font      = NSFont.systemFont(ofSize: keyFontSizeSecondary, weight: .regular)
+                    lbl.textColor = NSColor(white: 1.0, alpha: 0.5)
+                    lbl.frame     = NSRect(x: 4 * scale, y: keyHeight - keyFontSizeSecondary * scale - 2 * scale,
+                                           width: w / 2, height: keyFontSizeSecondary * scale + 2)
+                    btn.addSubview(lbl)
+                }
+
                 if key.id == "Shift" {
                     btn.setButtonType(.toggle)
                     if let altImg = NSImage(systemSymbolName: "shift.fill",
@@ -373,10 +413,6 @@ class ViewController: NSViewController {
                 x += w + keySpacing
             }
         }
-    }
-
-    private func letterKeyWidth(for key: Key) -> CGFloat {
-        key.id == "Space" ? spaceKeyWidth : keyWidth
     }
 
     // MARK: - Context menu

@@ -43,17 +43,17 @@ enum AppConfig {
     // MARK: - Layout (base values at scale = 1.0)
 
     enum Layout {
-        static let keyWidth:        CGFloat = 46
-        static let keyHeight:       CGFloat = 36
-        static let keySpacing:      CGFloat = 4
-        static let rowSpacing:      CGFloat = 4
-        static let padding:         CGFloat = 12
+        static let keyWidth:        CGFloat = 36
+        static let keyHeight:       CGFloat = 32
+        static let keySpacing:      CGFloat = 3
+        static let rowSpacing:      CGFloat = 3
+        static let padding:         CGFloat = 8
         /// Corner radius of key buttons
         static let keyCornerRadius: CGFloat = 5
         /// Font size for primary key label (e.g. letter, symbol)
-        static let fontSizePrimary:   CGFloat = 14
-        /// Font size for secondary key label (e.g. shifted symbol, hint) — not yet used
-        static let fontSizeSecondary: CGFloat = 9
+        static let fontSizePrimary:   CGFloat = 13
+        /// Font size for secondary key label (shifted symbol shown top-left)
+        static let fontSizeSecondary: CGFloat = 8
         /// Default keyboard scale factor
         static let keyboardScale:   CGFloat = 2.0
     }
