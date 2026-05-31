@@ -241,7 +241,7 @@ class ViewController: NSViewController {
 
     private let functionRow: [Key] = [
         Key("Escape", title: "esc", w: 1.5),
-        Key("Hi",     title: "hi"),
+        Key("Hi",     image: "list.bullet"),
     ]
 
     private let numberRow: [Key] = [
