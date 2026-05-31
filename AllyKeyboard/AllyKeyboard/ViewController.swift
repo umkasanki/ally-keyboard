@@ -274,7 +274,7 @@ class ViewController: NSViewController {
         Key("0",   secondary: ")"),
         Key("-",   secondary: "_"),
         Key("=",   secondary: "+"),
-        Key("Backspace", image: "delete.backward", w: 1.0, fontScale: 1.25),
+        Key("Backspace", image: "delete.backward", w: 1.5, fontScale: 1.25),
         Key("Home",      title: "home", fontScale: 0.7),
     ]
 
