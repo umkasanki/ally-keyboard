@@ -238,7 +238,7 @@ class ViewController: NSViewController {
     // MARK: - Keyboard rows
 
     private let numberRow: [Key] = [
-        Key("`",   secondary: "~"),
+        Key("`",   title: "~", secondary: "`"),
         Key("1",   secondary: "!"),
         Key("2",   secondary: "@"),
         Key("3",   secondary: "#"),
@@ -256,12 +256,12 @@ class ViewController: NSViewController {
 
     private let letterRows: [[Key]] = [
         // QWERTY row
-        [Key("Tab",  title: "tab",  w: 1.5),
+        [Key("Tab",  title: "Tab",  w: 1.5),
          Key("Q"), Key("W"), Key("E"), Key("R"), Key("T"),
          Key("Y"), Key("U"), Key("I"), Key("O"), Key("P"),
          Key("Return", image: "return", w: 1.5)],
         // ASDF row
-        [Key("CapsLock", title: "caps", w: 1.75),
+        [Key("CapsLock", title: "Caps", w: 1.75),
          Key("A"), Key("S"), Key("D"), Key("F"), Key("G"),
          Key("H"), Key("J"), Key("K"), Key("L"),
          Key("Return", image: "return", w: 1.75)],
