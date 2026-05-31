@@ -59,7 +59,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [x] **2.3** Handle basic keys: letters a–z
 - [x] **2.4** Handle Shift key — one-shot toggle (⇧/⇪), resets after first keystroke
 - [x] **2.5** Handle special keys: Space, Backspace, Return
-- [ ] **2.6** Handle modifier combos: Cmd+C, Cmd+V, Cmd+Z (copy/paste/undo row)
+- [x] **2.6** Handle modifier combos: Cmd+C, Cmd+V, Cmd+Z, Cmd+A, Cmd+X (bottom row on keyboard)
 - [ ] **2.7** Test: type into TextEdit, Safari URL bar, Terminal
 
 ---
@@ -129,5 +129,5 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Last session:** Phase 2 implemented — `KeySender` with CGEvent, Shift toggle, Accessibility permission request.  
-**Next step:** Test on MacInCloud (build + verify typing in TextEdit/Safari). Then Phase 2.6 (Cmd combos) or Phase 3.
+**Last session:** Phase 2 complete — Cmd+C/V/Z/A/X row added, number row, SF Symbol icons.  
+**Next step:** Test on MacInCloud (2.7). Then Phase 3 — Word Prediction Bar.
