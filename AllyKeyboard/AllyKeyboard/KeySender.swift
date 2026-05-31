@@ -19,6 +19,11 @@ enum KeySender {
         case "Return":    sendKeyCode(36)
         case "Tab":       sendKeyCode(48)
         case "Escape":    sendKeyCode(53)
+        case "Cmd+C":     sendKeyCode(8,  flags: .maskCommand)
+        case "Cmd+V":     sendKeyCode(9,  flags: .maskCommand)
+        case "Cmd+Z":     sendKeyCode(6,  flags: .maskCommand)
+        case "Cmd+A":     sendKeyCode(0,  flags: .maskCommand)
+        case "Cmd+X":     sendKeyCode(7,  flags: .maskCommand)
         default:
             let char = shifted ? keyID.uppercased() : keyID.lowercased()
             sendUnicode(char)
@@ -36,9 +41,13 @@ enum KeySender {
 
     private static let eventSource = CGEventSource(stateID: .hidSystemState)
 
-    private static func sendKeyCode(_ keyCode: CGKeyCode) {
-        CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: true)?.post(tap: .cghidEventTap)
-        CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: false)?.post(tap: .cghidEventTap)
+    private static func sendKeyCode(_ keyCode: CGKeyCode, flags: CGEventFlags = []) {
+        let down = CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: true)
+        down?.flags = flags
+        let up = CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: false)
+        up?.flags = flags
+        down?.post(tap: .cghidEventTap)
+        up?.post(tap: .cghidEventTap)
     }
 
     private static func sendUnicode(_ string: String) {

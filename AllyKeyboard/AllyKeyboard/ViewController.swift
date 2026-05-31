@@ -187,7 +187,10 @@ class ViewController: NSViewController {
          Key("H"), Key("J"), Key("K"), Key("L")],
         [Key("Shift", image: "shift"), Key("Z"), Key("X"), Key("C"), Key("V"),
          Key("B"), Key("N"), Key("M")],
-        [Key("Space", title: ""), Key("Backspace", image: "delete.backward"),
+        [Key("Cmd+A", title: "All"), Key("Cmd+X", title: "Cut"),
+         Key("Cmd+C", title: "Copy"), Key("Cmd+V", title: "Paste"),
+         Key("Cmd+Z", title: "Undo"),
+         Key("Space", title: ""), Key("Backspace", image: "delete.backward"),
          Key("Return", image: "return")]
     ]
 
