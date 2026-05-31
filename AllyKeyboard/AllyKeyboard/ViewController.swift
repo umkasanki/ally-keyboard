@@ -240,7 +240,7 @@ class ViewController: NSViewController {
     // MARK: - Keyboard rows
 
     private let numberRow: [Key] = [
-        Key("`",   title: "~", secondary: "`"),
+        Key("`",   title: "~", secondary: "`", w: 1.5),
         Key("1",   secondary: "!"),
         Key("2",   secondary: "@"),
         Key("3",   secondary: "#"),
@@ -253,7 +253,7 @@ class ViewController: NSViewController {
         Key("0",   secondary: ")"),
         Key("-",   secondary: "_"),
         Key("=",   secondary: "+"),
-        Key("Backspace", image: "delete.backward", w: 1.5),
+        Key("Backspace", image: "delete.backward", w: 2.0),
     ]
 
     private let letterRows: [[Key]] = [
