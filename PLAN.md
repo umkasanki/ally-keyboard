@@ -132,6 +132,12 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ---
 
+## Backlog
+
+- [ ] Доработать иконку приложения (Dock / Launchpad) — нужен нормальный дизайн
+
+---
+
 ## Current state
 
 **Last session:** Phase 1.7 complete — AppConfig, CustomStatusBar with useCustomTitleBar flag.  
