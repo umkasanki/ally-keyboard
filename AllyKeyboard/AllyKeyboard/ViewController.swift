@@ -287,7 +287,8 @@ class ViewController: NSViewController {
          Key("Alt",        title: "⌥", w: 1.5),
          Key("ArrowLeft",  image: "arrow.left"),
          Key("ArrowDown",  image: "arrow.down"),
-         Key("ArrowRight", image: "arrow.right")],
+         Key("ArrowRight", image: "arrow.right"),
+         Key("PageDown",   title: "down")],
     ]
 
     private var allRows: [[Key]] { [numberRow] + letterRows }
