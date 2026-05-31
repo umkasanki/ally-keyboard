@@ -308,10 +308,10 @@ class ViewController: NSViewController {
         let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: size.width, height: dragHandleHeight))
         view.addSubview(handle)
 
-        // CustomStatusBar sits directly above the drag handle (below the native title bar)
+        // CustomStatusBar sits at the TOP of content area (just below native title bar)
         let statusBar = CustomStatusBar(frame: NSRect(
             x: 0,
-            y: dragHandleHeight,
+            y: size.height - customStatusBarHeight,
             width: size.width,
             height: customStatusBarHeight
         ))
@@ -319,7 +319,7 @@ class ViewController: NSViewController {
 
         for (rowIndex, row) in allRows.enumerated() {
             let flippedRow = allRows.count - 1 - rowIndex
-            let y = dragHandleHeight + customStatusBarHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
+            let y = dragHandleHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
             let isNumRow = rowIndex == 0
             let rowWidth = isNumRow
