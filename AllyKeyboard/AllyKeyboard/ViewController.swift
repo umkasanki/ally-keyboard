@@ -21,7 +21,7 @@ final class CustomStatusBar: NSView {
         setupTitle()
         setupMinimizeButton()
         NSLayoutConstraint.activate([
-            titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             minimizeBtn.widthAnchor.constraint(equalToConstant: 12),
             minimizeBtn.heightAnchor.constraint(equalToConstant: 12),
