@@ -118,6 +118,8 @@ final class KeyButton: NSButton {
     /// Secondary symbol drawn in the top-right corner of the key (e.g. shifted character).
     var secondaryText: String? { didSet { needsDisplay = true } }
     var secondaryFontSize: CGFloat = 8
+    /// Character to send when Shift is active (overrides uppercased keyID for punctuation)
+    var shiftedChar: String?
 
     override init(frame: NSRect) { super.init(frame: frame); configure() }
     required init?(coder: NSCoder) { super.init(coder: coder); configure() }
@@ -266,11 +268,15 @@ class ViewController: NSViewController {
          Key("H"), Key("J"), Key("K"), Key("L"),
          Key("Return", image: "return", w: 1.75)],
         // ZXCV row
-        [Key("Shift", image: "shift", w: 2.25),
-         Key("Z"), Key("X"), Key("C"), Key("V"),
-         Key("B"), Key("N"), Key("M"),
-         Key("Shift", image: "shift", w: 2.25),
-         Key("ArrowUp", image: "arrow.up")],
+        [Key("Shift",      image: "shift", w: 2.25),
+         Key("Z", title: "z"), Key("X", title: "x"), Key("C", title: "c"),
+         Key("V", title: "v"), Key("B", title: "b"), Key("N", title: "n"),
+         Key("M", title: "m"),
+         Key(",", secondary: "<"),
+         Key(".", secondary: ">"),
+         Key("/", secondary: "?"),
+         Key("Shift",      image: "shift", w: 2.25),
+         Key("ArrowUp",    image: "arrow.up")],
         // Bottom row
         [Key("fn",         title: "fn"),
          Key("Ctrl",       title: "^"),
@@ -416,6 +422,7 @@ class ViewController: NSViewController {
                 if let secondary = key.secondary {
                     btn.secondaryText     = secondary
                     btn.secondaryFontSize = keyFontSizeSecondary
+                    btn.shiftedChar       = secondary
                 }
 
                 if key.id == "Shift" {
@@ -453,7 +460,11 @@ class ViewController: NSViewController {
             return
         }
 
-        KeySender.send(key, shifted: isShifted)
+        if isShifted, let shiftedChar = (sender as? KeyButton)?.shiftedChar {
+            KeySender.send(shiftedChar, shifted: false)
+        } else {
+            KeySender.send(key, shifted: isShifted)
+        }
 
         // One-shot shift: reset after typing any key
         if isShifted { isShifted = false }
