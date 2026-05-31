@@ -275,7 +275,7 @@ class ViewController: NSViewController {
         Key("-",   secondary: "_"),
         Key("=",   secondary: "+"),
         Key("Backspace", image: "delete.backward", w: 1.0, fontScale: 1.25),
-        Key("Home",      title: "home"),
+        Key("Home",      title: "home", fontScale: 0.7),
     ]
 
     private let letterRows: [[Key]] = [
@@ -288,7 +288,7 @@ class ViewController: NSViewController {
          Key("[",        secondary: "{"),
          Key("]",        secondary: "}"),
          Key("\\",       secondary: "|"),
-         Key("PageUp",   title: "up")],
+         Key("PageUp",   title: "up",   fontScale: 0.7)],
         // ASDF row
         [Key("CapsLock", title: "Caps", w: 1.75),
          Key("A", title: "a"), Key("S", title: "s"), Key("D", title: "d"),
@@ -297,7 +297,7 @@ class ViewController: NSViewController {
          Key(";", secondary: ":"),
          Key("'", secondary: "\""),
          Key("Return", image: "return", w: 1.75),
-         Key("PageDown", title: "down")],
+         Key("PageDown", title: "down", fontScale: 0.7)],
         // ZXCV row
         [Key("Shift",      image: "shift", w: 1.75),
          Key("Z", title: "z"), Key("X", title: "x"), Key("C", title: "c"),
@@ -308,7 +308,7 @@ class ViewController: NSViewController {
          Key("/", secondary: "?"),
          Key("Shift",      image: "shift", w: 1.75),
          Key("ArrowUp",    image: "arrow.up"),
-         Key("End",        title: "end")],
+         Key("End",        title: "end",  fontScale: 0.7)],
         // Bottom row
         [Key("Ctrl",       title: "^",  w: 1.5),
          Key("Alt",        title: "⌥", w: 1.5),
