@@ -239,6 +239,10 @@ class ViewController: NSViewController {
 
     // MARK: - Keyboard rows
 
+    private let functionRow: [Key] = [
+        Key("Escape", title: "esc", w: 1.5),
+    ]
+
     private let numberRow: [Key] = [
         Key("`",   title: "~", secondary: "`", w: 1.5),
         Key("1",   secondary: "!"),
@@ -299,7 +303,7 @@ class ViewController: NSViewController {
          Key("ArrowRight", image: "arrow.right")],
     ]
 
-    private var allRows: [[Key]] { [numberRow] + letterRows }
+    private var allRows: [[Key]] { [functionRow, numberRow] + letterRows }
 
     private func rowPixelWidth(_ row: [Key]) -> CGFloat {
         row.reduce(0) { $0 + keyW($1) } + CGFloat(row.count - 1) * keySpacing
