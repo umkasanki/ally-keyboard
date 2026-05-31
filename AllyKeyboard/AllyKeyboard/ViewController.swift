@@ -5,17 +5,6 @@
 
 import Cocoa
 
-// MARK: - Theme
-
-enum Theme {
-    static let panelBg     = NSColor(white: 0.22, alpha: 1)  // title bar, drag handle
-    static let keyboardBg  = NSColor(white: 0.13, alpha: 1)  // keyboard area background
-    static let keyNormal   = NSColor(white: 0.22, alpha: 1)  // key default state
-    static let keyHover    = NSColor(white: 0.36, alpha: 1)  // key hover state
-    static let keyPressed  = NSColor(red: 0.72, green: 0.13, blue: 0.13, alpha: 1) // key press
-    static let keyActive   = NSColor(red: 0.20, green: 0.45, blue: 0.80, alpha: 1) // shift on
-}
-
 // MARK: - DragHandle
 
 private class DragHandle: NSView {
@@ -32,7 +21,7 @@ private class DragHandle: NSView {
 
     private func setup() {
         wantsLayer = true
-        layer?.backgroundColor = Theme.panelBg.cgColor
+        layer?.backgroundColor = AppConfig.Colors.dragBarBg.cgColor
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -83,7 +72,7 @@ final class KeyButton: NSButton {
 
     private func configure() {
         wantsLayer = true
-        layer?.cornerRadius = 5
+        layer?.cornerRadius = AppConfig.Layout.keyCornerRadius
         layer?.masksToBounds = true
         isBordered = false
         contentTintColor = .white
@@ -109,14 +98,14 @@ final class KeyButton: NSButton {
     override func highlight(_ flag: Bool) {
         super.highlight(flag)
         if flag {
-            layer?.backgroundColor = Theme.keyPressed.cgColor
+            layer?.backgroundColor = AppConfig.Colors.keyPressed.cgColor
         } else {
             updateBackground()
         }
     }
 
     private func updateBackground() {
-        layer?.backgroundColor = (isActive ? Theme.keyActive : isHovered ? Theme.keyHover : Theme.keyNormal).cgColor
+        layer?.backgroundColor = (isActive ? AppConfig.Colors.keyActive : isHovered ? AppConfig.Colors.keyHover : AppConfig.Colors.keyNormal).cgColor
     }
 }
 
@@ -140,7 +129,7 @@ class ViewController: NSViewController {
 
     // MARK: - Scale
 
-    var scale: CGFloat = 2.0 {
+    var scale: CGFloat = AppConfig.Layout.keyboardScale {
         didSet {
             guard windowConfigured, let window = view.window else { return }
             let size = keyboardSize
@@ -149,22 +138,15 @@ class ViewController: NSViewController {
         }
     }
 
-    // MARK: - Base layout constants (at scale = 1.0)
+    // MARK: - Scaled layout values (base constants live in AppConfig.Layout)
 
-    private let baseKeyWidth:         CGFloat = 46
-    private let baseKeyHeight:        CGFloat = 36
-    private let baseKeySpacing:       CGFloat = 4
-    private let baseRowSpacing:       CGFloat = 4
-    private let basePadding:          CGFloat = 12
-    private let baseKeyFontSize:      CGFloat = 14
-    // MARK: - Scaled layout values
-
-    private var keyWidth:         CGFloat { baseKeyWidth    * scale }
-    private var keyHeight:        CGFloat { baseKeyHeight   * scale }
-    private var keySpacing:       CGFloat { baseKeySpacing  * scale }
-    private var rowSpacing:       CGFloat { baseRowSpacing  * scale }
-    private var padding:          CGFloat { basePadding     * scale }
-    private var keyFontSize:      CGFloat { baseKeyFontSize * scale }
+    private var keyWidth:         CGFloat { AppConfig.Layout.keyWidth    * scale }
+    private var keyHeight:        CGFloat { AppConfig.Layout.keyHeight   * scale }
+    private var keySpacing:       CGFloat { AppConfig.Layout.keySpacing  * scale }
+    private var rowSpacing:       CGFloat { AppConfig.Layout.rowSpacing  * scale }
+    private var padding:          CGFloat { AppConfig.Layout.padding     * scale }
+    private var keyFontSizePrimary:   CGFloat { AppConfig.Layout.fontSizePrimary   * scale }
+    private var keyFontSizeSecondary: CGFloat { AppConfig.Layout.fontSizeSecondary * scale }
     private var spaceKeyWidth:    CGFloat { keyWidth * 3 + keySpacing * 2 }
 
     /// Set from actual window title bar height in viewWillAppear.
@@ -225,7 +207,7 @@ class ViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.wantsLayer = true
-        view.layer?.backgroundColor = Theme.keyboardBg.cgColor
+        view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.cgColor
     }
 
     override func viewWillAppear() {
@@ -236,7 +218,7 @@ class ViewController: NSViewController {
         window.title = "AllyKeyboard"
         window.appearance = NSAppearance(named: .darkAqua)
         window.titlebarAppearsTransparent = true
-        window.backgroundColor = Theme.panelBg
+        window.backgroundColor = AppConfig.Colors.statusBarBg
         window.level = .floating
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
         window.standardWindowButton(.zoomButton)?.isEnabled = false
@@ -265,7 +247,7 @@ class ViewController: NSViewController {
 
         let size        = keyboardSize  // compute once
         let contentW    = size.width - padding * 2
-        let symbolSize  = keyFontSize * 0.65
+        let symbolSize  = keyFontSizePrimary * 0.65
 
         // Number row: auto-size keys to fill content width
         let numKeyW = (contentW - CGFloat(numberRow.count - 1) * keySpacing) / CGFloat(numberRow.count)
@@ -298,7 +280,7 @@ class ViewController: NSViewController {
                     btn.imagePosition = .imageOnly
                 } else {
                     btn.title = key.title
-                    btn.font  = NSFont.systemFont(ofSize: keyFontSize, weight: .medium)
+                    btn.font  = NSFont.systemFont(ofSize: keyFontSizePrimary, weight: .medium)
                 }
 
                 if key.id == "Shift" {
