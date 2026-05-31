@@ -270,10 +270,18 @@ class ViewController: NSViewController {
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
 
         if AppConfig.useCustomTitleBar {
-            // Borderless: hide native title bar entirely, DragHandle provides drag
-            window.styleMask = [.borderless, .fullSizeContentView]
-            window.isMovable = false
-            dragHandleHeight = 28
+            // Custom title bar: hide all native traffic-light buttons,
+            // make the native titlebar transparent so our DragHandle shows through.
+            window.titlebarAppearsTransparent = true
+            window.title = ""
+            window.styleMask.insert(.fullSizeContentView)
+            window.isMovableByWindowBackground = false
+            [NSWindow.ButtonType.closeButton,
+             NSWindow.ButtonType.miniaturizeButton,
+             NSWindow.ButtonType.zoomButton].forEach {
+                window.standardWindowButton($0)?.isHidden = true
+            }
+            dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
         } else {
             // Native title bar: transparent, close active, zoom disabled
             window.title = "AllyKeyboard"
