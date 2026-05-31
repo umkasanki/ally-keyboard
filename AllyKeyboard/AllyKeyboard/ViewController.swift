@@ -274,7 +274,7 @@ class ViewController: NSViewController {
         Key("0",   secondary: ")"),
         Key("-",   secondary: "_"),
         Key("=",   secondary: "+"),
-        Key("Backspace", image: "delete.backward", w: 2.0),
+        Key("Backspace", image: "delete.backward", w: 2.0, fontScale: 1.5),
     ]
 
     private let letterRows: [[Key]] = [
@@ -440,7 +440,7 @@ class ViewController: NSViewController {
                 if let symbolName = key.image,
                    let img = NSImage(systemSymbolName: symbolName,
                                      accessibilityDescription: nil) {
-                    let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize, weight: .medium)
+                    let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize * key.fontScale, weight: .medium)
                     btn.image         = img.withSymbolConfiguration(cfg)
                     btn.imagePosition = .imageOnly
                 } else {
