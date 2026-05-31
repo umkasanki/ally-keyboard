@@ -10,11 +10,6 @@ import Cocoa
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
 
-    func applicationWillFinishLaunching(_ notification: Notification) {
-        // Set .accessory policy HERE, before any window is shown,
-        // so the Dock icon never flashes on launch.
-        NSApp.setActivationPolicy(.accessory)
-    }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // Enforce single instance: if another copy is already running, quit this one.
