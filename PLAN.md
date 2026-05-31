@@ -45,6 +45,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [x] **1.4a** Fix window size: set contentRect 520×180 in storyboard, remove resizable
 - [x] **1.5** Persist window position between launches (`setFrameAutosaveName`)
 - [ ] **1.6** Test: window appears on top of Safari/TextEdit, focus stays in target app
+- [ ] **1.9** Increase keyboard layout size
 - [x] **1.7** Custom status bar:
   - `AppConfig.swift` — global settings file (colors, layout, feature flags)
   - `useCustomTitleBar` flag — switches between native and custom title bar
