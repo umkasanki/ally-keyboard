@@ -186,22 +186,25 @@ class ViewController: NSViewController {
     // MARK: - Key definition
 
     private struct Key {
-        let id:             String      // used for key simulation (CGEvent)
-        let title:          String      // primary label on the key face
-        let secondary:      String?     // secondary label (top-left, small) — e.g. shifted symbol
-        let image:          String?     // SF Symbol — overrides title when set
-        let widthMultiplier: CGFloat    // 1.0 = standard key width
+        let id:              String      // used for key simulation (CGEvent)
+        let title:           String      // primary label on the key face
+        let secondary:       String?     // secondary label (top-left, small) — e.g. shifted symbol
+        let image:           String?     // SF Symbol — overrides title when set
+        let widthMultiplier: CGFloat     // 1.0 = standard key width
+        let fontScale:       CGFloat     // title font size multiplier (1.0 = default)
 
         init(_ id: String,
              title: String? = nil,
              secondary: String? = nil,
              image: String? = nil,
-             w: CGFloat = 1.0) {
-            self.id             = id
-            self.title          = title ?? id
-            self.secondary      = secondary
-            self.image          = image
+             w: CGFloat = 1.0,
+             fontScale: CGFloat = 1.0) {
+            self.id              = id
+            self.title           = title ?? id
+            self.secondary       = secondary
+            self.image           = image
             self.widthMultiplier = w
+            self.fontScale       = fontScale
         }
     }
 
@@ -254,7 +257,7 @@ class ViewController: NSViewController {
         Key("Cmd+V",      image: "doc.on.clipboard"),
         Key("Cmd+X",      image: "scissors"),
         Key("Cmd+Z",      image: "arrow.uturn.backward"),
-        Key("LangSwitch", title: "🇺🇸"),
+        Key("LangSwitch", title: "🇺🇸", fontScale: 1.5),
     ]
 
     private let numberRow: [Key] = [
@@ -442,7 +445,7 @@ class ViewController: NSViewController {
                     btn.imagePosition = .imageOnly
                 } else {
                     btn.title = key.title
-                    btn.font  = NSFont.systemFont(ofSize: keyFontSizePrimary, weight: .medium)
+                    btn.font  = NSFont.systemFont(ofSize: keyFontSizePrimary * key.fontScale, weight: .medium)
                 }
 
                 // Secondary symbol drawn in top-right corner via KeyButton.draw()
