@@ -235,7 +235,8 @@ class ViewController: NSViewController {
         // Width from letter rows only — number row auto-fits this width
         let maxKeys = letterRows.map { $0.count }.max() ?? 0
         let w = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
-        let h = CGFloat(allRows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragHandleHeight + customStatusBarHeight
+        let statusBarH = AppConfig.useCustomTitleBar ? customStatusBarHeight : 0
+        let h = CGFloat(allRows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragHandleHeight + statusBarH
         return NSSize(width: w, height: h)
     }
 
@@ -321,14 +322,16 @@ class ViewController: NSViewController {
         let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: size.width, height: dragHandleHeight))
         view.addSubview(handle)
 
-        // CustomStatusBar sits at the TOP of content area (just below native title bar)
-        let statusBar = CustomStatusBar(frame: NSRect(
-            x: 0,
-            y: size.height - customStatusBarHeight,
-            width: size.width,
-            height: customStatusBarHeight
-        ))
-        view.addSubview(statusBar)
+        // CustomStatusBar: only shown when useCustomTitleBar is enabled
+        if AppConfig.useCustomTitleBar {
+            let statusBar = CustomStatusBar(frame: NSRect(
+                x: 0,
+                y: size.height - customStatusBarHeight,
+                width: size.width,
+                height: customStatusBarHeight
+            ))
+            view.addSubview(statusBar)
+        }
 
         for (rowIndex, row) in allRows.enumerated() {
             let flippedRow = allRows.count - 1 - rowIndex
