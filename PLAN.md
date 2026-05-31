@@ -32,30 +32,29 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Phase 1 — Floating Keyboard Window
 > Goal: window with QWERTY buttons stays on top of all apps, can be dragged
 
-- [x] **1.1** Configure `AppDelegate` — create window on app launch, no Dock icon (`NSApp.setActivationPolicy(.accessory)`)
+- [x] **1.1** Configure `AppDelegate` — create window on app launch, icon in Dock (`.regular` policy)
 - [x] **1.2** Create `KeyboardWindowController` — `NSWindow` with:
   - `level = .floating`
   - `collectionBehavior = [.canJoinAllSpaces, .stationary]`
-  - `styleMask` without title bar, or minimal
   - Non-activating (focus stays in target app)
 - [x] **1.3** Create `KeyboardViewController` — grid of `NSButton` keys
-  - QWERTY layout (3 rows: 10 / 9 / 7 keys + Space/Backspace/Enter row)
-  - Fixed key size, spacing
-- [x] **1.4** Make window draggable by mouse (override `mouseDown` / `mouseDragged`)
-- [x] **1.4a** Fix window size: set contentRect 520×180 in storyboard, remove resizable
+- [x] **1.4** Make window draggable via `DragHandle` (three dots, bottom strip)
+- [x] **1.4a** Fix window size — auto-sized from key layout
 - [x] **1.5** Persist window position between launches (`setFrameAutosaveName`)
 - [ ] **1.6** Test: window appears on top of Safari/TextEdit, focus stays in target app
-- [x] **1.9** Increase keyboard layout size:
-  - Variable key widths (`widthMultiplier`), secondary labels, `fontScale` per key
-  - New 6-row layout: function row (esc, hi, @!?,., volume, copy/paste/cut/undo, 🇺🇸), number row, QWERTY, ASDF, ZXCV, bottom
-  - Nav keys: Home, End, PageUp/Down, arrows
-  - Both Shift buttons tracked via `shiftButtons` array
-  - Media keys via `sendMediaKey`
 - [x] **1.7** Custom status bar:
-  - `AppConfig.swift` — global settings file (colors, layout, feature flags)
+  - `AppConfig.swift` — global settings (colors, layout, feature flags)
   - `useCustomTitleBar` flag — switches between native and custom title bar
   - `CustomStatusBar` view — app name left, yellow rounded-rect minimize button right
-  - Native title bar hidden via `fullSizeContentView` + transparent titlebar when flag is on
+  - Native title bar hidden via `fullSizeContentView` + transparent titlebar
+- [x] **1.8** App icon — keyboard SF Symbol on dark rounded background → xcassets
+- [x] **1.9** Full keyboard layout redesign:
+  - 6 rows: function bar, number row, QWERTY, ASDF, ZXCV, bottom
+  - Variable key widths (`widthMultiplier`), secondary labels (top-right corner), `fontScale` per key
+  - Function row: esc, hi (greetings placeholder), @!?,., mute/vol, copy/paste/cut/undo, 🇺🇸 (lang switch)
+  - Nav keys: Home, End, PageUp ("up"), PageDown ("down"), arrows
+  - Both Shift buttons via `shiftButtons` array; shifted punctuation via `shiftedChar`
+  - Media keys via `sendMediaKey` (NSEvent systemDefined)
 
 ---
 
@@ -123,7 +122,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [ ] **6.1** `NSStatusItem` in menu bar — icon, click toggles keyboard visibility
 - [ ] **6.2** Right-click menu: Show/Hide Keyboard, Settings, Quit
 - [ ] **6.3** Launch at Login toggle in Settings (using `SMAppService` on macOS 13+ or `LaunchAgent` plist)
-- [ ] **6.4** App icon (1024×1024 PNG → xcassets)
+- [x] **6.4** App icon (1024×1024 PNG → xcassets) — done in 1.8
 
 ---
 
