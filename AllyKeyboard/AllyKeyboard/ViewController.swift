@@ -269,7 +269,8 @@ class ViewController: NSViewController {
         [Key("Shift", image: "shift", w: 2.25),
          Key("Z"), Key("X"), Key("C"), Key("V"),
          Key("B"), Key("N"), Key("M"),
-         Key("Shift", image: "shift", w: 2.25)],
+         Key("Shift", image: "shift", w: 2.25),
+         Key("ArrowUp", image: "arrow.up")],
         // Bottom row
         [Key("fn",         title: "fn"),
          Key("Ctrl",       title: "^"),
@@ -280,7 +281,6 @@ class ViewController: NSViewController {
          Key("Alt",        title: "⌥"),
          Key("ArrowLeft",  image: "arrow.left"),
          Key("ArrowDown",  image: "arrow.down"),
-         Key("ArrowUp",    image: "arrow.up"),
          Key("ArrowRight", image: "arrow.right")],
     ]
 
