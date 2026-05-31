@@ -394,8 +394,13 @@ class ViewController: NSViewController {
                     let lbl = NSTextField(labelWithString: secondary)
                     lbl.font      = NSFont.systemFont(ofSize: keyFontSizeSecondary, weight: .regular)
                     lbl.textColor = NSColor(white: 1.0, alpha: 0.5)
-                    lbl.frame     = NSRect(x: 4 * scale, y: keyHeight - keyFontSizeSecondary * scale - 2 * scale,
-                                           width: w / 2, height: keyFontSizeSecondary * scale + 2)
+                    lbl.alignment = .right
+                    let lblH = keyFontSizeSecondary * scale + 2
+                    let lblW = w / 2
+                    lbl.frame = NSRect(x: w - lblW - 4 * scale,
+                                       y: keyHeight - lblH - 2 * scale,
+                                       width: lblW,
+                                       height: lblH)
                     btn.addSubview(lbl)
                 }
 
