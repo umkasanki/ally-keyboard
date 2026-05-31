@@ -261,7 +261,7 @@ class ViewController: NSViewController {
     ]
 
     private let numberRow: [Key] = [
-        Key("`",   title: "~", secondary: "`", w: 1.5),
+        Key("`",   title: "~", secondary: "`"),
         Key("1",   secondary: "!"),
         Key("2",   secondary: "@"),
         Key("3",   secondary: "#"),
@@ -275,6 +275,7 @@ class ViewController: NSViewController {
         Key("-",   secondary: "_"),
         Key("=",   secondary: "+"),
         Key("Backspace", image: "delete.backward", w: 2.0, fontScale: 1.25),
+        Key("Home",      title: "home"),
     ]
 
     private let letterRows: [[Key]] = [
