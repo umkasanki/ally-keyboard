@@ -20,6 +20,13 @@ enum Theme {
 
 private class DragHandle: NSView {
 
+    // MARK: - Subviews
+
+    private let titleLabel   = NSTextField(labelWithString: "AllyKeyboard")
+    private let minimizeBtn  = NSButton()
+
+    // MARK: - Init
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         setup()
@@ -33,21 +40,43 @@ private class DragHandle: NSView {
     private func setup() {
         wantsLayer = true
         layer?.backgroundColor = Theme.panelBg.cgColor
+
+        // Title label
+        titleLabel.font      = NSFont.systemFont(ofSize: 12, weight: .medium)
+        titleLabel.textColor = NSColor(white: 1.0, alpha: 0.7)
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(titleLabel)
+
+        // Minimize button — yellow circle
+        minimizeBtn.bezelStyle              = .circular
+        minimizeBtn.isBordered              = false
+        minimizeBtn.wantsLayer              = true
+        minimizeBtn.layer?.cornerRadius     = 6
+        minimizeBtn.layer?.backgroundColor  = NSColor.systemYellow.cgColor
+        minimizeBtn.layer?.masksToBounds    = true
+        minimizeBtn.translatesAutoresizingMaskIntoConstraints = false
+        minimizeBtn.target = self
+        minimizeBtn.action = #selector(minimizeWindow)
+        addSubview(minimizeBtn)
+
+        NSLayoutConstraint.activate([
+            // Title: vertically centered, left-aligned with padding
+            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+
+            // Minimize button: 12×12, vertically centered, right-aligned
+            minimizeBtn.widthAnchor.constraint(equalToConstant: 12),
+            minimizeBtn.heightAnchor.constraint(equalToConstant: 12),
+            minimizeBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
+            minimizeBtn.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+        ])
     }
 
-    override func draw(_ dirtyRect: NSRect) {
-        let dotDiameter: CGFloat = 6
-        let dotGap:      CGFloat = 8
-        let totalWidth = 3 * dotDiameter + 2 * dotGap
-        var x = (bounds.width - totalWidth) / 2
-        let y = (bounds.height - dotDiameter) / 2
-
-        NSColor(white: 1.0, alpha: 0.5).setFill()
-        for _ in 0..<3 {
-            NSBezierPath(ovalIn: NSRect(x: x, y: y, width: dotDiameter, height: dotDiameter)).fill()
-            x += dotDiameter + dotGap
-        }
+    @objc private func minimizeWindow() {
+        window?.miniaturize(nil)
     }
+
+    // MARK: - Drag
 
     override func mouseDown(with event: NSEvent) {
         window?.performDrag(with: event)
@@ -58,6 +87,8 @@ private class DragHandle: NSView {
     }
 
     override var mouseDownCanMoveWindow: Bool { false }
+
+    // MARK: - Context menu
 
     static let appMenu: NSMenu = {
         let menu = NSMenu()
