@@ -13,7 +13,7 @@ enum AppConfig {
     // MARK: - Feature flags
 
     /// Hide the native macOS title bar and use CustomStatusBar instead.
-    static let useCustomTitleBar = true
+    static let useCustomTitleBar = false
 
     // MARK: - Colors
 
