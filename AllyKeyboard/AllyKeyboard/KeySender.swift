@@ -19,11 +19,17 @@ enum KeySender {
         case "Return":    sendKeyCode(36)
         case "Tab":       sendKeyCode(48)
         case "Escape":    sendKeyCode(53)
-        case "Cmd+C":     sendKeyCode(8,  flags: .maskCommand)
-        case "Cmd+V":     sendKeyCode(9,  flags: .maskCommand)
-        case "Cmd+Z":     sendKeyCode(6,  flags: .maskCommand)
-        case "Cmd+A":     sendKeyCode(0,  flags: .maskCommand)
-        case "Cmd+X":     sendKeyCode(7,  flags: .maskCommand)
+        case "Cmd+C":      sendKeyCode(8,   flags: .maskCommand)
+        case "Cmd+V":      sendKeyCode(9,   flags: .maskCommand)
+        case "Cmd+Z":      sendKeyCode(6,   flags: .maskCommand)
+        case "Cmd+A":      sendKeyCode(0,   flags: .maskCommand)
+        case "Cmd+X":      sendKeyCode(7,   flags: .maskCommand)
+        case "ArrowUp":    sendKeyCode(126)
+        case "ArrowDown":  sendKeyCode(125)
+        case "ArrowLeft":  sendKeyCode(123)
+        case "ArrowRight": sendKeyCode(124)
+        case "fn", "Ctrl", "Alt", "Cmd", "CapsLock":
+            break // modifier-only keys — no action yet
         default:
             let char = shifted ? keyID.uppercased() : keyID.lowercased()
             sendUnicode(char)

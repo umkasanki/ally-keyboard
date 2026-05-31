@@ -271,12 +271,17 @@ class ViewController: NSViewController {
          Key("B"), Key("N"), Key("M"),
          Key("Shift", image: "shift", w: 2.25)],
         // Bottom row
-        [Key("Cmd+A", title: "All"), Key("Cmd+X", title: "Cut"),
-         Key("Cmd+C", title: "Copy"), Key("Cmd+V", title: "Paste"),
-         Key("Cmd+Z", title: "Undo"),
-         Key("Space", title: "", w: 4.0),
-         Key("Backspace", image: "delete.backward"),
-         Key("Return", image: "return")],
+        [Key("fn",         title: "fn"),
+         Key("Ctrl",       title: "^"),
+         Key("Alt",        title: "⌥"),
+         Key("Cmd",        title: "⌘",  w: 1.25),
+         Key("Space",      title: "",   w: 5.0),
+         Key("Cmd",        title: "⌘",  w: 1.25),
+         Key("Alt",        title: "⌥"),
+         Key("ArrowLeft",  image: "arrow.left"),
+         Key("ArrowDown",  image: "arrow.down"),
+         Key("ArrowUp",    image: "arrow.up"),
+         Key("ArrowRight", image: "arrow.right")],
     ]
 
     private var allRows: [[Key]] { [numberRow] + letterRows }
