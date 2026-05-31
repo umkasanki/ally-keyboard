@@ -254,6 +254,7 @@ class ViewController: NSViewController {
         Key("Cmd+V",      image: "doc.on.clipboard"),
         Key("Cmd+X",      image: "scissors"),
         Key("Cmd+Z",      image: "arrow.uturn.backward"),
+        Key("LangSwitch", title: "🇺🇸"),
     ]
 
     private let numberRow: [Key] = [

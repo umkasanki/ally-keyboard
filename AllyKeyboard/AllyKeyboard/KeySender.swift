@@ -39,6 +39,8 @@ enum KeySender {
             break // modifier-only keys — no action yet
         case "Hi":
             break // greeting suggestions — to be implemented in Phase 3
+        case "LangSwitch":
+            break // language switch — to be implemented in Phase 3
         default:
             let char = shifted ? keyID.uppercased() : keyID.lowercased()
             sendUnicode(char)
