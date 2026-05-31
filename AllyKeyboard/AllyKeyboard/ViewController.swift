@@ -127,11 +127,13 @@ class ViewController: NSViewController {
     // MARK: - Key definition
 
     private struct Key {
-        let id:    String   // used for key simulation (CGEvent)
-        let title: String   // displayed on the button face
-        init(_ id: String, title: String? = nil) {
+        let id:    String       // used for key simulation (CGEvent)
+        let title: String       // displayed on the button face
+        let image: String?      // SF Symbol name — overrides title when set
+        init(_ id: String, title: String? = nil, image: String? = nil) {
             self.id    = id
             self.title = title ?? id
+            self.image = image
         }
     }
 
@@ -168,22 +170,36 @@ class ViewController: NSViewController {
     /// Set from actual window title bar height in viewWillAppear.
     private var dragHandleHeight: CGFloat = 0
 
-    private var keyboardSize: NSSize {
-        let maxKeys = rows.map { $0.count }.max() ?? 0
-        let w = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
-        let h = CGFloat(rows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragHandleHeight
-        return NSSize(width: w, height: h)
-    }
+    // Number row fits the keyboard content width (14 keys auto-sized)
+    private let numberRow: [Key] = [
+        Key("`"),
+        Key("1"), Key("2"), Key("3"), Key("4"), Key("5"),
+        Key("6"), Key("7"), Key("8"), Key("9"), Key("0"),
+        Key("-"), Key("="),
+        Key("Backspace", image: "delete.backward")
+    ]
 
-    private let rows: [[Key]] = [
+    // Letter/special rows — define keyboard width
+    private let letterRows: [[Key]] = [
         [Key("Q"), Key("W"), Key("E"), Key("R"), Key("T"),
          Key("Y"), Key("U"), Key("I"), Key("O"), Key("P")],
         [Key("A"), Key("S"), Key("D"), Key("F"), Key("G"),
          Key("H"), Key("J"), Key("K"), Key("L")],
-        [Key("Shift", title: "⇧"), Key("Z"), Key("X"), Key("C"), Key("V"),
+        [Key("Shift", image: "shift"), Key("Z"), Key("X"), Key("C"), Key("V"),
          Key("B"), Key("N"), Key("M")],
-        [Key("Space", title: ""), Key("Backspace", title: "⌫"), Key("Return", title: "↩")]
+        [Key("Space", title: ""), Key("Backspace", image: "delete.backward"),
+         Key("Return", image: "return")]
     ]
+
+    private var allRows: [[Key]] { [numberRow] + letterRows }
+
+    private var keyboardSize: NSSize {
+        // Width from letter rows only — number row auto-fits this width
+        let maxKeys = letterRows.map { $0.count }.max() ?? 0
+        let w = CGFloat(maxKeys) * (keyWidth + keySpacing) - keySpacing + padding * 2
+        let h = CGFloat(allRows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragHandleHeight
+        return NSSize(width: w, height: h)
+    }
 
     // MARK: - Shift state
 
@@ -244,33 +260,51 @@ class ViewController: NSViewController {
         view.subviews.forEach { $0.removeFromSuperview() }
         shiftButton = nil
 
-        let size = keyboardSize  // compute once, reuse below
+        let size        = keyboardSize  // compute once
+        let contentW    = size.width - padding * 2
+        let symbolSize  = keyFontSize * 0.65
+
+        // Number row: auto-size keys to fill content width
+        let numKeyW = (contentW - CGFloat(numberRow.count - 1) * keySpacing) / CGFloat(numberRow.count)
 
         let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: size.width, height: dragHandleHeight))
         view.addSubview(handle)
 
-        let totalWidth = size.width - padding * 2
-
-        for (rowIndex, row) in rows.enumerated() {
-            let flippedRow = rows.count - 1 - rowIndex
+        for (rowIndex, row) in allRows.enumerated() {
+            let flippedRow = allRows.count - 1 - rowIndex
             let y = dragHandleHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
-            let rowWidth = row.reduce(0) { $0 + width(for: $1) }
-                         + CGFloat(row.count - 1) * keySpacing
-            var x = padding + (totalWidth - rowWidth) / 2
+            let isNumRow = rowIndex == 0
+            let rowWidth = isNumRow
+                ? contentW
+                : row.reduce(0) { $0 + letterKeyWidth(for: $1) } + CGFloat(row.count - 1) * keySpacing
+            var x = padding + (contentW - rowWidth) / 2
 
             for key in row {
-                let w   = width(for: key)
+                let w   = isNumRow ? numKeyW : letterKeyWidth(for: key)
                 let btn = KeyButton(frame: NSRect(x: x, y: y, width: w, height: keyHeight))
-                btn.title      = key.title
-                btn.font       = NSFont.systemFont(ofSize: keyFontSize, weight: .medium)
                 btn.identifier = NSUserInterfaceItemIdentifier(key.id)
                 btn.target     = self
                 btn.action     = #selector(keyPressed(_:))
 
+                if let symbolName = key.image,
+                   let img = NSImage(systemSymbolName: symbolName,
+                                     accessibilityDescription: nil) {
+                    let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize, weight: .medium)
+                    btn.image         = img.withSymbolConfiguration(cfg)
+                    btn.imagePosition = .imageOnly
+                } else {
+                    btn.title = key.title
+                    btn.font  = NSFont.systemFont(ofSize: keyFontSize, weight: .medium)
+                }
+
                 if key.id == "Shift" {
                     btn.setButtonType(.toggle)
-                    btn.alternateTitle = "⇪"
+                    if let altImg = NSImage(systemSymbolName: "shift.fill",
+                                           accessibilityDescription: nil) {
+                        let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize, weight: .bold)
+                        btn.alternateImage = altImg.withSymbolConfiguration(cfg)
+                    }
                     shiftButton = btn
                 }
 
@@ -280,7 +314,7 @@ class ViewController: NSViewController {
         }
     }
 
-    private func width(for key: Key) -> CGFloat {
+    private func letterKeyWidth(for key: Key) -> CGFloat {
         key.id == "Space" ? spaceKeyWidth : keyWidth
     }
 
