@@ -286,7 +286,7 @@ class ViewController: NSViewController {
     }
 
     private var keyboardSize: NSSize {
-        let contentW = letterRows.map { rowPixelWidth($0) }.max() ?? 0
+        let contentW = allRows.map { rowPixelWidth($0) }.max() ?? 0
         let w = contentW + padding * 2
         let statusBarH = AppConfig.useCustomTitleBar ? customStatusBarHeight : 0
         let h = CGFloat(allRows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragHandleHeight + statusBarH
