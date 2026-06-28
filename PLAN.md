@@ -90,7 +90,9 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
   - Each button shows one suggestion
   - Horizontally scrollable if suggestions overflow
 - [ ] **3.4** Connect: `TextTracker` → `PredictionEngine` → `SuggestionBarView`
-- [ ] **3.5** Clicking a suggestion: delete current partial word (send N Backspaces), send suggestion + Space
+- [~] **3.5** Clicking a suggestion: delete current partial word (send N Backspaces), send suggestion + Space
+  - Logic done in `AllyKeyboardCore`: `SuggestionApplier.plan(...)` → `ReplacementPlan` (backspaces + text), keeps common prefix to minimise keystrokes. Tested on Linux.
+  - TODO on Mac: wire the plan to `KeySender` on suggestion click; reset `TextTracker` after.
 - [ ] **3.6** Support Russian language suggestions (NSSpellChecker locale: `ru_RU`)
 - [ ] **3.7** Language toggle button (EN / RU) on keyboard, switches layout + spell checker locale
 - [ ] **3.8** Test: type "hel" → suggestion "hello" appears → click → "hello " inserted

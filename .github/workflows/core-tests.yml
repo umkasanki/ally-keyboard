@@ -1,0 +1,17 @@
+name: Core tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    defaults:
+      run:
+        working-directory: AllyKeyboardCore
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run swift test
+        run: swift test
