@@ -77,11 +77,15 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Phase 3 — Word Prediction Bar
 > Goal: row of clickable word suggestions appears above keyboard while typing, click inserts word
 
-- [ ] **3.1** Create `TextTracker` — tracks characters sent via `KeySender`, maintains current word buffer
+- [x] **3.1** Create `TextTracker` — tracks characters sent via `KeySender`, maintains current word buffer
   - Reset buffer on Space / Enter / Punctuation
   - Update on Backspace
-- [ ] **3.2** Create `PredictionEngine` — wraps `NSSpellChecker.completions(forPartialWordRange:)`
+  - Lives in `AllyKeyboardCore` SPM package (platform-independent, no AppKit) — built & tested on Linux (WSL)
+  - `KeyInput` enum + `KeyInput.from(keyID:shifted:)` mirrors `KeySender` vocabulary
+- [~] **3.2** Create `PredictionEngine` — wraps `NSSpellChecker.completions(forPartialWordRange:)`
   - Returns up to 5 suggestions for current buffer
+  - Protocol `PredictionEngine` + portable `DictionaryPredictionEngine` done in `AllyKeyboardCore` (tested on Linux)
+  - TODO on Mac: `SpellCheckerPredictionEngine` adapter over `NSSpellChecker` conforming to the protocol
 - [ ] **3.3** Create `SuggestionBarView` — horizontal row of `NSButton` above keyboard
   - Each button shows one suggestion
   - Horizontally scrollable if suggestions overflow
@@ -145,5 +149,9 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Last session:** Phase 1.9 complete — new 6-row layout, variable key widths, secondary labels, nav/media keys.  
-**Next step:** Test on MacInCloud (1.6, 2.7). Then Phase 3 — Word Prediction Bar.
+**Last session:** Phase 3 core (3.1 + 3.2) built off-Mac on WSL as the `AllyKeyboardCore` SPM
+package — `TextTracker`, `KeyInput`, `PredictionEngine` protocol, `DictionaryPredictionEngine`.
+21 unit tests pass via `swift test` on Linux.  
+**Next step (on Mac):** add `AllyKeyboardCore` as a local Swift Package to the Xcode project;
+write `SpellCheckerPredictionEngine` (NSSpellChecker adapter); then 3.3 `SuggestionBarView`.
+Still pending: test on MacInCloud (1.6, 2.7).
