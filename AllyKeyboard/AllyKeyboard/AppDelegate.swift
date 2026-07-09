@@ -11,6 +11,8 @@ import Cocoa
 class AppDelegate: NSObject, NSApplicationDelegate {
 
 
+    private var statusBar: StatusBarController!
+
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // Enforce single instance: if another copy is already running, quit this one.
         guard let bundleID = Bundle.main.bundleIdentifier else { return }
@@ -21,9 +23,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Request Accessibility permission needed for CGEvent key simulation.
         KeySender.requestAccessibilityIfNeeded()
+
+        // Menu-bar entry: the app is LSUIElement (no Dock icon), so this is the
+        // only way to show/hide the keyboard or quit it.
+        statusBar = StatusBarController(onToggleKeyboard: {
+            guard let panel = NSApp.windows.first(where: { $0 is KeyboardPanel }) else { return }
+            if panel.isVisible { panel.orderOut(nil) } else { panel.orderFront(nil) }
+        })
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
         return true
     }
+}
+
+
+/// Menu-bar icon — the only entry point once the app is LSUIElement (no Dock icon).
+final class StatusBarController {
+    private let item: NSStatusItem
+    private let onToggleKeyboard: () -> Void
+
+    init(onToggleKeyboard: @escaping () -> Void) {
+        self.onToggleKeyboard = onToggleKeyboard
+        item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = item.button {
+            let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+            let img = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "AllyKeyboard")?
+                .withSymbolConfiguration(config)
+            img?.isTemplate = true
+            button.image = img
+        }
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Show / Hide Keyboard", action: #selector(toggle), keyEquivalent: "").target = self
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit AllyKeyboard", action: #selector(quit), keyEquivalent: "q").target = self
+        item.menu = menu
+    }
+
+    @objc private func toggle() { onToggleKeyboard() }
+    @objc private func quit() { NSApp.terminate(nil) }
 }

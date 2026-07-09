@@ -55,6 +55,6 @@ enum AppConfig {
         /// Font size for secondary key label (shifted symbol shown top-left)
         static let fontSizeSecondary: CGFloat = 8
         /// Default keyboard scale factor
-        static let keyboardScale:   CGFloat = 2.0
+        static let keyboardScale:   CGFloat = 1.5
     }
 }

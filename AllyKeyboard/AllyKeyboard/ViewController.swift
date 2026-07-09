@@ -368,8 +368,16 @@ class ViewController: NSViewController {
 
         window.appearance = NSAppearance(named: .darkAqua)
         window.backgroundColor = AppConfig.Colors.statusBarBg
-        window.level = .floating
-        window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        window.level = .statusBar
+        window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+
+        // Non-activating panel: clicking keys must not steal focus from
+        // the app the user is typing into.
+        if let panel = window as? NSPanel {
+            panel.styleMask.insert(.nonactivatingPanel)
+            panel.isFloatingPanel = true
+            panel.becomesKeyOnlyIfNeeded = true
+        }
 
         // Compute title bar height BEFORE fullSizeContentView changes the geometry
         dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
@@ -503,4 +511,12 @@ class ViewController: NSViewController {
         if isShifted { isShifted = false }
 
     }
+}
+
+
+/// Floating, non-activating panel: clicking keys must never steal focus
+/// from the app the user is typing into.
+final class KeyboardPanel: NSPanel {
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
 }

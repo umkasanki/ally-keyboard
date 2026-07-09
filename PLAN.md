@@ -32,16 +32,17 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Phase 1 — Floating Keyboard Window
 > Goal: window with QWERTY buttons stays on top of all apps, can be dragged
 
-- [x] **1.1** Configure `AppDelegate` — create window on app launch, icon in Dock (`.regular` policy)
-- [x] **1.2** Create `KeyboardWindowController` — `NSWindow` with:
-  - `level = .floating`
-  - `collectionBehavior = [.canJoinAllSpaces, .stationary]`
-  - Non-activating (focus stays in target app)
+- [x] **1.1** Configure `AppDelegate` — create window on app launch
+  - Now runs as **`.accessory`** (no Dock icon) so clicking keys never steals focus. Menu-bar entry replaces the Dock icon (see 6.1, now required).
+- [x] **1.2** Keyboard window is a **non-activating `NSPanel`** (`KeyboardPanel: NSPanel`):
+  - Storyboard window given `customClass=KeyboardPanel` + `nonactivatingPanel` styleMask (set at creation)
+  - `canBecomeKey/Main = false`; combined with `.accessory` policy → clicking keys never moves focus
+  - `level = .floating`, `collectionBehavior = [.canJoinAllSpaces, .stationary]`
 - [x] **1.3** Create `KeyboardViewController` — grid of `NSButton` keys
 - [x] **1.4** Make window draggable via `DragHandle` (three dots, bottom strip)
 - [x] **1.4a** Fix window size — auto-sized from key layout
 - [x] **1.5** Persist window position between launches (`setFrameAutosaveName`)
-- [ ] **1.6** Test: window appears on top of Safari/TextEdit, focus stays in target app
+- [x] **1.6** Test: window floats on top; focus stays in target app (verified on macOS 26.3, typing into TextEdit)
 - [x] **1.7** Custom status bar:
   - `AppConfig.swift` — global settings (colors, layout, feature flags)
   - `useCustomTitleBar` flag — switches between native and custom title bar
@@ -70,7 +71,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [x] **2.4** Handle Shift key — one-shot toggle (⇧/⇪), resets after first keystroke
 - [x] **2.5** Handle special keys: Space, Backspace, Return
 - [x] **2.6** Handle modifier combos: Cmd+C, Cmd+V, Cmd+Z, Cmd+A, Cmd+X (bottom row on keyboard)
-- [ ] **2.7** Test: type into TextEdit, Safari URL bar, Terminal
+- [x] **2.7** Test: typing verified into TextEdit on macOS 26.3 (Accessibility granted, non-activating panel)
 
 ---
 
@@ -125,7 +126,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Phase 6 — Menu Bar & Launch
 > Goal: keyboard can be shown/hidden from menu bar, optionally launches at login
 
-- [ ] **6.1** `NSStatusItem` in menu bar — icon, click toggles keyboard visibility
+- [ ] **6.1** `NSStatusItem` in menu bar — icon, click toggles keyboard visibility  **(now REQUIRED: app is `.accessory`, no Dock icon → no other way to quit/show)**
 - [ ] **6.2** Right-click menu: Show/Hide Keyboard, Settings, Quit
 - [ ] **6.3** Launch at Login toggle in Settings (using `SMAppService` on macOS 13+ or `LaunchAgent` plist)
 - [x] **6.4** App icon (1024×1024 PNG → xcassets) — done in 1.8
@@ -140,6 +141,29 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [ ] **7.3** Numbers row toggle (show/hide numbers row to save space)
 - [ ] **7.4** Punctuation panel (secondary layout with . , ! ? @ etc.)
 - [ ] **7.5** Prolonged real-world testing with head tracker
+
+---
+
+## Code signing & Accessibility (dev setup)
+> Ad-hoc signing changes the code hash every build, so the Accessibility grant
+> was resetting on each rebuild. Fixed with a stable self-signed identity.
+
+- `AllyKeyboard/setup-signing.sh` — one-time: creates a self-signed "AllyKeyboard Local"
+  identity in a dedicated keychain (`allykeyboard.keychain-db`), codesign-accessible over SSH.
+- `AllyKeyboard/build-signed.sh` — `xcodebuild` + re-sign the `.app` with that identity.
+  Stable designated requirement → TCC keeps the Accessibility grant across rebuilds.
+
+---
+
+## Improvements from ally-clicker (sibling project)
+> Patterns to adopt from the more mature ally-clicker codebase.
+
+- [ ] **A** Menu-bar `StatusBarController` (Show/Hide Keyboard, Quit) — see 6.1, urgent
+- [ ] **B** `.accessory` via `INFOPLIST_KEY_LSUIElement = YES` (declarative, no launch flash) instead of runtime `setActivationPolicy`
+- [ ] **C** Window: add `.fullScreenAuxiliary` to `collectionBehavior` (usable over fullscreen apps); consider `level = .statusBar`
+- [ ] **D** Settings model in `AllyKeyboardCore` + `SettingsStore` (UserDefaults) — testable, mirrors their Phase 5 (our 5.1)
+- [ ] **E** Launch-at-login via `SMAppService` (`LoginItem.swift` copyable almost verbatim) — our 6.3
+- [ ] **F** `KeyEventSink` port in Core so `TextTracker → SuggestionApplier → sink` is testable end-to-end without AppKit
 
 ---
 
