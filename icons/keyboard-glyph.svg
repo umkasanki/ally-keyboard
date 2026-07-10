@@ -1,9 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="200 86 282 208" fill="none">
-  <rect x="210" y="96" width="261" height="187" rx="18" fill="none" stroke="#ffffff" stroke-width="13"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="200 100 282 172" fill="none">
+  <rect x="210" y="110" width="261" height="152" rx="18" fill="none" stroke="#ffffff" stroke-width="13"/>
   <g fill="#ffffff">
-    <rect x="233" y="119" width="30" height="30" rx="6"/><rect x="270" y="119" width="30" height="30" rx="6"/><rect x="307" y="119" width="30" height="30" rx="6"/><rect x="344" y="119" width="30" height="30" rx="6"/><rect x="381" y="119" width="30" height="30" rx="6"/><rect x="418" y="119" width="30" height="30" rx="6"/>
-    <rect x="233" y="156" width="30" height="30" rx="6"/><rect x="270" y="156" width="30" height="30" rx="6"/><rect x="307" y="156" width="30" height="30" rx="6"/><rect x="344" y="156" width="30" height="30" rx="6"/><rect x="381" y="156" width="30" height="30" rx="6"/><rect x="418" y="156" width="30" height="30" rx="6"/>
-    <rect x="233" y="193" width="30" height="30" rx="6"/><rect x="270" y="193" width="30" height="30" rx="6"/><rect x="307" y="193" width="30" height="30" rx="6"/><rect x="344" y="193" width="30" height="30" rx="6"/><rect x="381" y="193" width="30" height="30" rx="6"/><rect x="418" y="193" width="30" height="30" rx="6"/>
-    <rect x="233" y="230" width="30" height="30" rx="6"/><rect x="270" y="230" width="141" height="30" rx="7"/><rect x="418" y="230" width="30" height="30" rx="6"/>
+    <rect x="233" y="134" width="30" height="30" rx="6"/><rect x="270" y="134" width="30" height="30" rx="6"/><rect x="307" y="134" width="30" height="30" rx="6"/><rect x="344" y="134" width="30" height="30" rx="6"/><rect x="381" y="134" width="30" height="30" rx="6"/><rect x="418" y="134" width="30" height="30" rx="6"/>
+    <rect x="233" y="171" width="30" height="30" rx="6"/><rect x="270" y="171" width="30" height="30" rx="6"/><rect x="307" y="171" width="30" height="30" rx="6"/><rect x="344" y="171" width="30" height="30" rx="6"/><rect x="381" y="171" width="30" height="30" rx="6"/><rect x="418" y="171" width="30" height="30" rx="6"/>
+    <rect x="233" y="208" width="30" height="30" rx="6"/><rect x="270" y="208" width="141" height="30" rx="7"/><rect x="418" y="208" width="30" height="30" rx="6"/>
   </g>
 </svg>
