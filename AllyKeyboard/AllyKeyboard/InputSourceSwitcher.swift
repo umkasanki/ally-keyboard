@@ -3,7 +3,7 @@
 //  AllyKeyboard
 //
 //  Cycles the system keyboard input source (language) via Text Input Source
-//  Services, and reports the flag of the next language in the cycle.
+//  Services, and reports the current language's region/flag.
 //
 
 import AppKit
@@ -53,17 +53,6 @@ enum InputSourceSwitcher {
             }
         }
         return result
-    }
-
-    /// The source a press would switch TO — used to show the "next language" flag.
-    static func nextSource() -> TISInputSource? {
-        let list = selectableSources()
-        guard !list.isEmpty else { return nil }
-        guard list.count > 1,
-              let current = TISCopyCurrentKeyboardInputSource()?.takeRetainedValue() else { return list.first }
-        let curID = sourceID(current)
-        let idx = list.firstIndex { sourceID($0) == curID } ?? -1
-        return list[(idx + 1) % list.count]
     }
 
     /// Two-letter region code for a source's primary language (for flag assets),

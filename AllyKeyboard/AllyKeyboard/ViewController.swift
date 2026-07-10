@@ -640,6 +640,10 @@ class ViewController: NSViewController {
         }
     }
 
+    deinit {
+        DistributedNotificationCenter.default().removeObserver(self)
+    }
+
     private func observeInputSourceChanges() {
         DistributedNotificationCenter.default().addObserver(
             self,
