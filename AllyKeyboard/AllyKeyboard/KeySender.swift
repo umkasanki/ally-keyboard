@@ -12,7 +12,15 @@ enum KeySender {
     // MARK: - Public API
 
     /// Send a key event. `keyID` matches `Key.id` defined in ViewController.
-    static func send(_ keyID: String, shifted: Bool = false) {
+    static func send(_ keyID: String, shifted: Bool = false, modifiers: CGEventFlags = []) {
+        // Chord (Ctrl/Alt/Cmd held): send via virtual keycode + flags so the target
+        // app recognises the shortcut — unicode injection ignores modifier flags.
+        if !modifiers.isEmpty, let code = keyCode(for: keyID) {
+            var flags = modifiers
+            if shifted { flags.insert(.maskShift) }
+            sendKeyCode(code, flags: flags)
+            return
+        }
         switch keyID {
         case "Space":     sendKeyCode(49)
         case "Backspace": sendKeyCode(51)
@@ -42,8 +50,16 @@ enum KeySender {
         case "LangSwitch":
             break // language switch — to be implemented in Phase 3
         default:
-            let char = shifted ? keyID.uppercased() : keyID.lowercased()
-            sendUnicode(char)
+            // Prefer virtual keycode so the active system layout (language) applies;
+            // fall back to unicode for anything without a known keycode.
+            if let code = keyCode(for: keyID) {
+                var flags: CGEventFlags = []
+                if shifted { flags.insert(.maskShift) }
+                sendKeyCode(code, flags: flags)
+            } else {
+                let char = shifted ? keyID.uppercased() : keyID.lowercased()
+                sendUnicode(char)
+            }
         }
     }
 
@@ -55,6 +71,23 @@ enum KeySender {
     }
 
     // MARK: - Private helpers
+
+    /// US-ANSI virtual keycodes for keys that can take part in a chord.
+    private static let keyCodes: [String: CGKeyCode] = [
+        "a": 0, "s": 1, "d": 2, "f": 3, "h": 4, "g": 5, "z": 6, "x": 7, "c": 8,
+        "v": 9, "b": 11, "q": 12, "w": 13, "e": 14, "r": 15, "y": 16, "t": 17,
+        "o": 31, "u": 32, "i": 34, "p": 35, "l": 37, "j": 38, "k": 40, "n": 45, "m": 46,
+        "1": 18, "2": 19, "3": 20, "4": 21, "5": 23, "6": 22, "7": 26, "8": 28, "9": 25, "0": 29,
+        "-": 27, "=": 24, "[": 33, "]": 30, "\\": 42, ";": 41, "'": 39,
+        ",": 43, ".": 47, "/": 44, "`": 50,
+        "Space": 49, "Return": 36, "Tab": 48, "Escape": 53,
+        "ArrowUp": 126, "ArrowDown": 125, "ArrowLeft": 123, "ArrowRight": 124,
+        "Home": 115, "End": 119, "PageUp": 116, "PageDown": 121,
+    ]
+
+    static func keyCode(for keyID: String) -> CGKeyCode? {
+        keyCodes[keyID] ?? keyCodes[keyID.lowercased()]
+    }
 
     private static let eventSource = CGEventSource(stateID: .hidSystemState)
 

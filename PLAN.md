@@ -70,7 +70,9 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [x] **2.3** Handle basic keys: letters a–z
 - [x] **2.4** Handle Shift key — one-shot toggle (⇧/⇪), resets after first keystroke
 - [x] **2.5** Handle special keys: Space, Backspace, Return
-- [x] **2.6** Handle modifier combos: Cmd+C, Cmd+V, Cmd+Z, Cmd+A, Cmd+X (bottom row on keyboard)
+- [x] **2.6** Modifier keys & combos:
+  - Dedicated Cmd+C/V/Z/A/X keys (bottom row)
+  - **Sticky modifiers** Ctrl/Alt/Cmd (one-shot, like Shift): click to arm (highlights), next key sent with accumulated `CGEventFlags` via virtual keycode, then reset. Chords with Shift work (e.g. Cmd+Shift+←). Verified on macOS 26.3.
 - [x] **2.7** Test: typing verified into TextEdit on macOS 26.3 (Accessibility granted, non-activating panel)
 
 ---
@@ -95,7 +97,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
   - Logic done in `AllyKeyboardCore`: `SuggestionApplier.plan(...)` → `ReplacementPlan` (backspaces + text), keeps common prefix to minimise keystrokes. Tested on Linux.
   - TODO on Mac: wire the plan to `KeySender` on suggestion click; reset `TextTracker` after.
 - [ ] **3.6** Support Russian language suggestions (NSSpellChecker locale: `ru_RU`)
-- [ ] **3.7** Language toggle button (EN / RU) on keyboard, switches layout + spell checker locale
+- [x] **3.7** Language switch button (`InputSourceSwitcher`): cycles the system input source (any enabled language), relabels keys to the active layout via `UCKeyTranslate`, types layout-correct characters (keycode-based, not unicode), shows a rounded flag card of the current language (flagpack SVG assets). Spell-checker locale to follow in prediction work.
 - [ ] **3.8** Test: type "hel" → suggestion "hello" appears → click → "hello " inserted
 
 ---

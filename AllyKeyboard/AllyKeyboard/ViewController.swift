@@ -347,6 +347,22 @@ class ViewController: NSViewController {
     }
     private var shiftButtons: [KeyButton] = []
 
+    // MARK: - Modifier state (Ctrl / Alt / Cmd — sticky, one-shot like Shift)
+
+    private static let modifierIDs: Set<String> = ["Ctrl", "Alt", "Cmd"]
+    private var activeModifiers: Set<String> = []
+    private var modifierButtons: [String: [KeyButton]] = [:]
+    private var langSwitchButtons: [KeyButton] = []
+
+    /// Keys whose label follows the active layout, paired with their keycode.
+    private var characterButtons: [(button: KeyButton, keyCode: CGKeyCode)] = []
+    /// Keycode keys that are NOT character keys (never relabelled).
+    private static let nonCharacterKeys: Set<String> = [
+        "Space", "Return", "Tab", "Escape",
+        "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+        "Home", "End", "PageUp", "PageDown",
+    ]
+
     // MARK: - Window state
 
     private let autosaveName   = "AllyKeyboardMain"
@@ -404,6 +420,8 @@ class ViewController: NSViewController {
         let size = keyboardSize
         window.setContentSize(size)
         buildKeyboard()
+        refreshForCurrentLayout()
+        observeInputSourceChanges()
 
         if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
             UserDefaults.standard.set(true, forKey: hasLaunchedKey)
@@ -416,6 +434,10 @@ class ViewController: NSViewController {
     private func buildKeyboard() {
         view.subviews.forEach { $0.removeFromSuperview() }
         shiftButtons = []
+        modifierButtons = [:]
+        activeModifiers = []
+        langSwitchButtons = []
+        characterButtons = []
 
         let size       = keyboardSize  // compute once
         let contentW   = size.width - padding * 2
@@ -476,6 +498,19 @@ class ViewController: NSViewController {
                     shiftButtons.append(btn)
                 }
 
+                if Self.modifierIDs.contains(key.id) {
+                    modifierButtons[key.id, default: []].append(btn)
+                }
+
+                if key.id == "LangSwitch" {
+                    langSwitchButtons.append(btn)
+                }
+
+                if let code = KeySender.keyCode(for: key.id),
+                   !Self.nonCharacterKeys.contains(key.id) {
+                    characterButtons.append((btn, code))
+                }
+
                 view.addSubview(btn)
                 x += w + keySpacing
             }
@@ -501,15 +536,120 @@ class ViewController: NSViewController {
             return
         }
 
-        if isShifted, let shiftedChar = (sender as? KeyButton)?.shiftedChar {
-            KeySender.send(shiftedChar, shifted: false)
-        } else {
-            KeySender.send(key, shifted: isShifted)
+        if Self.modifierIDs.contains(key) {
+            if activeModifiers.contains(key) { activeModifiers.remove(key) }
+            else { activeModifiers.insert(key) }
+            updateModifierHighlights()
+            return
         }
 
-        // One-shot shift: reset after typing any key
-        if isShifted { isShifted = false }
+        if key == "LangSwitch" {
+            InputSourceSwitcher.selectNext()
+            refreshForCurrentLayout()
+            return
+        }
 
+        let modifierFlags = eventFlags(from: activeModifiers)
+        KeySender.send(key, shifted: isShifted, modifiers: modifierFlags)
+
+        // One-shot: reset Shift and modifiers after any real keystroke.
+        if isShifted { isShifted = false }
+        if !activeModifiers.isEmpty {
+            activeModifiers.removeAll()
+            updateModifierHighlights()
+        }
+    }
+
+    private func eventFlags(from mods: Set<String>) -> CGEventFlags {
+        var flags: CGEventFlags = []
+        if mods.contains("Ctrl") { flags.insert(.maskControl) }
+        if mods.contains("Alt")  { flags.insert(.maskAlternate) }
+        if mods.contains("Cmd")  { flags.insert(.maskCommand) }
+        return flags
+    }
+
+    private func updateModifierHighlights() {
+        for (id, buttons) in modifierButtons {
+            let on = activeModifiers.contains(id)
+            buttons.forEach { $0.isActive = on }
+        }
+    }
+
+    // MARK: - Language switch
+
+    /// Show the flag of the current keyboard layout.
+    private func updateLangFlag() {
+        let source = InputSourceSwitcher.currentSource()
+        for button in langSwitchButtons {
+            if let region = InputSourceSwitcher.regionCode(for: source),
+               let base = NSImage(named: "flag_\(region)") {
+                // Render as a rounded card with a thin border. flagpack flags are a
+                // uniform 4:3, so every language keeps the same shape.
+                let h = button.bounds.height * 0.5
+                let size = NSSize(width: h * 4.0 / 3.0, height: h)
+                button.image = Self.roundedCard(base, size: size, cornerRadius: h * 0.2)
+                button.imageScaling = .scaleNone
+                button.imagePosition = .imageOnly
+                button.title = ""
+            } else {
+                button.image = nil
+                button.imagePosition = .noImage
+                button.title = InputSourceSwitcher.languageAbbrev(for: source)
+            }
+        }
+    }
+
+    /// Draw a flag image as a rounded card with a subtle border.
+    private static func roundedCard(_ base: NSImage, size: NSSize, cornerRadius: CGFloat) -> NSImage {
+        let image = NSImage(size: size)
+        image.lockFocus()
+        let rect = NSRect(origin: .zero, size: size).insetBy(dx: 0.5, dy: 0.5)
+        let clip = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
+        NSGraphicsContext.current?.saveGraphicsState()
+        clip.addClip()
+        base.draw(in: NSRect(origin: .zero, size: size))
+        NSGraphicsContext.current?.restoreGraphicsState()
+        clip.lineWidth = 1
+        NSColor(white: 1, alpha: 0.35).setStroke()
+        clip.stroke()
+        image.unlockFocus()
+        return image
+    }
+
+    /// Refresh everything that depends on the active layout: the flag and the
+    /// character-key labels.
+    private func refreshForCurrentLayout() {
+        updateLangFlag()
+        relabelForCurrentLayout()
+    }
+
+    /// Relabel character keys to match the active keyboard layout (language).
+    private func relabelForCurrentLayout() {
+        let source = InputSourceSwitcher.currentSource()
+        for (button, code) in characterButtons {
+            guard let base = InputSourceSwitcher.character(forKeyCode: code, shift: false, from: source),
+                  !base.isEmpty else { continue }
+            button.title = base
+            if let shifted = InputSourceSwitcher.character(forKeyCode: code, shift: true, from: source),
+               shifted != base, shifted.lowercased() != base.lowercased() {
+                button.secondaryText = shifted   // punctuation / digit symbol
+            } else {
+                button.secondaryText = nil       // letter — no secondary
+            }
+            button.needsDisplay = true
+        }
+    }
+
+    private func observeInputSourceChanges() {
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(inputSourceChanged),
+            name: InputSourceSwitcher.changeNotification,
+            object: nil)
+    }
+
+    @objc private func inputSourceChanged() {
+        DispatchQueue.main.async { [weak self] in self?.refreshForCurrentLayout() }
     }
 }
 
