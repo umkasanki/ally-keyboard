@@ -1,0 +1,29 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- AllyKeyboard app icon — red squircle + white keyboard glyph (cut-out keys),
+       subtle gradient + soft shadow. Same house style as AllyClicker; rasterized by
+       tools/make-icon.swift (CoreGraphics). Drawn in a 200-unit space mapped onto an
+       832 body inset 96px in the 1024 canvas. Glyph squeezed ~12% horizontally. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FB7185"/><stop offset="1" stop-color="#BE123C"/></linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.38"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="key" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#F6E0E5"/></linearGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#66041f" flood-opacity="0.35"/></filter>
+    <mask id="kbd">
+      <rect x="40" y="66" width="120" height="68" rx="14" fill="white"/>
+      <g fill="black">
+        <rect x="50" y="78" width="12" height="10" rx="3"/><rect x="67" y="78" width="12" height="10" rx="3"/><rect x="84" y="78" width="12" height="10" rx="3"/><rect x="101" y="78" width="12" height="10" rx="3"/><rect x="118" y="78" width="12" height="10" rx="3"/><rect x="135" y="78" width="12" height="10" rx="3"/>
+        <rect x="50" y="92" width="12" height="10" rx="3"/><rect x="67" y="92" width="12" height="10" rx="3"/><rect x="84" y="92" width="12" height="10" rx="3"/><rect x="101" y="92" width="12" height="10" rx="3"/><rect x="118" y="92" width="12" height="10" rx="3"/><rect x="135" y="92" width="12" height="10" rx="3"/>
+        <rect x="50" y="106" width="12" height="10" rx="3"/><rect x="67" y="106" width="12" height="10" rx="3"/><rect x="84" y="106" width="12" height="10" rx="3"/><rect x="101" y="106" width="12" height="10" rx="3"/><rect x="118" y="106" width="12" height="10" rx="3"/><rect x="135" y="106" width="12" height="10" rx="3"/>
+        <rect x="70" y="120" width="60" height="8" rx="4"/>
+      </g>
+    </mask>
+  </defs>
+
+  <g transform="translate(96,96) scale(4.16)">
+    <rect width="200" height="200" rx="46" fill="url(#tile)"/>
+    <rect width="200" height="200" rx="46" fill="url(#sheen)"/>
+    <g filter="url(#soft)" transform="translate(100,100) scale(1.074,1.22) translate(-100,-100)">
+      <rect x="0" y="0" width="200" height="200" fill="url(#key)" mask="url(#kbd)"/>
+    </g>
+  </g>
+</svg>
