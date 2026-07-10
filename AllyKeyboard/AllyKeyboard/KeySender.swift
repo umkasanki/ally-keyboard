@@ -115,6 +115,11 @@ enum KeySender {
         up?.cgEvent?.post(tap: .cghidEventTap)
     }
 
+    /// Type a literal string (used to insert a chosen suggestion).
+    static func sendText(_ string: String) {
+        sendUnicode(string)
+    }
+
     private static func sendUnicode(_ string: String) {
         var chars = Array(string.utf16)
         let down = CGEvent(keyboardEventSource: eventSource, virtualKey: 0, keyDown: true)

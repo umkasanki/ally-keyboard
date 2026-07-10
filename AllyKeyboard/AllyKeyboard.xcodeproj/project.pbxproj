@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AA11AA11AA11AA11AA11AA03 /* AllyKeyboardCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA11AA11AA11AA11AA11AA02 /* AllyKeyboardCore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		DB502D892FC2FF1700D90E2B /* AllyKeyboard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AllyKeyboard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA11AA11AA11AA11AA11AA03 /* AllyKeyboardCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = AllyKeyboard;
 			packageProductDependencies = (
+				AA11AA11AA11AA11AA11AA02 /* AllyKeyboardCore */,
 			);
 			productName = AllyKeyboard;
 			productReference = DB502D892FC2FF1700D90E2B /* AllyKeyboard.app */;
@@ -96,6 +102,9 @@
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DB502D8A2FC2FF1700D90E2B /* Products */;
+			packageReferences = (
+				AA11AA11AA11AA11AA11AA01 /* XCLocalSwiftPackageReference "../AllyKeyboardCore" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -253,7 +262,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_LSUIElement = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
@@ -284,7 +293,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_LSUIElement = YES;
+				INFOPLIST_KEY_LSUIElement = NO;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMainStoryboardFile = Main;
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
@@ -327,6 +336,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AA11AA11AA11AA11AA11AA01 /* XCLocalSwiftPackageReference "../AllyKeyboardCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../AllyKeyboardCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA11AA11AA11AA11AA11AA02 /* AllyKeyboardCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AllyKeyboardCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DB502D812FC2FF1700D90E2B /* Project object */;
 }

@@ -4,6 +4,7 @@
 //
 
 import Cocoa
+import AllyKeyboardCore
 
 // MARK: - CustomStatusBar
 
@@ -114,6 +115,8 @@ final class KeyButton: NSButton {
 
     private var isHovered = false
     var isActive = false { didSet { updateBackground() } }
+    /// Overrides the resting background (e.g. suggestion rows blend into the keyboard bg).
+    var normalColorOverride: NSColor? { didSet { updateBackground() } }
 
     /// Secondary symbol drawn in the top-right corner of the key (e.g. shifted character).
     var secondaryText: String? { didSet { needsDisplay = true } }
@@ -159,7 +162,8 @@ final class KeyButton: NSButton {
     }
 
     private func updateBackground() {
-        layer?.backgroundColor = (isActive ? AppConfig.Colors.keyActive : isHovered ? AppConfig.Colors.keyHover : AppConfig.Colors.keyNormal).cgColor
+        let normal = normalColorOverride ?? AppConfig.Colors.keyNormal
+        layer?.backgroundColor = (isActive ? AppConfig.Colors.keyActive : isHovered ? AppConfig.Colors.keyHover : normal).cgColor
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -363,6 +367,15 @@ class ViewController: NSViewController {
         "Home", "End", "PageUp", "PageDown",
     ]
 
+    // MARK: - Word prediction state
+    private let suggestionBarSlots = 4
+    private var suggestionRowHeight: CGFloat { (keyFontSizePrimary * 1.7).rounded() }
+    private let suggestionSpacing: CGFloat = 0
+    private var suggestionPanel: NSPanel?
+    private var currentSuggestions: [String] = []
+    private let textTracker = TextTracker()
+    private let speller = SpellCheckerPredictionEngine()
+
     // MARK: - Window state
 
     private let autosaveName   = "AllyKeyboardMain"
@@ -422,6 +435,7 @@ class ViewController: NSViewController {
         buildKeyboard()
         refreshForCurrentLayout()
         observeInputSourceChanges()
+        observeKeyboardMove()
 
         if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
             UserDefaults.standard.set(true, forKey: hasLaunchedKey)
@@ -550,7 +564,9 @@ class ViewController: NSViewController {
         }
 
         let modifierFlags = eventFlags(from: activeModifiers)
+        let wasShifted = isShifted
         KeySender.send(key, shifted: isShifted, modifiers: modifierFlags)
+        updateTextTracker(key: key, shifted: wasShifted, hasModifiers: !modifierFlags.isEmpty)
 
         // One-shot: reset Shift and modifiers after any real keystroke.
         if isShifted { isShifted = false }
@@ -558,6 +574,7 @@ class ViewController: NSViewController {
             activeModifiers.removeAll()
             updateModifierHighlights()
         }
+        refreshSuggestions()
     }
 
     private func eventFlags(from mods: Set<String>) -> CGEventFlags {
@@ -573,6 +590,123 @@ class ViewController: NSViewController {
             let on = activeModifiers.contains(id)
             buttons.forEach { $0.isActive = on }
         }
+    }
+
+    // MARK: - Word prediction
+
+    /// Feed the buffer the actual character produced under the current layout.
+    private func updateTextTracker(key: String, shifted: Bool, hasModifiers: Bool) {
+        if hasModifiers { textTracker.reset(); return }
+        switch key {
+        case "Space", "Return", "Tab":
+            textTracker.handle(.wordBoundary)
+        case "Backspace":
+            textTracker.handle(.backspace)
+        default:
+            if let code = KeySender.keyCode(for: key),
+               !Self.nonCharacterKeys.contains(key),
+               let ch = InputSourceSwitcher.character(forKeyCode: code, shift: shifted, from: InputSourceSwitcher.currentSource()),
+               let c = ch.first {
+                textTracker.handle(.character(c))
+            } else {
+                textTracker.reset()   // navigation / non-text key ends the word
+            }
+        }
+    }
+
+    private func refreshSuggestions() {
+        guard textTracker.hasPartialWord else { hideSuggestions(); return }
+        speller.language = InputSourceSwitcher.currentLanguageCode()
+        let words = speller.suggestions(for: textTracker.currentWord, limit: suggestionBarSlots)
+        showSuggestions(words)
+    }
+
+    // MARK: - Suggestion panel (docked outside the keyboard)
+
+    private func ensureSuggestionPanel() -> NSPanel {
+        if let panel = suggestionPanel { return panel }
+        let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 200, height: keyHeight + padding),
+                            styleMask: [.borderless, .nonactivatingPanel],
+                            backing: .buffered, defer: false)
+        panel.level = .statusBar
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+        panel.isFloatingPanel = true
+        panel.hidesOnDeactivate = false
+        panel.isReleasedWhenClosed = false
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = true
+        let bar = SuggestionBarView(frame: NSRect(origin: .zero, size: panel.frame.size),
+                                    maxSlots: suggestionBarSlots, spacing: suggestionSpacing, fontSize: keyFontSizePrimary)
+        bar.autoresizingMask = [.width, .height]
+        bar.wantsLayer = true
+        bar.onSelect = { [weak self] word in self?.applySuggestion(word) }
+        panel.contentView = bar
+        suggestionPanel = panel
+        return panel
+    }
+
+    private func showSuggestions(_ words: [String]) {
+        currentSuggestions = words
+        guard !words.isEmpty, let keyboard = view.window else { hideSuggestions(); return }
+        let panel = ensureSuggestionPanel()
+        let n = min(words.count, suggestionBarSlots)
+        let tailHeight: CGFloat = 7
+        let bodyHeight = CGFloat(n) * suggestionRowHeight + CGFloat(n - 1) * suggestionSpacing
+        let size = NSSize(width: keyboard.frame.width * 0.32, height: bodyHeight + tailHeight)
+        let tailOnTop = positionSuggestionPanel(panel, relativeTo: keyboard, size: size)
+        (panel.contentView as? SuggestionBarView)?.setSuggestions(
+            words, prefixLength: textTracker.currentWord.count,
+            tailOnTop: tailOnTop, tailHeight: tailHeight,
+            cornerRadius: AppConfig.Layout.keyCornerRadius * scale)
+        panel.order(.above, relativeTo: keyboard.windowNumber)
+    }
+
+    private func hideSuggestions() {
+        currentSuggestions = []
+        suggestionPanel?.orderOut(nil)
+    }
+
+    /// Dock the panel to the keyboard on whichever vertical side has more room.
+    /// Docks the balloon to the keyboard; returns true when placed below it
+    /// (so the tail should point up).
+    @discardableResult
+    private func positionSuggestionPanel(_ panel: NSPanel, relativeTo keyboard: NSWindow, size: NSSize) -> Bool {
+        let kf = keyboard.frame
+        let visible = (keyboard.screen ?? NSScreen.main)?.visibleFrame ?? kf
+        let spaceBelow = kf.minY - visible.minY
+        let spaceAbove = visible.maxY - kf.maxY
+        // Prefer the side that fits the whole balloon; otherwise the roomier side.
+        let below: Bool
+        if spaceBelow >= size.height { below = true }
+        else if spaceAbove >= size.height { below = false }
+        else { below = spaceBelow >= spaceAbove }
+        // Gap equal to the tail height (padding * 0.7).
+        let gap: CGFloat = 2
+        var y = below ? (kf.minY - gap - size.height) : (kf.maxY + gap)
+        y = max(visible.minY, min(y, visible.maxY - size.height))
+        panel.setFrame(NSRect(x: kf.minX + kf.width / 3, y: y, width: size.width, height: size.height), display: true)
+        return below
+    }
+
+    private func observeKeyboardMove() {
+        guard let keyboard = view.window else { return }
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardMoved),
+                                               name: NSWindow.didMoveNotification, object: keyboard)
+    }
+
+    @objc private func keyboardMoved() {
+        guard let panel = suggestionPanel, panel.isVisible, !currentSuggestions.isEmpty else { return }
+        showSuggestions(currentSuggestions)
+    }
+
+    /// Replace the partial word with the chosen suggestion, then a space.
+    private func applySuggestion(_ word: String) {
+        let plan = SuggestionApplier.plan(currentWord: textTracker.currentWord, suggestion: word)
+        for _ in 0..<plan.backspaces { KeySender.send("Backspace") }
+        KeySender.sendText(plan.textToInsert)
+        textTracker.reset()
+        hideSuggestions()
     }
 
     // MARK: - Language switch
@@ -621,6 +755,8 @@ class ViewController: NSViewController {
     private func refreshForCurrentLayout() {
         updateLangFlag()
         relabelForCurrentLayout()
+        textTracker.reset()
+        hideSuggestions()
     }
 
     /// Relabel character keys to match the active keyboard layout (language).
@@ -642,6 +778,7 @@ class ViewController: NSViewController {
 
     deinit {
         DistributedNotificationCenter.default().removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
     }
 
     private func observeInputSourceChanges() {

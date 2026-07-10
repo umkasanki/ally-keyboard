@@ -68,6 +68,12 @@ enum InputSourceSwitcher {
         return String(lang.prefix(2)).uppercased()
     }
 
+    /// Primary language code (e.g. "en", "ru") of the active source.
+    static func currentLanguageCode() -> String? {
+        guard let source = currentSource() else { return nil }
+        return primaryLanguage(source)
+    }
+
     // MARK: - TIS helpers
 
     private static func selectableSources() -> [TISInputSource] {

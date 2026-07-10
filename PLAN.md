@@ -33,7 +33,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 > Goal: window with QWERTY buttons stays on top of all apps, can be dragged
 
 - [x] **1.1** Configure `AppDelegate` — create window on app launch
-  - Now runs as **`.accessory`** (no Dock icon) so clicking keys never steals focus. Menu-bar entry replaces the Dock icon (see 6.1, now required).
+  - Runs as `.regular` with a Dock icon (pink keyboard). Focus is preserved by the non-activating `NSPanel` (1.2), not by hiding from the Dock — verified `.regular` no longer steals focus once the panel is created non-activating.
 - [x] **1.2** Keyboard window is a **non-activating `NSPanel`** (`KeyboardPanel: NSPanel`):
   - Storyboard window given `customClass=KeyboardPanel` + `nonactivatingPanel` styleMask (set at creation)
   - `canBecomeKey/Main = false`; combined with `.accessory` policy → clicking keys never moves focus
@@ -85,20 +85,18 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
   - Update on Backspace
   - Lives in `AllyKeyboardCore` SPM package (platform-independent, no AppKit) — built & tested on Linux (WSL)
   - `KeyInput` enum + `KeyInput.from(keyID:shifted:)` mirrors `KeySender` vocabulary
-- [~] **3.2** Create `PredictionEngine` — wraps `NSSpellChecker.completions(forPartialWordRange:)`
+- [x] **3.2** Create `PredictionEngine` — wraps `NSSpellChecker.completions(forPartialWordRange:)`
   - Returns up to 5 suggestions for current buffer
   - Protocol `PredictionEngine` + portable `DictionaryPredictionEngine` done in `AllyKeyboardCore` (tested on Linux)
-  - TODO on Mac: `SpellCheckerPredictionEngine` adapter over `NSSpellChecker` conforming to the protocol
-- [ ] **3.3** Create `SuggestionBarView` — horizontal row of `NSButton` above keyboard
-  - Each button shows one suggestion
-  - Horizontally scrollable if suggestions overflow
-- [ ] **3.4** Connect: `TextTracker` → `PredictionEngine` → `SuggestionBarView`
-- [~] **3.5** Clicking a suggestion: delete current partial word (send N Backspaces), send suggestion + Space
+  - Done on Mac: `SpellCheckerPredictionEngine` adapter over `NSSpellChecker` (locale from the active input source)
+- [x] **3.3** `SuggestionBarView` — vertical list in a separate **docked balloon panel** (non-activating `NSPanel`, triangular tail pointing at the keyboard); docks above/below by available screen space, follows the keyboard on move. Flat rows on the keyboard background, hover highlight, typed prefix bright / completion dimmed.
+- [x] **3.4** Connected: keystrokes feed `TextTracker` (actual layout character), `SpellCheckerPredictionEngine` → docked panel. `AllyKeyboardCore` linked as a local Swift Package.
+- [x] **3.5** Clicking a suggestion: delete current partial word (send N Backspaces), send suggestion + Space
   - Logic done in `AllyKeyboardCore`: `SuggestionApplier.plan(...)` → `ReplacementPlan` (backspaces + text), keeps common prefix to minimise keystrokes. Tested on Linux.
-  - TODO on Mac: wire the plan to `KeySender` on suggestion click; reset `TextTracker` after.
-- [ ] **3.6** Support Russian language suggestions (NSSpellChecker locale: `ru_RU`)
+  - Done on Mac: plan applied via `KeySender` on click (Backspaces + `sendText`), `TextTracker` reset after.
+- [x] **3.6** Russian (and any enabled language) suggestions — NSSpellChecker locale follows the active input source.
 - [x] **3.7** Language switch button (`InputSourceSwitcher`): cycles the system input source (any enabled language), relabels keys to the active layout via `UCKeyTranslate`, types layout-correct characters (keycode-based, not unicode), shows a rounded flag card of the current language (flagpack SVG assets). Spell-checker locale to follow in prediction work.
-- [ ] **3.8** Test: type "hel" → suggestion "hello" appears → click → "hello " inserted
+- [x] **3.8** Verified on macOS 26.3: typing EN/RU shows suggestions; click inserts word + space.
 
 ---
 
@@ -128,8 +126,8 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Phase 6 — Menu Bar & Launch
 > Goal: keyboard can be shown/hidden from menu bar, optionally launches at login
 
-- [ ] **6.1** `NSStatusItem` in menu bar — icon, click toggles keyboard visibility  **(now REQUIRED: app is `.accessory`, no Dock icon → no other way to quit/show)**
-- [ ] **6.2** Right-click menu: Show/Hide Keyboard, Settings, Quit
+- [x] **6.1** `NSStatusItem` in menu bar — `StatusBarController` with Show/Hide Keyboard + Quit.
+- [x] **6.2** Menu: Show/Hide Keyboard, Quit (Settings later).
 - [ ] **6.3** Launch at Login toggle in Settings (using `SMAppService` on macOS 13+ or `LaunchAgent` plist)
 - [x] **6.4** App icon (1024×1024 PNG → xcassets) — done in 1.8
 
