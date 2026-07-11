@@ -24,6 +24,7 @@ enum KeySender {
         switch keyID {
         case "Space":     sendKeyCode(49)
         case "Backspace": sendKeyCode(51)
+        case "Delete":    sendKeyCode(117)
         case "Return":    sendKeyCode(36)
         case "Tab":       sendKeyCode(48)
         case "Escape":    sendKeyCode(53)

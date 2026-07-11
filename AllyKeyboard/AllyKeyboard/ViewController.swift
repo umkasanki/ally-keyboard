@@ -318,8 +318,8 @@ class ViewController: NSViewController {
          Key("Alt",        title: "⌥", w: 1.5),
          Key("Cmd",        title: "⌘", w: 1.5),
          Key("Space",      title: "",  w: 5.0),
-         Key("Cmd",        title: "⌘", w: 1.5),
-         Key("Alt",        title: "⌥", w: 1.5),
+         Key("Delete",     title: "del", w: 1.5, fontScale: 0.7),
+         Key("HideKeyboard", image: "keyboard-glyph", w: 1.5),
          Key("ArrowLeft",  image: "arrow.left"),
          Key("ArrowDown",  image: "arrow.down"),
          Key("ArrowRight", image: "arrow.right")],
@@ -484,11 +484,17 @@ class ViewController: NSViewController {
                 btn.target     = self
                 btn.action     = #selector(keyPressed(_:))
 
-                if let symbolName = key.image,
-                   let img = NSImage(systemSymbolName: symbolName,
-                                     accessibilityDescription: nil) {
+                if let imageName = key.image,
+                   let sym = NSImage(systemSymbolName: imageName, accessibilityDescription: nil) {
                     let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize * key.fontScale, weight: .medium)
-                    btn.image         = img.withSymbolConfiguration(cfg)
+                    btn.image         = sym.withSymbolConfiguration(cfg)
+                    btn.imagePosition = .imageOnly
+                } else if let imageName = key.image, let asset = NSImage(named: imageName) {
+                    asset.isTemplate = true
+                    let h = keyHeight * 0.4
+                    let sized = (asset.copy() as! NSImage)
+                    sized.size = NSSize(width: h * asset.size.width / max(asset.size.height, 1), height: h)
+                    btn.image         = sized
                     btn.imagePosition = .imageOnly
                 } else {
                     btn.title = key.title
@@ -560,6 +566,11 @@ class ViewController: NSViewController {
         if key == "LangSwitch" {
             InputSourceSwitcher.selectNext()
             refreshForCurrentLayout()
+            return
+        }
+
+        if key == "HideKeyboard" {
+            view.window?.orderOut(nil)
             return
         }
 

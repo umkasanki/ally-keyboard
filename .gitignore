@@ -30,3 +30,6 @@ build/
 
 # Claude Code local settings (personal, not for repo)
 .claude/settings.local.json
+
+# compiled icon generator binary
+tools/make-icon
