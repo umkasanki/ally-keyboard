@@ -14,11 +14,11 @@ public struct Settings: Codable, Equatable {
     public static let percentRange = 50...250
     /// Default saved phrases shown by the list ("Hi") key.
     public static let defaultGreetings = [
-        "Привет!",
-        "Здравствуйте!",
-        "Доброе утро!",
-        "Добрый день!",
-        "Как дела?",
+        "Hello!",
+        "Hi there!",
+        "Good morning!",
+        "Good afternoon!",
+        "How are you?",
     ]
 
     /// Keyboard size as a percentage; 100% == `baseScale`.
