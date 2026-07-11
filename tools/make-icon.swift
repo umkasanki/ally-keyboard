@@ -49,8 +49,9 @@ glyph.addPath(rr(startX, sbY, keyW, keyH, 3))     // left key
 glyph.addPath(rr(67, sbY, 66, keyH, 3))           // spacebar
 glyph.addPath(rr(137, sbY, keyW, keyH, 3))        // right key
 
-// No horizontal squeeze — the glyph is already proportioned.
+// Enlarge the glyph ~25% around the icon centre.
 cg.saveGState()
+cg.translateBy(x: 100, y: 100); cg.scaleBy(x: 1.25, y: 1.25); cg.translateBy(x: -100, y: -100)
 
 cg.saveGState()
 cg.setShadow(offset: CGSize(width: 0, height: 5), blur: 7, color: rgb(0.4, 0.03, 0.13, 0.35))
