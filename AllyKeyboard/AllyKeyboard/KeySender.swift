@@ -47,9 +47,9 @@ enum KeySender {
         case "fn", "Ctrl", "Alt", "Cmd", "CapsLock":
             break // modifier-only keys — no action yet
         case "Hi":
-            break // greeting suggestions — to be implemented in Phase 3
-        case "LangSwitch":
-            break // language switch — to be implemented in Phase 3
+            break // greetings placeholder — not wired yet
+        case "LangSwitch", "HideKeyboard":
+            break // handled in ViewController before reaching KeySender
         default:
             // Prefer virtual keycode so the active system layout (language) applies;
             // fall back to unicode for anything without a known keycode.

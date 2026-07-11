@@ -24,8 +24,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Request Accessibility permission needed for CGEvent key simulation.
         KeySender.requestAccessibilityIfNeeded()
 
-        // Menu-bar entry: the app is LSUIElement (no Dock icon), so this is the
-        // only way to show/hide the keyboard or quit it.
+        // Menu-bar entry: left click toggles the keyboard, right click opens the menu.
         statusBar = StatusBarController(onToggleKeyboard: {
             guard let panel = NSApp.windows.first(where: { $0 is KeyboardPanel }) else { return }
             if panel.isVisible { panel.orderOut(nil) } else { panel.orderFront(nil) }
@@ -46,7 +45,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 
-/// Menu-bar icon — the only entry point once the app is LSUIElement (no Dock icon).
+/// Menu-bar icon: left click toggles the keyboard, right/ctrl click opens the menu.
 final class StatusBarController {
     private let item: NSStatusItem
     private let menu = NSMenu()
