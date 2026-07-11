@@ -33,19 +33,24 @@ func rr(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ r: CGFloat) ->
     CGPath(roundedRect: CGRect(x: x, y: y, width: w, height: h), cornerWidth: r, cornerHeight: r, transform: nil)
 }
 
-// Keyboard glyph: body + 3×6 keys + spacebar, keys punched out (even-odd).
+// Keyboard glyph (matches icons/keyboard-glyph-4row.svg): rounded-rect border
+// + 3×6 filled keys + spacebar row, all white via even-odd fill.
+let strokeW: CGFloat = 6
 let glyph = CGMutablePath()
-glyph.addPath(rr(40, 66, 120, 68, 14))
-let keyW: CGFloat = 12, keyH: CGFloat = 10, gapX: CGFloat = 5, gapY: CGFloat = 4, startX: CGFloat = 50
+glyph.addPath(rr(40, 57, 120, 86, 14))                                                            // outer border
+glyph.addPath(rr(40 + strokeW, 57 + strokeW, 120 - 2 * strokeW, 86 - 2 * strokeW, 14 - strokeW))  // inner cut → frame ring
+let keyW: CGFloat = 13, keyH: CGFloat = 12, gapX: CGFloat = 4.4, gapY: CGFloat = 4, startX: CGFloat = 50
 for row in 0..<3 {
-    let y = 78 + CGFloat(row) * (keyH + gapY)
+    let y = 68 + CGFloat(row) * (keyH + gapY)
     for col in 0..<6 { glyph.addPath(rr(startX + CGFloat(col) * (keyW + gapX), y, keyW, keyH, 3)) }
 }
-glyph.addPath(rr(70, 120, 60, 8, 4))
+let sbY: CGFloat = 116                            // 68 + 3 rows × (keyH + gapY)
+glyph.addPath(rr(startX, sbY, keyW, keyH, 3))     // left key
+glyph.addPath(rr(67, sbY, 66, keyH, 3))           // spacebar
+glyph.addPath(rr(137, sbY, keyW, keyH, 3))        // right key
 
-// Squeeze horizontally (~12% narrower), keep height.
+// No horizontal squeeze — the glyph is already proportioned.
 cg.saveGState()
-cg.translateBy(x: 100, y: 100); cg.scaleBy(x: 1.074, y: 1.22); cg.translateBy(x: -100, y: -100)
 
 cg.saveGState()
 cg.setShadow(offset: CGSize(width: 0, height: 5), blur: 7, color: rgb(0.4, 0.03, 0.13, 0.35))
