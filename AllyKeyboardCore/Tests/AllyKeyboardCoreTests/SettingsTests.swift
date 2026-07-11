@@ -7,7 +7,22 @@ final class SettingsTests: XCTestCase {
     func testDefaults() {
         let s = Settings()
         XCTAssertEqual(s.sizePercent, 100)
+        XCTAssertTrue(s.showSuggestions)
         XCTAssertEqual(s.scale, Settings.baseScale, accuracy: 0.0001)   // 100% == base
+    }
+
+    func testShowSuggestionsRoundTrip() {
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        let settings = Settings(sizePercent: 100, showSuggestions: false)
+        store.save(settings)
+        XCTAssertEqual(store.load(), settings)
+    }
+
+    func testDecodesLegacyWithoutShowSuggestions() throws {
+        let json = Data(#"{"sizePercent":120}"#.utf8)
+        let s = try JSONDecoder().decode(Settings.self, from: json)
+        XCTAssertEqual(s.sizePercent, 120)
+        XCTAssertTrue(s.showSuggestions)   // defaults to true when the key is absent
     }
 
     func testScaleScalesWithPercent() {

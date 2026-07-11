@@ -18,14 +18,27 @@ public struct Settings: Codable, Equatable {
         didSet { sizePercent = Settings.clampPercent(sizePercent) }
     }
 
+    /// Whether the word-prediction panel appears while typing.
+    public var showSuggestions: Bool
+
     /// Concrete scale factor applied to the base layout metrics.
     public var scale: Double { Settings.baseScale * Double(sizePercent) / 100.0 }
 
-    public init(sizePercent: Int = 100) {
+    public init(sizePercent: Int = 100, showSuggestions: Bool = true) {
         self.sizePercent = Settings.clampPercent(sizePercent)   // didSet does not run in init
+        self.showSuggestions = showSuggestions
     }
 
     public static func clampPercent(_ percent: Int) -> Int {
         min(percentRange.upperBound, max(percentRange.lowerBound, percent))
+    }
+
+    // Decode leniently so older saved settings (missing new keys) still load.
+    private enum CodingKeys: String, CodingKey { case sizePercent, showSuggestions }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.sizePercent = Settings.clampPercent(try c.decodeIfPresent(Int.self, forKey: .sizePercent) ?? 100)
+        self.showSuggestions = try c.decodeIfPresent(Bool.self, forKey: .showSuggestions) ?? true
     }
 }
