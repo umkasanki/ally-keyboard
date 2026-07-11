@@ -35,7 +35,7 @@ func rr(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ r: CGFloat) ->
 
 // Keyboard glyph (matches icons/keyboard-glyph-3row.svg): rounded-rect border
 // + 2×6 filled keys + spacebar row (3 rows total), all white via even-odd fill.
-let strokeW: CGFloat = 6
+let strokeW: CGFloat = 8
 let glyph = CGMutablePath()
 glyph.addPath(rr(40, 66, 120, 68, 14))                                                            // outer border
 glyph.addPath(rr(40 + strokeW, 66 + strokeW, 120 - 2 * strokeW, 68 - 2 * strokeW, 14 - strokeW))  // inner cut → frame ring
