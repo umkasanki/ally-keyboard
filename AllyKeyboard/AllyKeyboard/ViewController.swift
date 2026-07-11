@@ -56,12 +56,7 @@ final class CustomStatusBar: NSView {
         minimizeBtn.layer?.backgroundColor = NSColor.systemYellow.cgColor
         minimizeBtn.layer?.masksToBounds   = true
         minimizeBtn.translatesAutoresizingMaskIntoConstraints = false
-        minimizeBtn.attributedTitle = NSAttributedString(
-            string: "Hide",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
-                .foregroundColor: NSColor.black.withAlphaComponent(0.75),
-            ])
+        minimizeBtn.title = ""
         minimizeBtn.target = self
         minimizeBtn.action = #selector(minimizeTapped)
         addSubview(minimizeBtn)
