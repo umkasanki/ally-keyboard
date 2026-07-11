@@ -31,12 +31,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         })
     }
 
-    // Clicking the Dock icon re-shows the keyboard after it was hidden.
+    /// Toggle the keyboard panel's visibility (shared by the Dock icon click/menu).
+    @objc private func togglePanel() {
+        guard let panel = NSApp.windows.first(where: { $0 is KeyboardPanel }) else { return }
+        if panel.isVisible { panel.orderOut(nil) } else { panel.orderFront(nil) }
+    }
+
+    // Left click on the Dock icon toggles the keyboard (show if hidden, hide if shown).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag, let panel = NSApp.windows.first(where: { $0 is KeyboardPanel }) {
-            panel.orderFront(nil)
-        }
+        togglePanel()
         return true
+    }
+
+    // Right click (or click-hold) on the Dock icon shows this menu.
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Show / Hide Keyboard", action: #selector(togglePanel), keyEquivalent: "").target = self
+        return menu
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
