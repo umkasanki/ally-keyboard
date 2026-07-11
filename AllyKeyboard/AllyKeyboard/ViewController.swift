@@ -224,6 +224,56 @@ class ViewController: NSViewController {
         }
     }
 
+    // MARK: - Settings
+
+    private let settingsStore = SettingsStore()
+    private var settings = Settings()
+
+    var currentSizePercent: Int { settings.sizePercent }
+
+    /// Apply and persist a new size preset (live-resizes the keyboard).
+    func applySizePercent(_ percent: Int) {
+        settings.sizePercent = percent
+        settingsStore.save(settings)
+        scale = CGFloat(settings.scale)
+    }
+
+    var currentShowSuggestions: Bool { settings.showSuggestions }
+
+    func applyShowSuggestions(_ on: Bool) {
+        settings.showSuggestions = on
+        settingsStore.save(settings)
+        if !on { hideSuggestions() }
+    }
+
+    var currentSavedPhrases: [String] { settings.savedPhrases }
+
+    func applySavedPhrases(_ phrases: [String]) {
+        settings.savedPhrases = phrases
+        settingsStore.save(settings)
+    }
+
+    // MARK: - Saved phrases (list key)
+
+    private func showGreetingsMenu(from view: NSView) {
+        let phrases = settings.savedPhrases
+        guard !phrases.isEmpty else { return }
+        let menu = NSMenu()
+        for phrase in phrases {
+            let item = menu.addItem(withTitle: phrase, action: #selector(greetingSelected(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = phrase
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.bounds.height), in: view)
+    }
+
+    @objc private func greetingSelected(_ sender: NSMenuItem) {
+        guard let phrase = sender.representedObject as? String else { return }
+        KeySender.sendText(phrase)
+        textTracker.reset()
+        hideSuggestions()
+    }
+
     // MARK: - Scaled layout values (base constants live in AppConfig.Layout)
 
     private var keyWidth:         CGFloat { AppConfig.Layout.keyWidth    * scale }
@@ -393,6 +443,8 @@ class ViewController: NSViewController {
     override func viewWillAppear() {
         super.viewWillAppear()
         guard let window = view.window, !windowConfigured else { return }
+        settings = settingsStore.load()
+        scale = CGFloat(settings.scale)   // windowConfigured still false -> just stores
         windowConfigured = true
 
         window.appearance = NSAppearance(named: .darkAqua)
@@ -574,6 +626,11 @@ class ViewController: NSViewController {
             return
         }
 
+        if key == "Hi" {
+            showGreetingsMenu(from: sender)
+            return
+        }
+
         let modifierFlags = eventFlags(from: activeModifiers)
         let wasShifted = isShifted
         KeySender.send(key, shifted: isShifted, modifiers: modifierFlags)
@@ -626,7 +683,7 @@ class ViewController: NSViewController {
     }
 
     private func refreshSuggestions() {
-        guard textTracker.hasPartialWord else { hideSuggestions(); return }
+        guard settings.showSuggestions, textTracker.hasPartialWord else { hideSuggestions(); return }
         speller.language = InputSourceSwitcher.currentLanguageCode()
         let words = speller.suggestions(for: textTracker.currentWord, limit: suggestionBarSlots)
         showSuggestions(words)

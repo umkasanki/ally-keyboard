@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 
     private var statusBar: StatusBarController!
+    private var settingsWindow: SettingsWindowController?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // Enforce single instance: if another copy is already running, quit this one.
@@ -25,10 +26,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         KeySender.requestAccessibilityIfNeeded()
 
         // Menu-bar entry: left click toggles the keyboard, right click opens the menu.
-        statusBar = StatusBarController(onToggleKeyboard: {
-            guard let panel = NSApp.windows.first(where: { $0 is KeyboardPanel }) else { return }
-            if panel.isVisible { panel.orderOut(nil) } else { panel.orderFront(nil) }
-        })
+        statusBar = StatusBarController(
+            onToggleKeyboard: { [weak self] in self?.togglePanel() },
+            onOpenSettings: { [weak self] in self?.openSettings() })
+
+        // Launched at login -> start hidden (available via the Dock / menu bar).
+        if LoginItem.isEnabled {
+            DispatchQueue.main.async {
+                NSApp.windows.first(where: { $0 is KeyboardPanel })?.orderOut(nil)
+            }
+        }
     }
 
     /// Toggle the keyboard panel's visibility (shared by the Dock icon click/menu).
@@ -47,7 +54,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()
         menu.addItem(withTitle: "Show / Hide Keyboard", action: #selector(togglePanel), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Settings\u{2026}", action: #selector(openSettings), keyEquivalent: "").target = self
         return menu
+    }
+
+    private func keyboardViewController() -> ViewController? {
+        NSApp.windows.first(where: { $0 is KeyboardPanel })?.contentViewController as? ViewController
+    }
+
+    @objc func openSettings() {
+        guard let vc = keyboardViewController() else { return }
+        let win = SettingsWindowController(
+            currentPercent: vc.currentSizePercent,
+            currentShowSuggestions: vc.currentShowSuggestions,
+            currentSavedPhrases: vc.currentSavedPhrases,
+            onPercentChange: { [weak vc] percent in vc?.applySizePercent(percent) },
+            onShowSuggestionsChange: { [weak vc] on in vc?.applyShowSuggestions(on) },
+            onSavedPhrasesChange: { [weak vc] phrases in vc?.applySavedPhrases(phrases) })
+        settingsWindow = win
+        win.present()
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
@@ -61,12 +86,15 @@ final class StatusBarController {
     private let item: NSStatusItem
     private let menu = NSMenu()
     private let onToggleKeyboard: () -> Void
+    private let onOpenSettings: () -> Void
 
-    init(onToggleKeyboard: @escaping () -> Void) {
+    init(onToggleKeyboard: @escaping () -> Void, onOpenSettings: @escaping () -> Void) {
         self.onToggleKeyboard = onToggleKeyboard
+        self.onOpenSettings = onOpenSettings
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
         menu.addItem(withTitle: "Show / Hide Keyboard", action: #selector(toggle), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Settings\u{2026}", action: #selector(openSettingsItem), keyEquivalent: ",").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit AllyKeyboard", action: #selector(quit), keyEquivalent: "q").target = self
 
@@ -97,5 +125,6 @@ final class StatusBarController {
     }
 
     @objc private func toggle() { onToggleKeyboard() }
+    @objc private func openSettingsItem() { onOpenSettings() }
     @objc private func quit() { NSApp.terminate(nil) }
 }
