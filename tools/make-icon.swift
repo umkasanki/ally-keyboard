@@ -60,7 +60,7 @@ cg.restoreGState()
 
 cg.saveGState()
 cg.addPath(glyph); cg.clip(using: .evenOdd)
-cg.drawLinearGradient(CGGradient(colorsSpace: space, colors: [rgb(1, 1, 1), rgb(0.965, 0.878, 0.898)] as CFArray, locations: [0, 1])!,
+cg.drawLinearGradient(CGGradient(colorsSpace: space, colors: [rgb(1, 1, 1), rgb(1, 1, 1), rgb(0.86, 0.72, 0.75)] as CFArray, locations: [0, 0.5, 1])!,
                       start: CGPoint(x: 100, y: 60), end: CGPoint(x: 100, y: 140), options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
 cg.restoreGState()
 
