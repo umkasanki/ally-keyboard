@@ -5,13 +5,27 @@ import Foundation
 final class SettingsTests: XCTestCase {
 
     func testDefaults() {
-        XCTAssertEqual(Settings().sizePreset, .medium)
+        let s = Settings()
+        XCTAssertEqual(s.sizePercent, 100)
+        XCTAssertEqual(s.scale, Settings.baseScale, accuracy: 0.0001)   // 100% == base
     }
 
-    func testPresetScales() {
-        XCTAssertEqual(Settings.SizePreset.small.scale, 1.2)
-        XCTAssertEqual(Settings.SizePreset.medium.scale, 1.5)
-        XCTAssertEqual(Settings.SizePreset.large.scale, 1.9)
+    func testScaleScalesWithPercent() {
+        XCTAssertEqual(Settings(sizePercent: 200).scale, Settings.baseScale * 2, accuracy: 0.0001)
+        XCTAssertEqual(Settings(sizePercent: 50).scale, Settings.baseScale * 0.5, accuracy: 0.0001)
+    }
+
+    func testPercentClampedOnInit() {
+        XCTAssertEqual(Settings(sizePercent: 1000).sizePercent, 250)
+        XCTAssertEqual(Settings(sizePercent: 10).sizePercent, 50)
+    }
+
+    func testPercentClampedOnMutation() {
+        var s = Settings()
+        s.sizePercent = 9999
+        XCTAssertEqual(s.sizePercent, 250)
+        s.sizePercent = -5
+        XCTAssertEqual(s.sizePercent, 50)
     }
 
     func testStoreDefaultsWhenEmpty() {
@@ -21,7 +35,7 @@ final class SettingsTests: XCTestCase {
 
     func testStoreRoundTrip() {
         let store = SettingsStore(defaults: freshDefaults(), key: "s")
-        let settings = Settings(sizePreset: .large)
+        let settings = Settings(sizePercent: 140)
         store.save(settings)
         XCTAssertEqual(store.load(), settings)
     }
