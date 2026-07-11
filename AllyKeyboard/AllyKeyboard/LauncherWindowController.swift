@@ -3,9 +3,9 @@
 //  AllyKeyboard
 //
 //  A small floating panel shown when the keyboard is hidden. Clicking it brings
-//  the keyboard back; it can be dragged around (clamped to the screen). Size /
-//  corner radius / background mirror AllyClicker's panel (70pt, 12pt radius,
-//  windowBackgroundColor).
+//  the keyboard back; it can be dragged around (clamped to the screen). Width and
+//  opacity are configurable in Settings; the corner radius is 10% of the width and
+//  the glyph is 60% of the width.
 //
 
 import AppKit
@@ -14,11 +14,12 @@ final class LauncherWindowController {
 
     let window: NSPanel
     private let onClick: () -> Void
-    private let size: CGFloat = 50
+    private var size: CGFloat
     private static let originKey = "AllyKeyboard.launcherOrigin"
 
-    init(onClick: @escaping () -> Void) {
+    init(width: CGFloat = 50, alpha: CGFloat = 1.0, onClick: @escaping () -> Void) {
         self.onClick = onClick
+        self.size = width
 
         window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: size, height: size),
                          styleMask: [.borderless, .nonactivatingPanel],
@@ -31,6 +32,7 @@ final class LauncherWindowController {
         window.backgroundColor = .clear
         window.isOpaque = false
         window.hasShadow = true
+        window.alphaValue = alpha
 
         let container = LauncherView(frame: NSRect(x: 0, y: 0, width: size, height: size),
                                      onClick: onClick,
@@ -45,11 +47,30 @@ final class LauncherWindowController {
         window.orderFront(nil)
     }
 
+    func hide() { window.orderOut(nil) }
+
+    /// Resize the panel (keeping it clamped on screen), radius/glyph follow the width.
+    func setWidth(_ width: CGFloat) {
+        size = width
+        var frame = window.frame
+        frame.size = NSSize(width: width, height: width)
+        window.setFrame(frame, display: true)
+        window.setFrameOrigin(clampToScreen(frame.origin))
+        window.contentView?.needsLayout = true
+        window.contentView?.needsDisplay = true
+    }
+
+    func setOpacity(_ alpha: CGFloat) {
+        window.alphaValue = alpha
+    }
+
+    // MARK: - Position persistence
+
     /// Restore the last dragged position (if any and still on a visible screen),
     /// otherwise fall back to the default spot.
     private func restorePosition() {
         if let origin = savedOrigin(), isOnAnyScreen(origin) {
-            window.setFrameOrigin(origin)
+            window.setFrameOrigin(clampToScreen(origin))
         } else {
             positionAtDefault()
         }
@@ -71,8 +92,6 @@ final class LauncherWindowController {
         return NSScreen.screens.contains { $0.visibleFrame.intersects(frame) }
     }
 
-    func hide() { window.orderOut(nil) }
-
     private func positionAtDefault() {
         guard let screen = NSScreen.main else { return }
         let visible = screen.visibleFrame
@@ -83,15 +102,24 @@ final class LauncherWindowController {
         let y = visible.minY + margin
         window.setFrameOrigin(NSPoint(x: x, y: y))
     }
+
+    private func clampToScreen(_ origin: NSPoint) -> NSPoint {
+        let screen = window.screen ?? NSScreen.main
+        guard let visible = screen?.visibleFrame else { return origin }
+        let x = min(max(origin.x, visible.minX), visible.maxX - size)
+        let y = min(max(origin.y, visible.minY), visible.maxY - size)
+        return NSPoint(x: x, y: y)
+    }
 }
 
-/// Rounded panel background (12pt radius, windowBackgroundColor) that also handles
-/// dragging the window and click-to-restore. A short press acts as a click; moving
-/// beyond a small threshold drags the window, clamped to the screen's visible frame.
+/// Rounded panel background (radius = 10% of width, windowBackgroundColor) that also
+/// handles dragging and click-to-restore. A short press acts as a click; moving beyond
+/// a small threshold drags the window, clamped to the screen's visible frame.
 private final class LauncherView: NSView {
 
     private let onClick: () -> Void
     private let onMoved: (NSPoint) -> Void
+    private let glyph = NSImageView()
     private var mouseDownScreen: NSPoint = .zero   // cursor at press (screen coords)
     private var windowOriginAtDown: NSPoint = .zero
     private var didDrag = false
@@ -101,8 +129,6 @@ private final class LauncherView: NSView {
         self.onClick = onClick
         self.onMoved = onMoved
         super.init(frame: frame)
-        let glyph = NSImageView(frame: bounds.insetBy(dx: 10, dy: 10))
-        glyph.autoresizingMask = [.width, .height]
         glyph.imageScaling = .scaleProportionallyDown
         if let image = NSImage(named: "keyboard-glyph") {
             image.isTemplate = true
@@ -114,8 +140,16 @@ private final class LauncherView: NSView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    override func layout() {
+        super.layout()
+        // Glyph is 60% of the width, centered.
+        let inset = bounds.width * 0.20
+        glyph.frame = bounds.insetBy(dx: inset, dy: inset)
+    }
+
     override func draw(_ dirtyRect: NSRect) {
-        let path = NSBezierPath(roundedRect: bounds, xRadius: 12, yRadius: 12)
+        let radius = bounds.width * 0.10
+        let path = NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius)
         NSColor.windowBackgroundColor.setFill()
         path.fill()
     }

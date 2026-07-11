@@ -10,7 +10,7 @@ import AllyKeyboardCore
 
 final class CustomStatusBar: NSView {
 
-    private let titleLabel  = NSTextField(labelWithString: "AllyKeyboard")
+    private let titleIcon   = NSImageView()
     private let minimizeBtn = NSButton()
 
     override init(frame: NSRect) { super.init(frame: frame); setup() }
@@ -21,21 +21,32 @@ final class CustomStatusBar: NSView {
         layer?.backgroundColor = AppConfig.Colors.statusBarBg.cgColor
         setupTitle()
         setupMinimizeButton()
-        NSLayoutConstraint.activate([
-            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            minimizeBtn.widthAnchor.constraint(equalToConstant: 36),
-            minimizeBtn.heightAnchor.constraint(equalToConstant: 12),
+        var constraints: [NSLayoutConstraint] = [
+            titleIcon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            titleIcon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            titleIcon.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.50),
+            minimizeBtn.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.5),
+            minimizeBtn.widthAnchor.constraint(equalTo: minimizeBtn.heightAnchor, multiplier: 3),
             minimizeBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
             minimizeBtn.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-        ])
+        ]
+        // Keep the glyph's aspect ratio (3-row keyboard is wider than tall).
+        if let image = titleIcon.image, image.size.height > 0 {
+            let aspect = image.size.width / image.size.height
+            constraints.append(titleIcon.widthAnchor.constraint(equalTo: titleIcon.heightAnchor, multiplier: aspect))
+        }
+        NSLayoutConstraint.activate(constraints)
     }
 
     private func setupTitle() {
-        titleLabel.font      = NSFont.systemFont(ofSize: 13, weight: .regular)
-        titleLabel.textColor = NSColor(white: 1.0, alpha: 0.85)
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(titleLabel)
+        titleIcon.translatesAutoresizingMaskIntoConstraints = false
+        titleIcon.imageScaling = .scaleProportionallyUpOrDown
+        if let image = NSImage(named: "keyboard-glyph") {
+            image.isTemplate = true
+            titleIcon.image = image
+            titleIcon.contentTintColor = NSColor(white: 1.0, alpha: 1.0)
+        }
+        addSubview(titleIcon)
     }
 
     private func setupMinimizeButton() {
@@ -45,6 +56,12 @@ final class CustomStatusBar: NSView {
         minimizeBtn.layer?.backgroundColor = NSColor.systemYellow.cgColor
         minimizeBtn.layer?.masksToBounds   = true
         minimizeBtn.translatesAutoresizingMaskIntoConstraints = false
+        minimizeBtn.attributedTitle = NSAttributedString(
+            string: "Hide",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
+                .foregroundColor: NSColor.black.withAlphaComponent(0.75),
+            ])
         minimizeBtn.target = self
         minimizeBtn.action = #selector(minimizeTapped)
         addSubview(minimizeBtn)
@@ -123,6 +140,8 @@ final class KeyButton: NSButton {
     var secondaryFontSize: CGFloat = 8
     /// Character to send when Shift is active (overrides uppercased keyID for punctuation)
     var shiftedChar: String?
+    /// When set, the key always types this literal string, regardless of the active layout.
+    var literalChar: String?
 
     override init(frame: NSRect) { super.init(frame: frame); configure() }
     required init?(coder: NSCoder) { super.init(coder: coder); configure() }
@@ -196,19 +215,22 @@ class ViewController: NSViewController {
         let image:           String?     // SF Symbol — overrides title when set
         let widthMultiplier: CGFloat     // 1.0 = standard key width
         let fontScale:       CGFloat     // title font size multiplier (1.0 = default)
+        let fixed:           Bool        // label/output never change with the active layout
 
         init(_ id: String,
              title: String? = nil,
              secondary: String? = nil,
              image: String? = nil,
              w: CGFloat = 1.0,
-             fontScale: CGFloat = 1.0) {
+             fontScale: CGFloat = 1.0,
+             fixed: Bool = false) {
             self.id              = id
             self.title           = title ?? id
             self.secondary       = secondary
             self.image           = image
             self.widthMultiplier = w
             self.fontScale       = fontScale
+            self.fixed           = fixed
         }
     }
 
@@ -253,6 +275,54 @@ class ViewController: NSViewController {
         settingsStore.save(settings)
     }
 
+    var currentLauncherWidth: Int { settings.launcherWidth }
+
+    func applyLauncherWidth(_ width: Int) {
+        settings.launcherWidth = width
+        settingsStore.save(settings)
+        (NSApp.delegate as? AppDelegate)?.updateLauncherWidth(settings.launcherWidth)
+    }
+
+    var currentLauncherOpacity: Int { settings.launcherOpacityPercent }
+
+    func applyLauncherOpacity(_ percent: Int) {
+        settings.launcherOpacityPercent = percent
+        settingsStore.save(settings)
+        (NSApp.delegate as? AppDelegate)?.updateLauncherOpacity(settings.launcherOpacityPercent)
+    }
+
+    var currentTopBarHeight: Int { settings.topBarHeight }
+
+    /// Apply and persist the top-bar height in points (live-resizes the keyboard window).
+    func applyTopBarHeight(_ pt: Int) {
+        settings.topBarHeight = pt
+        settingsStore.save(settings)
+        rebuildForBarChange()
+    }
+
+    var currentBottomBarShow: Bool { settings.bottomBarShow }
+
+    func applyBottomBarShow(_ show: Bool) {
+        settings.bottomBarShow = show
+        settingsStore.save(settings)
+        rebuildForBarChange()
+    }
+
+    var currentBottomBarHeight: Int { settings.bottomBarHeight }
+
+    func applyBottomBarHeight(_ pt: Int) {
+        settings.bottomBarHeight = pt
+        settingsStore.save(settings)
+        rebuildForBarChange()
+    }
+
+    /// Resize the window and rebuild the layout after a bar setting changes.
+    private func rebuildForBarChange() {
+        guard windowConfigured, let window = view.window else { return }
+        window.setContentSize(keyboardSize)
+        buildKeyboard()
+    }
+
     // MARK: - Saved phrases (list key)
 
     private func showGreetingsMenu(from view: NSView) {
@@ -289,21 +359,21 @@ class ViewController: NSViewController {
             : keyWidth * key.widthMultiplier + keySpacing * (key.widthMultiplier - 1)
     }
 
-    /// Set from actual window title bar height in viewWillAppear.
-    private var dragHandleHeight: CGFloat = 0
-    /// Matches dragHandleHeight — all three bars (native, custom, drag) are the same height.
-    private var customStatusBarHeight: CGFloat { dragHandleHeight }
+    /// Top minimize strip — a fixed height in points (from Settings).
+    private var customStatusBarHeight: CGFloat { CGFloat(settings.topBarHeight) }
+    /// Bottom drag bar — a fixed height in points, or 0 when hidden.
+    private var dragBarHeight: CGFloat { settings.bottomBarShow ? CGFloat(settings.bottomBarHeight) : 0 }
 
     // MARK: - Keyboard rows
 
     private let functionRow: [Key] = [
         Key("Escape", title: "esc", w: 1.5, fontScale: 0.7),
         Key("Hi",     image: "list.bullet"),
-        Key("@",  title: "@"),
-        Key("!",  title: "!"),
-        Key("?",  title: "?"),
-        Key(".",  title: "."),
-        Key(",",          title: ","),
+        Key("@",  title: "@", fixed: true),
+        Key("!",  title: "!", fixed: true),
+        Key("?",  title: "?", fixed: true),
+        Key(".",  title: ".", fixed: true),
+        Key(",",  title: ",", fixed: true),
         Key("Mute",       image: "speaker.slash.fill"),
         Key("VolumeDown", image: "speaker.minus.fill"),
         Key("VolumeUp",   image: "speaker.plus.fill"),
@@ -385,7 +455,7 @@ class ViewController: NSViewController {
         let contentW = allRows.map { rowPixelWidth($0) }.max() ?? 0
         let w = contentW + padding * 2
         let statusBarH = AppConfig.useCustomTitleBar ? customStatusBarHeight : 0
-        let h = CGFloat(allRows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragHandleHeight + statusBarH
+        let h = CGFloat(allRows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragBarHeight + statusBarH
         return NSSize(width: w, height: h)
     }
 
@@ -460,9 +530,6 @@ class ViewController: NSViewController {
             panel.becomesKeyOnlyIfNeeded = true
         }
 
-        // Compute title bar height BEFORE fullSizeContentView changes the geometry
-        dragHandleHeight = window.frame.height - window.contentRect(forFrameRect: window.frame).height
-
         if AppConfig.useCustomTitleBar {
             // Expand content into title bar zone so CustomStatusBar can sit there
             window.titlebarAppearsTransparent = true
@@ -507,10 +574,12 @@ class ViewController: NSViewController {
 
         let size       = keyboardSize  // compute once
         let contentW   = size.width - padding * 2
-        let symbolSize = keyFontSizePrimary * 0.65
+        let symbolSize = keyFontSizePrimary * 0.85
 
-        let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: size.width, height: dragHandleHeight))
-        view.addSubview(handle)
+        if settings.bottomBarShow {
+            let handle = DragHandle(frame: NSRect(x: 0, y: 0, width: size.width, height: dragBarHeight))
+            view.addSubview(handle)
+        }
 
         if AppConfig.useCustomTitleBar {
             let statusBar = CustomStatusBar(frame: NSRect(
@@ -524,7 +593,7 @@ class ViewController: NSViewController {
 
         for (rowIndex, row) in allRows.enumerated() {
             let flippedRow = allRows.count - 1 - rowIndex
-            let y = dragHandleHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
+            let y = dragBarHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
             let rowWidth = rowPixelWidth(row)
             var x = padding + (contentW - rowWidth) / 2
@@ -578,8 +647,11 @@ class ViewController: NSViewController {
                     langSwitchButtons.append(btn)
                 }
 
-                if let code = KeySender.keyCode(for: key.id),
-                   !Self.nonCharacterKeys.contains(key.id) {
+                if key.fixed {
+                    // Fixed keys always type their own literal and never relabel.
+                    btn.literalChar = key.id
+                } else if let code = KeySender.keyCode(for: key.id),
+                          !Self.nonCharacterKeys.contains(key.id) {
                     characterButtons.append((btn, code))
                 }
 
@@ -628,6 +700,15 @@ class ViewController: NSViewController {
 
         if key == "Hi" {
             showGreetingsMenu(from: sender)
+            return
+        }
+
+        // Fixed keys (top-row punctuation) type their literal, independent of layout.
+        if activeModifiers.isEmpty, let literal = (sender as? KeyButton)?.literalChar {
+            KeySender.sendText(literal)
+            if let c = literal.first { textTracker.handle(.character(c)) }
+            if isShifted { isShifted = false }
+            refreshSuggestions()
             return
         }
 

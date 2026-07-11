@@ -6,6 +6,7 @@
 //
 
 import Cocoa
+import AllyKeyboardCore
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
@@ -32,7 +33,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onOpenSettings: { [weak self] in self?.openSettings() })
 
         // Floating launcher shown while the keyboard is hidden; click brings it back.
-        launcher = LauncherWindowController { [weak self] in self?.showKeyboard() }
+        let s = SettingsStore().load()
+        launcher = LauncherWindowController(width: CGFloat(s.launcherWidth),
+                                            alpha: CGFloat(s.launcherAlpha)) { [weak self] in
+            self?.showKeyboard()
+        }
 
         // Launched at login -> start hidden (the launcher stands in for the keyboard).
         if LoginItem.isEnabled {
@@ -60,6 +65,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if keyboardPanel()?.isVisible == true { hideKeyboard() } else { showKeyboard() }
     }
 
+    /// Apply a new launcher width live (called from Settings).
+    func updateLauncherWidth(_ width: Int) { launcher?.setWidth(CGFloat(width)) }
+
+    /// Apply a new launcher opacity live (called from Settings).
+    func updateLauncherOpacity(_ percent: Int) { launcher?.setOpacity(CGFloat(percent) / 100.0) }
+
     // Left click on the Dock icon toggles the keyboard (show if hidden, hide if shown).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         togglePanel()
@@ -84,9 +95,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             currentPercent: vc.currentSizePercent,
             currentShowSuggestions: vc.currentShowSuggestions,
             currentSavedPhrases: vc.currentSavedPhrases,
+            currentLauncherWidth: vc.currentLauncherWidth,
+            currentLauncherOpacity: vc.currentLauncherOpacity,
+            currentTopBarHeight: vc.currentTopBarHeight,
+            currentBottomBarShow: vc.currentBottomBarShow,
+            currentBottomBarHeight: vc.currentBottomBarHeight,
             onPercentChange: { [weak vc] percent in vc?.applySizePercent(percent) },
             onShowSuggestionsChange: { [weak vc] on in vc?.applyShowSuggestions(on) },
-            onSavedPhrasesChange: { [weak vc] phrases in vc?.applySavedPhrases(phrases) })
+            onSavedPhrasesChange: { [weak vc] phrases in vc?.applySavedPhrases(phrases) },
+            onLauncherWidthChange: { [weak vc] width in vc?.applyLauncherWidth(width) },
+            onLauncherOpacityChange: { [weak vc] percent in vc?.applyLauncherOpacity(percent) },
+            onTopBarHeightChange: { [weak vc] pt in vc?.applyTopBarHeight(pt) },
+            onBottomBarShowChange: { [weak vc] on in vc?.applyBottomBarShow(on) },
+            onBottomBarHeightChange: { [weak vc] pt in vc?.applyBottomBarHeight(pt) })
         settingsWindow = win
         win.present()
     }

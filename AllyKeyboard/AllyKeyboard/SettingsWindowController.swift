@@ -6,6 +6,7 @@
 //   • General     — launch-at-login + keyboard size (percent, 100% = base).
 //   • Suggestions — show word predictions while typing, and the saved phrases
 //                   opened by the list key (one per line).
+//   • Launcher    — floating-launcher width (points) and opacity (percent).
 //
 
 import AppKit
@@ -16,19 +17,45 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private let onPercentChange: (Int) -> Void
     private let onShowSuggestionsChange: (Bool) -> Void
     private let onSavedPhrasesChange: ([String]) -> Void
+    private let onLauncherWidthChange: (Int) -> Void
+    private let onLauncherOpacityChange: (Int) -> Void
+    private let onTopBarHeightChange: (Int) -> Void
+    private let onBottomBarShowChange: (Bool) -> Void
+    private let onBottomBarHeightChange: (Int) -> Void
     private let step = 5
     private var percentField: NSTextField!
+    private var widthField: NSTextField!
+    private var widthSlider: NSSlider!
+    private var opacitySlider: NSSlider!
+    private var opacityValue: NSTextField!
+    private var topBarField: NSTextField!
+    private var bottomBarField: NSTextField!
 
     init(currentPercent: Int,
          currentShowSuggestions: Bool,
          currentSavedPhrases: [String],
+         currentLauncherWidth: Int,
+         currentLauncherOpacity: Int,
+         currentTopBarHeight: Int,
+         currentBottomBarShow: Bool,
+         currentBottomBarHeight: Int,
          onPercentChange: @escaping (Int) -> Void,
          onShowSuggestionsChange: @escaping (Bool) -> Void,
-         onSavedPhrasesChange: @escaping ([String]) -> Void) {
+         onSavedPhrasesChange: @escaping ([String]) -> Void,
+         onLauncherWidthChange: @escaping (Int) -> Void,
+         onLauncherOpacityChange: @escaping (Int) -> Void,
+         onTopBarHeightChange: @escaping (Int) -> Void,
+         onBottomBarShowChange: @escaping (Bool) -> Void,
+         onBottomBarHeightChange: @escaping (Int) -> Void) {
         self.onPercentChange = onPercentChange
         self.onShowSuggestionsChange = onShowSuggestionsChange
         self.onSavedPhrasesChange = onSavedPhrasesChange
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 240),
+        self.onLauncherWidthChange = onLauncherWidthChange
+        self.onLauncherOpacityChange = onLauncherOpacityChange
+        self.onTopBarHeightChange = onTopBarHeightChange
+        self.onBottomBarShowChange = onBottomBarShowChange
+        self.onBottomBarHeightChange = onBottomBarHeightChange
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 300),
                               styleMask: [.titled, .closable],
                               backing: .buffered, defer: false)
         window.title = "AllyKeyboard Settings"
@@ -37,12 +64,19 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         super.init(window: window)
         buildUI(currentPercent: currentPercent,
                 currentShowSuggestions: currentShowSuggestions,
-                currentSavedPhrases: currentSavedPhrases)
+                currentSavedPhrases: currentSavedPhrases,
+                currentLauncherWidth: currentLauncherWidth,
+                currentLauncherOpacity: currentLauncherOpacity,
+                currentTopBarHeight: currentTopBarHeight,
+                currentBottomBarShow: currentBottomBarShow,
+                currentBottomBarHeight: currentBottomBarHeight)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    private func buildUI(currentPercent: Int, currentShowSuggestions: Bool, currentSavedPhrases: [String]) {
+    private func buildUI(currentPercent: Int, currentShowSuggestions: Bool, currentSavedPhrases: [String],
+                         currentLauncherWidth: Int, currentLauncherOpacity: Int, currentTopBarHeight: Int,
+                         currentBottomBarShow: Bool, currentBottomBarHeight: Int) {
         guard let content = window?.contentView else { return }
 
         let tabView = NSTabView(frame: content.bounds)
@@ -52,28 +86,38 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         general.label = "General"
         general.view = makeGeneralView(currentPercent: currentPercent)
 
+        let bars = NSTabViewItem(identifier: "bars")
+        bars.label = "Bars"
+        bars.view = makeBarsView(topBarHeight: currentTopBarHeight,
+                                 bottomBarShow: currentBottomBarShow,
+                                 bottomBarHeight: currentBottomBarHeight)
+
         let suggestions = NSTabViewItem(identifier: "suggestions")
         suggestions.label = "Suggestions"
         suggestions.view = makeSuggestionsView(current: currentShowSuggestions,
                                                savedPhrases: currentSavedPhrases)
 
-        [general, suggestions].forEach { tabView.addTabViewItem($0) }
+        let launcher = NSTabViewItem(identifier: "launcher")
+        launcher.label = "Launcher"
+        launcher.view = makeLauncherView(width: currentLauncherWidth, opacity: currentLauncherOpacity)
+
+        [general, bars, suggestions, launcher].forEach { tabView.addTabViewItem($0) }
         content.addSubview(tabView)
     }
 
     private func makeGeneralView(currentPercent: Int) -> NSView {
-        let v = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 200))
+        let v = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 270))
 
         let loginCheck = NSButton(checkboxWithTitle: "Launch at login (starts hidden)",
                                   target: self, action: #selector(loginToggled(_:)))
-        loginCheck.frame = NSRect(x: 20, y: 158, width: 300, height: 22)
+        loginCheck.frame = NSRect(x: 20, y: 228, width: 300, height: 22)
         loginCheck.state = LoginItem.isEnabled ? .on : .off
 
         let sizeLabel = NSTextField(labelWithString: "Keyboard size")
-        sizeLabel.frame = NSRect(x: 20, y: 116, width: 260, height: 20)
+        sizeLabel.frame = NSRect(x: 20, y: 186, width: 260, height: 20)
 
         let minus = makeStepButton("\u{2212}", #selector(minusTapped))   // −
-        minus.frame = NSRect(x: 20, y: 74, width: 34, height: 30)
+        minus.frame = NSRect(x: 20, y: 144, width: 34, height: 30)
 
         let fmt = NumberFormatter()
         fmt.numberStyle = .none
@@ -81,7 +125,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         fmt.minimum = NSNumber(value: Settings.percentRange.lowerBound)
         fmt.maximum = NSNumber(value: Settings.percentRange.upperBound)
 
-        percentField = NSTextField(frame: NSRect(x: 60, y: 77, width: 60, height: 24))
+        percentField = NSTextField(frame: NSRect(x: 60, y: 147, width: 60, height: 24))
         percentField.formatter = fmt
         percentField.integerValue = currentPercent
         percentField.alignment = .center
@@ -89,13 +133,69 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         percentField.action = #selector(fieldChanged(_:))
 
         let percentSign = NSTextField(labelWithString: "%")
-        percentSign.frame = NSRect(x: 124, y: 79, width: 20, height: 20)
+        percentSign.frame = NSRect(x: 124, y: 149, width: 20, height: 20)
 
         let plus = makeStepButton("+", #selector(plusTapped))
-        plus.frame = NSRect(x: 150, y: 74, width: 34, height: 30)
+        plus.frame = NSRect(x: 150, y: 144, width: 34, height: 30)
 
         [loginCheck, sizeLabel, minus, percentField, percentSign, plus].forEach { v.addSubview($0) }
         return v
+    }
+
+    private func makeBarsView(topBarHeight: Int, bottomBarShow: Bool, bottomBarHeight: Int) -> NSView {
+        let v = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 270))
+
+        // --- Top bar ---
+        let topBarLabel = NSTextField(labelWithString: "Top bar height")
+        topBarLabel.frame = NSRect(x: 20, y: 228, width: 260, height: 20)
+
+        let tbMinus = makeStepButton("\u{2212}", #selector(topBarMinusTapped))
+        tbMinus.frame = NSRect(x: 20, y: 186, width: 34, height: 30)
+        topBarField = makeBarField(value: topBarHeight, range: Settings.topBarHeightRange,
+                                   action: #selector(topBarFieldChanged(_:)))
+        topBarField.frame = NSRect(x: 60, y: 189, width: 60, height: 24)
+        let tbPt = NSTextField(labelWithString: "pt")
+        tbPt.frame = NSRect(x: 124, y: 191, width: 24, height: 20)
+        let tbPlus = makeStepButton("+", #selector(topBarPlusTapped))
+        tbPlus.frame = NSRect(x: 152, y: 186, width: 34, height: 30)
+
+        // --- Bottom bar ---
+        let showCheck = NSButton(checkboxWithTitle: "Show bottom bar",
+                                 target: self, action: #selector(bottomShowToggled(_:)))
+        showCheck.frame = NSRect(x: 20, y: 132, width: 300, height: 22)
+        showCheck.state = bottomBarShow ? .on : .off
+
+        let bottomBarLabel = NSTextField(labelWithString: "Bottom bar height")
+        bottomBarLabel.frame = NSRect(x: 20, y: 96, width: 260, height: 20)
+
+        let bbMinus = makeStepButton("\u{2212}", #selector(bottomBarMinusTapped))
+        bbMinus.frame = NSRect(x: 20, y: 54, width: 34, height: 30)
+        bottomBarField = makeBarField(value: bottomBarHeight, range: Settings.bottomBarHeightRange,
+                                      action: #selector(bottomBarFieldChanged(_:)))
+        bottomBarField.frame = NSRect(x: 60, y: 57, width: 60, height: 24)
+        let bbPt = NSTextField(labelWithString: "pt")
+        bbPt.frame = NSRect(x: 124, y: 59, width: 24, height: 20)
+        let bbPlus = makeStepButton("+", #selector(bottomBarPlusTapped))
+        bbPlus.frame = NSRect(x: 152, y: 54, width: 34, height: 30)
+
+        [topBarLabel, tbMinus, topBarField, tbPt, tbPlus,
+         showCheck, bottomBarLabel, bbMinus, bottomBarField, bbPt, bbPlus].forEach { v.addSubview($0) }
+        return v
+    }
+
+    private func makeBarField(value: Int, range: ClosedRange<Int>, action: Selector) -> NSTextField {
+        let fmt = NumberFormatter()
+        fmt.numberStyle = .none
+        fmt.allowsFloats = false
+        fmt.minimum = NSNumber(value: range.lowerBound)
+        fmt.maximum = NSNumber(value: range.upperBound)
+        let field = NSTextField()
+        field.formatter = fmt
+        field.integerValue = value
+        field.alignment = .center
+        field.target = self
+        field.action = action
+        return field
     }
 
     private func makeSuggestionsView(current: Bool, savedPhrases: [String]) -> NSView {
@@ -128,6 +228,60 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         return v
     }
 
+    private func makeLauncherView(width: Int, opacity: Int) -> NSView {
+        let v = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 200))
+
+        // --- Width row: −  [slider]  +   [field] pt ---
+        let widthLabel = NSTextField(labelWithString: "Launcher width")
+        widthLabel.frame = NSRect(x: 20, y: 168, width: 260, height: 20)
+
+        let wMinus = makeStepButton("\u{2212}", #selector(widthMinusTapped))
+        wMinus.frame = NSRect(x: 20, y: 128, width: 34, height: 30)
+
+        widthSlider = NSSlider(value: Double(width),
+                               minValue: Double(Settings.launcherWidthRange.lowerBound),
+                               maxValue: Double(Settings.launcherWidthRange.upperBound),
+                               target: self, action: #selector(widthSliderChanged(_:)))
+        widthSlider.frame = NSRect(x: 62, y: 132, width: 150, height: 24)
+
+        let wPlus = makeStepButton("+", #selector(widthPlusTapped))
+        wPlus.frame = NSRect(x: 220, y: 128, width: 34, height: 30)
+
+        let wfmt = NumberFormatter()
+        wfmt.numberStyle = .none
+        wfmt.allowsFloats = false
+        wfmt.minimum = NSNumber(value: Settings.launcherWidthRange.lowerBound)
+        wfmt.maximum = NSNumber(value: Settings.launcherWidthRange.upperBound)
+
+        widthField = NSTextField(frame: NSRect(x: 262, y: 130, width: 46, height: 24))
+        widthField.formatter = wfmt
+        widthField.integerValue = width
+        widthField.alignment = .center
+        widthField.target = self
+        widthField.action = #selector(widthFieldChanged(_:))
+
+        let pt = NSTextField(labelWithString: "pt")
+        pt.frame = NSRect(x: 312, y: 132, width: 20, height: 20)
+
+        // --- Opacity row: [slider]  NN% ---
+        let opacityLabel = NSTextField(labelWithString: "Opacity")
+        opacityLabel.frame = NSRect(x: 20, y: 84, width: 260, height: 20)
+
+        opacitySlider = NSSlider(value: Double(opacity),
+                                 minValue: Double(Settings.launcherOpacityRange.lowerBound),
+                                 maxValue: Double(Settings.launcherOpacityRange.upperBound),
+                                 target: self, action: #selector(opacitySliderChanged(_:)))
+        opacitySlider.frame = NSRect(x: 20, y: 48, width: 250, height: 24)
+
+        opacityValue = NSTextField(labelWithString: "\(opacity)%")
+        opacityValue.frame = NSRect(x: 278, y: 50, width: 50, height: 20)
+        opacityValue.alignment = .left
+
+        [widthLabel, wMinus, widthSlider, wPlus, widthField, pt,
+         opacityLabel, opacitySlider, opacityValue].forEach { v.addSubview($0) }
+        return v
+    }
+
     private func makeStepButton(_ title: String, _ action: Selector) -> NSButton {
         let b = NSButton(title: title, target: self, action: action)
         b.bezelStyle = .rounded
@@ -143,6 +297,45 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         let percent = Settings.clampPercent(raw)
         percentField.integerValue = percent
         onPercentChange(percent)
+    }
+
+    @objc private func widthMinusTapped() { applyWidth(widthField.integerValue - step) }
+    @objc private func widthPlusTapped()  { applyWidth(widthField.integerValue + step) }
+    @objc private func widthFieldChanged(_ sender: NSTextField) { applyWidth(sender.integerValue) }
+    @objc private func widthSliderChanged(_ sender: NSSlider) { applyWidth(sender.integerValue) }
+
+    private func applyWidth(_ raw: Int) {
+        let width = Settings.clampLauncherWidth(raw)
+        widthField.integerValue = width
+        widthSlider.integerValue = width
+        onLauncherWidthChange(width)
+    }
+
+    @objc private func opacitySliderChanged(_ sender: NSSlider) {
+        let percent = Settings.clampLauncherOpacity(sender.integerValue)
+        opacityValue.stringValue = "\(percent)%"
+        onLauncherOpacityChange(percent)
+    }
+
+    @objc private func topBarMinusTapped() { applyTopBar(topBarField.integerValue - 1) }
+    @objc private func topBarPlusTapped()  { applyTopBar(topBarField.integerValue + 1) }
+    @objc private func topBarFieldChanged(_ sender: NSTextField) { applyTopBar(sender.integerValue) }
+
+    private func applyTopBar(_ raw: Int) {
+        let pt = Settings.clampTopBarHeight(raw)
+        topBarField.integerValue = pt
+        onTopBarHeightChange(pt)
+    }
+
+    @objc private func bottomShowToggled(_ sender: NSButton) { onBottomBarShowChange(sender.state == .on) }
+    @objc private func bottomBarMinusTapped() { applyBottomBar(bottomBarField.integerValue - 1) }
+    @objc private func bottomBarPlusTapped()  { applyBottomBar(bottomBarField.integerValue + 1) }
+    @objc private func bottomBarFieldChanged(_ sender: NSTextField) { applyBottomBar(sender.integerValue) }
+
+    private func applyBottomBar(_ raw: Int) {
+        let pt = Settings.clampBottomBarHeight(raw)
+        bottomBarField.integerValue = pt
+        onBottomBarHeightChange(pt)
     }
 
     @objc private func loginToggled(_ sender: NSButton) {

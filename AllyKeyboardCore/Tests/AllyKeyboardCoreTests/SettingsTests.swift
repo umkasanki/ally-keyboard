@@ -73,6 +73,88 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(store.load(), settings)
     }
 
+    func testLauncherDefaults() {
+        let s = Settings()
+        XCTAssertEqual(s.launcherWidth, 50)
+        XCTAssertEqual(s.launcherOpacityPercent, 100)
+        XCTAssertEqual(s.launcherAlpha, 1.0, accuracy: 0.0001)
+    }
+
+    func testLauncherClampedOnInit() {
+        XCTAssertEqual(Settings(launcherWidth: 5).launcherWidth, 30)
+        XCTAssertEqual(Settings(launcherWidth: 999).launcherWidth, 200)
+        XCTAssertEqual(Settings(launcherOpacityPercent: 0).launcherOpacityPercent, 20)
+        XCTAssertEqual(Settings(launcherOpacityPercent: 500).launcherOpacityPercent, 100)
+    }
+
+    func testLauncherClampedOnMutation() {
+        var s = Settings()
+        s.launcherWidth = 9999
+        XCTAssertEqual(s.launcherWidth, 200)
+        s.launcherOpacityPercent = -1
+        XCTAssertEqual(s.launcherOpacityPercent, 20)
+    }
+
+    func testLauncherRoundTrip() {
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        let settings = Settings(launcherWidth: 80, launcherOpacityPercent: 60)
+        store.save(settings)
+        XCTAssertEqual(store.load(), settings)
+    }
+
+    func testDecodesLegacyWithoutLauncherKeys() throws {
+        let json = Data(#"{"sizePercent":100,"showSuggestions":true}"#.utf8)
+        let s = try JSONDecoder().decode(Settings.self, from: json)
+        XCTAssertEqual(s.launcherWidth, 50)
+        XCTAssertEqual(s.launcherOpacityPercent, 100)
+    }
+
+    func testTopBarDefaultAndClamp() {
+        XCTAssertEqual(Settings().topBarHeight, 28)
+        XCTAssertEqual(Settings(topBarHeight: 5).topBarHeight, 20)
+        XCTAssertEqual(Settings(topBarHeight: 99).topBarHeight, 40)
+        var s = Settings()
+        s.topBarHeight = 1000
+        XCTAssertEqual(s.topBarHeight, 40)
+    }
+
+    func testTopBarRoundTrip() {
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        let settings = Settings(topBarHeight: 32)
+        store.save(settings)
+        XCTAssertEqual(store.load(), settings)
+    }
+
+    func testDecodesLegacyWithoutTopBar() throws {
+        let json = Data(#"{"sizePercent":100}"#.utf8)
+        let s = try JSONDecoder().decode(Settings.self, from: json)
+        XCTAssertEqual(s.topBarHeight, 28)
+    }
+
+    func testBottomBarDefaultsAndClamp() {
+        XCTAssertEqual(Settings().bottomBarHeight, 28)
+        XCTAssertTrue(Settings().bottomBarShow)
+        XCTAssertEqual(Settings(bottomBarHeight: 5).bottomBarHeight, 20)
+        XCTAssertEqual(Settings(bottomBarHeight: 99).bottomBarHeight, 40)
+        var s = Settings()
+        s.bottomBarHeight = 1000
+        XCTAssertEqual(s.bottomBarHeight, 40)
+    }
+
+    func testBottomBarRoundTrip() {
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        let settings = Settings(bottomBarShow: false, bottomBarHeight: 34)
+        store.save(settings)
+        XCTAssertEqual(store.load(), settings)
+    }
+
+    func testDecodesLegacyWithoutBottomBar() throws {
+        let json = Data(#"{"sizePercent":100}"#.utf8)
+        let s = try JSONDecoder().decode(Settings.self, from: json)
+        XCTAssertTrue(s.bottomBarShow)
+        XCTAssertEqual(s.bottomBarHeight, 28)
+    }
+
     private func freshDefaults() -> UserDefaults {
         let name = "test.allykeyboard.\(UUID().uuidString)"
         let d = UserDefaults(suiteName: name)!
