@@ -36,8 +36,8 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
   - Runs as `.regular` with a Dock icon (pink keyboard). Focus is preserved by the non-activating `NSPanel` (1.2), not by hiding from the Dock — verified `.regular` no longer steals focus once the panel is created non-activating.
 - [x] **1.2** Keyboard window is a **non-activating `NSPanel`** (`KeyboardPanel: NSPanel`):
   - Storyboard window given `customClass=KeyboardPanel` + `nonactivatingPanel` styleMask (set at creation)
-  - `canBecomeKey/Main = false`; combined with `.accessory` policy → clicking keys never moves focus
-  - `level = .floating`, `collectionBehavior = [.canJoinAllSpaces, .stationary]`
+  - `canBecomeKey/Main = false`; combined with the non-activating panel → clicking keys never moves focus (holds even under `.regular`)
+  - `level = .statusBar`, `collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]`
 - [x] **1.3** Create `KeyboardViewController` — grid of `NSButton` keys
 - [x] **1.4** Make window draggable via `DragHandle` (three dots, bottom strip)
 - [x] **1.4a** Fix window size — auto-sized from key layout
@@ -158,26 +158,39 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Improvements from ally-clicker (sibling project)
 > Patterns to adopt from the more mature ally-clicker codebase.
 
-- [ ] **A** Menu-bar `StatusBarController` (Show/Hide Keyboard, Quit) — see 6.1, urgent
-- [ ] **B** `.accessory` via `INFOPLIST_KEY_LSUIElement = YES` (declarative, no launch flash) instead of runtime `setActivationPolicy`
-- [ ] **C** Window: add `.fullScreenAuxiliary` to `collectionBehavior` (usable over fullscreen apps); consider `level = .statusBar`
+- [x] **A** Menu-bar `StatusBarController` — Show/Hide + Quit; left click toggles, right/ctrl click opens the menu.
+- [x] **B** (revisited) Kept `.regular` with a Dock icon instead of hiding the app — the non-activating panel already preserves focus, so `LSUIElement` isn't needed.
+- [x] **C** Window: `.fullScreenAuxiliary` added + `level = .statusBar`.
 - [ ] **D** Settings model in `AllyKeyboardCore` + `SettingsStore` (UserDefaults) — testable, mirrors their Phase 5 (our 5.1)
 - [ ] **E** Launch-at-login via `SMAppService` (`LoginItem.swift` copyable almost verbatim) — our 6.3
 - [ ] **F** `KeyEventSink` port in Core so `TextTracker → SuggestionApplier → sink` is testable end-to-end without AppKit
 
 ---
 
+## Polish — done
+
+- [x] Delete key: right Cmd → forward delete (keycode 117, labelled "del")
+- [x] Hide-keyboard button: right Alt → 3-row keyboard glyph; hides the panel (`orderOut`)
+- [x] Minimize button hides the keyboard (no Dock window thumbnail); Dock-icon click / menu-bar re-show it
+- [x] Menu-bar icon: left click toggles the keyboard, right/ctrl click opens the menu
+- [x] Keys can render custom template image assets, not only SF Symbols
+- [x] Flag card on the language key (flagpack SVG, per active input source)
+
+---
+
 ## Backlog
 
-- [ ] Доработать иконку приложения (Dock / Launchpad) — нужен нормальный дизайн
+- [x] Иконка приложения — новый дизайн (розовый градиент + 3-рядный глиф клавиатуры; генератор `tools/make-icon.swift`).
 
 ---
 
 ## Current state
 
-**Last session:** Phase 3 core (3.1 + 3.2) built off-Mac on WSL as the `AllyKeyboardCore` SPM
-package — `TextTracker`, `KeyInput`, `PredictionEngine` protocol, `DictionaryPredictionEngine`.
-21 unit tests pass via `swift test` on Linux.  
-**Next step (on Mac):** add `AllyKeyboardCore` as a local Swift Package to the Xcode project;
-write `SpellCheckerPredictionEngine` (NSSpellChecker adapter); then 3.3 `SuggestionBarView`.
-Still pending: test on MacInCloud (1.6, 2.7).
+**Done:** Phases 0–3 complete — floating non-activating keyboard, key/chord simulation,
+multilingual layout switching (`UCKeyTranslate` + input-source cycling), and a docked
+word-prediction balloon. Menu bar (6.1/6.2), stable code signing, redesigned app + Dock icon.
+Builds on a personal Mac mini over SSH; `AllyKeyboardCore` is a local Swift Package with
+29 tests green on Linux CI.
+
+**Next up:** Phase 4 (size presets, opacity, real head-tracker test) and Phase 5
+(Settings panel + `UserDefaults`), then 6.3 launch-at-login (`SMAppService`).
