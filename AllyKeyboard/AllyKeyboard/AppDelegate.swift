@@ -13,6 +13,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusBar: StatusBarController!
     private var settingsWindow: SettingsWindowController?
+    private var launcher: LauncherWindowController?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // Enforce single instance: if another copy is already running, quit this one.
@@ -30,18 +31,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onToggleKeyboard: { [weak self] in self?.togglePanel() },
             onOpenSettings: { [weak self] in self?.openSettings() })
 
-        // Launched at login -> start hidden (available via the Dock / menu bar).
+        // Floating launcher shown while the keyboard is hidden; click brings it back.
+        launcher = LauncherWindowController { [weak self] in self?.showKeyboard() }
+
+        // Launched at login -> start hidden (the launcher stands in for the keyboard).
         if LoginItem.isEnabled {
-            DispatchQueue.main.async {
-                NSApp.windows.first(where: { $0 is KeyboardPanel })?.orderOut(nil)
-            }
+            DispatchQueue.main.async { [weak self] in self?.hideKeyboard() }
         }
     }
 
-    /// Toggle the keyboard panel's visibility (shared by the Dock icon click/menu).
+    private func keyboardPanel() -> NSWindow? {
+        NSApp.windows.first(where: { $0 is KeyboardPanel })
+    }
+
+    /// Show the keyboard and hide the floating launcher.
+    func showKeyboard() {
+        keyboardPanel()?.orderFront(nil)
+        launcher?.hide()
+    }
+
+    /// Hide the keyboard and show the floating launcher in its place.
+    func hideKeyboard() {
+        keyboardPanel()?.orderOut(nil)
+        launcher?.show()
+    }
+
     @objc private func togglePanel() {
-        guard let panel = NSApp.windows.first(where: { $0 is KeyboardPanel }) else { return }
-        if panel.isVisible { panel.orderOut(nil) } else { panel.orderFront(nil) }
+        if keyboardPanel()?.isVisible == true { hideKeyboard() } else { showKeyboard() }
     }
 
     // Left click on the Dock icon toggles the keyboard (show if hidden, hide if shown).

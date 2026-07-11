@@ -50,7 +50,7 @@ final class CustomStatusBar: NSView {
         addSubview(minimizeBtn)
     }
 
-    @objc private func minimizeTapped() { window?.orderOut(nil) }
+    @objc private func minimizeTapped() { (NSApp.delegate as? AppDelegate)?.hideKeyboard() }
 
     override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
     override var mouseDownCanMoveWindow: Bool { false }
@@ -622,7 +622,7 @@ class ViewController: NSViewController {
         }
 
         if key == "HideKeyboard" {
-            view.window?.orderOut(nil)
+            (NSApp.delegate as? AppDelegate)?.hideKeyboard()
             return
         }
 
