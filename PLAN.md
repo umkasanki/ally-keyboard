@@ -113,13 +113,11 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Phase 5 — Settings & Persistence
 > Goal: user can configure keyboard without editing files
 
-- [ ] **5.1** `SettingsManager` — `UserDefaults` wrapper for all settings:
-  - Window position, size preset, opacity, language
-- [ ] **5.2** Settings panel (simple `NSWindow` or popover):
-  - Size preset picker
-  - Opacity slider
-  - Language toggle
-- [ ] **5.3** Settings accessible via menu bar icon right-click
+- [x] **5.1** `Settings` + `SettingsStore` in `AllyKeyboardCore` (UserDefaults / JSON, lenient decode of old data): keyboard size (percent, 100% = base scale), show-suggestions flag, saved phrases. Tested on Linux/CI (40 tests).
+- [x] **5.2** `SettingsWindowController` — tabbed window (`.modalPanel`, above the keyboard):
+  - General: launch-at-login + keyboard size (editable percent field, −/+ 5% steps, manual entry)
+  - Suggestions: toggle word predictions + saved-phrases editor (one per line)
+- [x] **5.3** Settings opened from the menu-bar and Dock menus (Settings…).
 
 ---
 
@@ -128,7 +126,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 - [x] **6.1** `NSStatusItem` in menu bar — `StatusBarController` with Show/Hide Keyboard + Quit.
 - [x] **6.2** Menu: Show/Hide Keyboard, Quit (Settings later).
-- [ ] **6.3** Launch at Login toggle in Settings (using `SMAppService` on macOS 13+ or `LaunchAgent` plist)
+- [x] **6.3** Launch at login via `SMAppService` (`LoginItem`); auto-launched → keyboard starts hidden.
 - [x] **6.4** App icon (1024×1024 PNG → xcassets) — done in 1.8
 
 ---
@@ -161,8 +159,8 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [x] **A** Menu-bar `StatusBarController` — Show/Hide + Quit; left click toggles, right/ctrl click opens the menu.
 - [x] **B** (revisited) Kept `.regular` with a Dock icon instead of hiding the app — the non-activating panel already preserves focus, so `LSUIElement` isn't needed.
 - [x] **C** Window: `.fullScreenAuxiliary` added + `level = .statusBar`.
-- [ ] **D** Settings model in `AllyKeyboardCore` + `SettingsStore` (UserDefaults) — testable, mirrors their Phase 5 (our 5.1)
-- [ ] **E** Launch-at-login via `SMAppService` (`LoginItem.swift` copyable almost verbatim) — our 6.3
+- [x] **D** Settings model in `AllyKeyboardCore` + `SettingsStore` (UserDefaults) — done in Phase 5.
+- [x] **E** Launch-at-login via `SMAppService` (`LoginItem`) — done in 6.3.
 - [ ] **F** `KeyEventSink` port in Core so `TextTracker → SuggestionApplier → sink` is testable end-to-end without AppKit
 
 ---
@@ -175,6 +173,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [x] Menu-bar icon: left click toggles the keyboard, right/ctrl click opens the menu
 - [x] Keys can render custom template image assets, not only SF Symbols
 - [x] Flag card on the language key (flagpack SVG, per active input source)
+- [x] Saved phrases: the list key ("Hi") pops a menu of user phrases (5 English greetings by default), inserts on tap
 
 ---
 
@@ -186,11 +185,11 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Done:** Phases 0–3 complete — floating non-activating keyboard, key/chord simulation,
-multilingual layout switching (`UCKeyTranslate` + input-source cycling), and a docked
-word-prediction balloon. Menu bar (6.1/6.2), stable code signing, redesigned app + Dock icon.
-Builds on a personal Mac mini over SSH; `AllyKeyboardCore` is a local Swift Package with
-29 tests green on Linux CI.
+**Done:** Phases 0–3 and 5 complete. Floating non-activating keyboard, key/chord
+simulation, multilingual layout switching, docked word-prediction balloon, saved-phrase
+list key, tabbed Settings (size %, launch-at-login, suggestions toggle, phrases), menu bar
++ Dock control, stable code signing, redesigned app/Dock icon. `AllyKeyboardCore` is a local
+Swift Package with 40 tests green on Linux CI.
 
-**Next up:** Phase 4 (size presets, opacity, real head-tracker test) and Phase 5
-(Settings panel + `UserDefaults`), then 6.3 launch-at-login (`SMAppService`).
+**Next up:** Phase 4 (real head-tracker testing; size presets already covered by the % setting)
+and Phase 7 polish (fullscreen/multi-monitor edge cases, global show/hide hotkey, punctuation panel).
