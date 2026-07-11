@@ -32,6 +32,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         })
     }
 
+    // Clicking the Dock icon re-shows the keyboard after it was hidden.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag, let panel = NSApp.windows.first(where: { $0 is KeyboardPanel }) {
+            panel.orderFront(nil)
+        }
+        return true
+    }
+
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
         return true
     }

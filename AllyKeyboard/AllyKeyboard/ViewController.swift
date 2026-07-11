@@ -50,7 +50,7 @@ final class CustomStatusBar: NSView {
         addSubview(minimizeBtn)
     }
 
-    @objc private func minimizeTapped() { window?.miniaturize(nil) }
+    @objc private func minimizeTapped() { window?.orderOut(nil) }
 
     override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
     override var mouseDownCanMoveWindow: Bool { false }
