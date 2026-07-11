@@ -33,18 +33,18 @@ func rr(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ r: CGFloat) ->
     CGPath(roundedRect: CGRect(x: x, y: y, width: w, height: h), cornerWidth: r, cornerHeight: r, transform: nil)
 }
 
-// Keyboard glyph (matches icons/keyboard-glyph-4row.svg): rounded-rect border
-// + 3×6 filled keys + spacebar row, all white via even-odd fill.
+// Keyboard glyph (matches icons/keyboard-glyph-3row.svg): rounded-rect border
+// + 2×6 filled keys + spacebar row (3 rows total), all white via even-odd fill.
 let strokeW: CGFloat = 6
 let glyph = CGMutablePath()
-glyph.addPath(rr(40, 57, 120, 86, 14))                                                            // outer border
-glyph.addPath(rr(40 + strokeW, 57 + strokeW, 120 - 2 * strokeW, 86 - 2 * strokeW, 14 - strokeW))  // inner cut → frame ring
+glyph.addPath(rr(40, 66, 120, 68, 14))                                                            // outer border
+glyph.addPath(rr(40 + strokeW, 66 + strokeW, 120 - 2 * strokeW, 68 - 2 * strokeW, 14 - strokeW))  // inner cut → frame ring
 let keyW: CGFloat = 13, keyH: CGFloat = 12, gapX: CGFloat = 4.4, gapY: CGFloat = 4, startX: CGFloat = 50
-for row in 0..<3 {
-    let y = 68 + CGFloat(row) * (keyH + gapY)
+for row in 0..<2 {
+    let y = 78 + CGFloat(row) * (keyH + gapY)
     for col in 0..<6 { glyph.addPath(rr(startX + CGFloat(col) * (keyW + gapX), y, keyW, keyH, 3)) }
 }
-let sbY: CGFloat = 116                            // 68 + 3 rows × (keyH + gapY)
+let sbY: CGFloat = 110                            // 78 + 2 rows × (keyH + gapY)
 glyph.addPath(rr(startX, sbY, keyW, keyH, 3))     // left key
 glyph.addPath(rr(67, sbY, 66, keyH, 3))           // spacebar
 glyph.addPath(rr(137, sbY, keyW, keyH, 3))        // right key
