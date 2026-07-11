@@ -49,23 +49,41 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 /// Menu-bar icon — the only entry point once the app is LSUIElement (no Dock icon).
 final class StatusBarController {
     private let item: NSStatusItem
+    private let menu = NSMenu()
     private let onToggleKeyboard: () -> Void
 
     init(onToggleKeyboard: @escaping () -> Void) {
         self.onToggleKeyboard = onToggleKeyboard
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+
+        menu.addItem(withTitle: "Show / Hide Keyboard", action: #selector(toggle), keyEquivalent: "").target = self
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit AllyKeyboard", action: #selector(quit), keyEquivalent: "q").target = self
+
         if let button = item.button {
             let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
             let img = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "AllyKeyboard")?
                 .withSymbolConfiguration(config)
             img?.isTemplate = true
             button.image = img
+            // Left click toggles the keyboard; right/ctrl click opens the menu.
+            button.target = self
+            button.action = #selector(handleClick)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
-        let menu = NSMenu()
-        menu.addItem(withTitle: "Show / Hide Keyboard", action: #selector(toggle), keyEquivalent: "").target = self
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit AllyKeyboard", action: #selector(quit), keyEquivalent: "q").target = self
-        item.menu = menu
+    }
+
+    @objc private func handleClick() {
+        let event = NSApp.currentEvent
+        let rightClick = event?.type == .rightMouseUp
+            || (event?.modifierFlags.contains(.control) ?? false)
+        if rightClick {
+            item.menu = menu
+            item.button?.performClick(nil)   // pops the menu at the item
+            item.menu = nil                  // keep left click as an action, not a menu
+        } else {
+            onToggleKeyboard()
+        }
     }
 
     @objc private func toggle() { onToggleKeyboard() }
