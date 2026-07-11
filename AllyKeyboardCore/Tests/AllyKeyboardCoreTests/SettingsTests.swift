@@ -11,6 +11,24 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(s.scale, Settings.baseScale, accuracy: 0.0001)   // 100% == base
     }
 
+    func testDefaultSavedPhrases() {
+        XCTAssertEqual(Settings().savedPhrases, Settings.defaultGreetings)
+        XCTAssertEqual(Settings.defaultGreetings.count, 5)
+    }
+
+    func testSavedPhrasesRoundTrip() {
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        let settings = Settings(savedPhrases: ["Hi", "Bye"])
+        store.save(settings)
+        XCTAssertEqual(store.load(), settings)
+    }
+
+    func testDecodesLegacyWithoutSavedPhrases() throws {
+        let json = Data(#"{"sizePercent":100,"showSuggestions":true}"#.utf8)
+        let s = try JSONDecoder().decode(Settings.self, from: json)
+        XCTAssertEqual(s.savedPhrases, Settings.defaultGreetings)
+    }
+
     func testShowSuggestionsRoundTrip() {
         let store = SettingsStore(defaults: freshDefaults(), key: "s")
         let settings = Settings(sizePercent: 100, showSuggestions: false)
