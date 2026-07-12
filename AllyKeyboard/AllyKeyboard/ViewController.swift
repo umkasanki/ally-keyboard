@@ -6,6 +6,19 @@
 import Cocoa
 import AllyKeyboardCore
 
+extension NSColor {
+    /// Resolve to a `CGColor` in the view's effective appearance. Dynamic/semantic
+    /// colors (e.g. `windowBackgroundColor`) otherwise resolve against whatever the
+    /// current drawing appearance happens to be when set on a layer — which can be
+    /// the wrong (light) variant. Using this keeps layer backgrounds correct even if
+    /// the app stops forcing dark.
+    func cgColor(for view: NSView) -> CGColor {
+        var resolved = cgColor
+        view.effectiveAppearance.performAsCurrentDrawingAppearance { resolved = self.cgColor }
+        return resolved
+    }
+}
+
 // MARK: - CustomStatusBar
 
 /// An NSButton that shows a pointing-hand cursor on hover.
@@ -34,7 +47,7 @@ final class CustomStatusBar: NSView {
 
     private func setup() {
         wantsLayer = true
-        layer?.backgroundColor = AppConfig.Colors.statusBarBg.cgColor
+        layer?.backgroundColor = AppConfig.Colors.statusBarBg.cgColor(for: self)
         setupTitle()
         setupMinimizeButton()
         var constraints: [NSLayoutConstraint] = [
@@ -100,7 +113,7 @@ private class DragHandle: NSView {
 
     private func setup() {
         wantsLayer = true
-        layer?.backgroundColor = AppConfig.Colors.dragBarBg.cgColor
+        layer?.backgroundColor = AppConfig.Colors.dragBarBg.cgColor(for: self)
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -224,7 +237,7 @@ final class KeyButton: NSButton {
         isPressed = flag
         updateGlyphAlpha(animated: true)
         if flag {
-            layer?.backgroundColor = AppConfig.Colors.keyPressed.cgColor
+            layer?.backgroundColor = AppConfig.Colors.keyPressed.cgColor(for: self)
         } else {
             updateBackground()
         }
@@ -232,7 +245,8 @@ final class KeyButton: NSButton {
 
     private func updateBackground() {
         let normal = normalColorOverride ?? AppConfig.Colors.keyNormal
-        layer?.backgroundColor = (isActive ? AppConfig.Colors.keyActive : isHovered ? AppConfig.Colors.keyHover : normal).cgColor
+        let bg = isActive ? AppConfig.Colors.keyActive : isHovered ? AppConfig.Colors.keyHover : normal
+        layer?.backgroundColor = bg.cgColor(for: self)
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -331,7 +345,7 @@ class ViewController: NSViewController {
         settings.theme = raw
         settingsStore.save(settings)
         AppConfig.Colors.theme = AppConfig.Theme(rawValue: raw) ?? .darkSystem
-        view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.cgColor
+        view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.cgColor(for: view)
         view.window?.backgroundColor = AppConfig.Colors.statusBarBg
         buildKeyboard()   // rebuild keys + panels with the new palette
     }
@@ -581,7 +595,7 @@ class ViewController: NSViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.wantsLayer = true
-        view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.cgColor
+        view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.cgColor(for: view)
     }
 
     override func viewWillAppear() {
@@ -589,7 +603,7 @@ class ViewController: NSViewController {
         guard let window = view.window, !windowConfigured else { return }
         settings = settingsStore.load()
         AppConfig.Colors.theme = AppConfig.Theme(rawValue: settings.theme) ?? .darkSystem
-        view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.cgColor   // theme now known
+        view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.cgColor(for: view)   // theme now known
         scale = CGFloat(settings.scale)   // windowConfigured still false -> just stores
         windowConfigured = true
 
