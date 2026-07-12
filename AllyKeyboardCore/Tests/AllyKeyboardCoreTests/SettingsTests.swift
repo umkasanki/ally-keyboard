@@ -169,6 +169,20 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(s.startCollapsed)
     }
 
+    func testThemeDefaultAndRoundTrip() {
+        XCTAssertEqual(Settings().theme, "darkSystem")
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        let settings = Settings(theme: "darkCustom")
+        store.save(settings)
+        XCTAssertEqual(store.load(), settings)
+    }
+
+    func testDecodesLegacyWithoutTheme() throws {
+        let json = Data(#"{"sizePercent":100}"#.utf8)
+        let s = try JSONDecoder().decode(Settings.self, from: json)
+        XCTAssertEqual(s.theme, "darkSystem")
+    }
+
     private func freshDefaults() -> UserDefaults {
         let name = "test.allykeyboard.\(UUID().uuidString)"
         let d = UserDefaults(suiteName: name)!

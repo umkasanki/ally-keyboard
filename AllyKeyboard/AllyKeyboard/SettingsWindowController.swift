@@ -23,6 +23,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private let onBottomBarShowChange: (Bool) -> Void
     private let onBottomBarHeightChange: (Int) -> Void
     private let onStartCollapsedChange: (Bool) -> Void
+    private let onThemeChange: (String) -> Void
     private let step = 5
     private var percentField: NSTextField!
     private var widthField: NSTextField!
@@ -41,6 +42,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          currentBottomBarShow: Bool,
          currentBottomBarHeight: Int,
          currentStartCollapsed: Bool,
+         currentTheme: String,
          onPercentChange: @escaping (Int) -> Void,
          onShowSuggestionsChange: @escaping (Bool) -> Void,
          onSavedPhrasesChange: @escaping ([String]) -> Void,
@@ -49,7 +51,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          onTopBarHeightChange: @escaping (Int) -> Void,
          onBottomBarShowChange: @escaping (Bool) -> Void,
          onBottomBarHeightChange: @escaping (Int) -> Void,
-         onStartCollapsedChange: @escaping (Bool) -> Void) {
+         onStartCollapsedChange: @escaping (Bool) -> Void,
+         onThemeChange: @escaping (String) -> Void) {
         self.onPercentChange = onPercentChange
         self.onShowSuggestionsChange = onShowSuggestionsChange
         self.onSavedPhrasesChange = onSavedPhrasesChange
@@ -59,6 +62,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         self.onBottomBarShowChange = onBottomBarShowChange
         self.onBottomBarHeightChange = onBottomBarHeightChange
         self.onStartCollapsedChange = onStartCollapsedChange
+        self.onThemeChange = onThemeChange
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 300),
                               styleMask: [.titled, .closable],
                               backing: .buffered, defer: false)
@@ -74,7 +78,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                 currentTopBarHeight: currentTopBarHeight,
                 currentBottomBarShow: currentBottomBarShow,
                 currentBottomBarHeight: currentBottomBarHeight,
-                currentStartCollapsed: currentStartCollapsed)
+                currentStartCollapsed: currentStartCollapsed,
+                currentTheme: currentTheme)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -82,7 +87,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private func buildUI(currentPercent: Int, currentShowSuggestions: Bool, currentSavedPhrases: [String],
                          currentLauncherWidth: Int, currentLauncherOpacity: Int, currentTopBarHeight: Int,
                          currentBottomBarShow: Bool, currentBottomBarHeight: Int,
-                         currentStartCollapsed: Bool) {
+                         currentStartCollapsed: Bool, currentTheme: String) {
         guard let content = window?.contentView else { return }
 
         let tabView = NSTabView(frame: content.bounds)
@@ -91,7 +96,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         let general = NSTabViewItem(identifier: "general")
         general.label = "General"
         general.view = makeGeneralView(currentPercent: currentPercent,
-                                       currentStartCollapsed: currentStartCollapsed)
+                                       currentStartCollapsed: currentStartCollapsed,
+                                       currentTheme: currentTheme)
 
         let bars = NSTabViewItem(identifier: "bars")
         bars.label = "Bars"
@@ -112,7 +118,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         content.addSubview(tabView)
     }
 
-    private func makeGeneralView(currentPercent: Int, currentStartCollapsed: Bool) -> NSView {
+    private func makeGeneralView(currentPercent: Int, currentStartCollapsed: Bool, currentTheme: String) -> NSView {
         let v = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 270))
 
         let loginCheck = NSButton(checkboxWithTitle: "Launch at login (starts hidden)",
@@ -150,7 +156,22 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         let plus = makeStepButton("+", #selector(plusTapped))
         plus.frame = NSRect(x: 150, y: 128, width: 34, height: 30)
 
-        [loginCheck, collapsedCheck, sizeLabel, minus, percentField, percentSign, plus].forEach { v.addSubview($0) }
+        let themeLabel = NSTextField(labelWithString: "Theme")
+        themeLabel.frame = NSRect(x: 20, y: 92, width: 120, height: 20)
+
+        let themePopup = NSPopUpButton(frame: NSRect(x: 20, y: 60, width: 200, height: 26))
+        for t in AppConfig.Theme.allCases {
+            themePopup.addItem(withTitle: t.displayName)
+            themePopup.lastItem?.representedObject = t.rawValue
+        }
+        if let idx = AppConfig.Theme.allCases.firstIndex(where: { $0.rawValue == currentTheme }) {
+            themePopup.selectItem(at: idx)
+        }
+        themePopup.target = self
+        themePopup.action = #selector(themeChanged(_:))
+
+        [loginCheck, collapsedCheck, sizeLabel, minus, percentField, percentSign, plus,
+         themeLabel, themePopup].forEach { v.addSubview($0) }
         return v
     }
 
@@ -356,6 +377,10 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
 
     @objc private func startCollapsedToggled(_ sender: NSButton) {
         onStartCollapsedChange(sender.state == .on)
+    }
+
+    @objc private func themeChanged(_ sender: NSPopUpButton) {
+        if let raw = sender.selectedItem?.representedObject as? String { onThemeChange(raw) }
     }
 
     @objc private func suggestionsToggled(_ sender: NSButton) {

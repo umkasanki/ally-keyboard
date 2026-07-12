@@ -324,6 +324,18 @@ class ViewController: NSViewController {
         settingsStore.save(settings)
     }
 
+    var currentTheme: String { settings.theme }
+
+    /// Apply and persist a background theme; repaints the window, panels and keys live.
+    func applyTheme(_ raw: String) {
+        settings.theme = raw
+        settingsStore.save(settings)
+        AppConfig.Colors.theme = AppConfig.Theme(rawValue: raw) ?? .darkSystem
+        view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.cgColor
+        view.window?.backgroundColor = AppConfig.Colors.statusBarBg
+        buildKeyboard()   // rebuild keys + panels with the new palette
+    }
+
     var currentShowSuggestions: Bool { settings.showSuggestions }
 
     func applyShowSuggestions(_ on: Bool) {
@@ -576,6 +588,8 @@ class ViewController: NSViewController {
         super.viewWillAppear()
         guard let window = view.window, !windowConfigured else { return }
         settings = settingsStore.load()
+        AppConfig.Colors.theme = AppConfig.Theme(rawValue: settings.theme) ?? .darkSystem
+        view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.cgColor   // theme now known
         scale = CGFloat(settings.scale)   // windowConfigured still false -> just stores
         windowConfigured = true
 

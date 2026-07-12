@@ -17,21 +17,53 @@ enum AppConfig {
 
     // MARK: - Colors
 
+    /// Selectable background palette (persisted in Settings, applied at launch / on change).
+    enum Theme: String, CaseIterable {
+        case darkCustom   // original hand-picked flat grays
+        case darkSystem   // macOS dark semantic colors
+
+        /// Overall keyboard window background.
+        var bodyBg: NSColor {
+            switch self {
+            case .darkCustom: return NSColor(white: 0.13, alpha: 1)
+            case .darkSystem: return .windowBackgroundColor            // ~0.118
+            }
+        }
+        /// Top / bottom panel background.
+        var panelBg: NSColor {
+            switch self {
+            case .darkCustom: return NSColor(white: 0.22, alpha: 1)
+            case .darkSystem: return .underPageBackgroundColor         // ~0.157
+            }
+        }
+        /// Key face (default state).
+        var keyBg: NSColor {
+            switch self {
+            case .darkCustom: return NSColor(white: 0.22, alpha: 1)
+            case .darkSystem: return NSColor(white: 0.20, alpha: 1)
+            }
+        }
+
+        var displayName: String {
+            switch self {
+            case .darkCustom: return "Dark (custom)"
+            case .darkSystem: return "Dark (system)"
+            }
+        }
+    }
+
     enum Colors {
 
-        // MARK: Panels
+        /// Active theme — set from Settings before the keyboard is built.
+        static var theme: Theme = .darkSystem
 
-        /// Custom status bar background (top panel with title/buttons)
-        static let statusBarBg = NSColor(white: 0.22, alpha: 1)
-        /// Drag handle background (bottom grip strip)
-        static let dragBarBg   = NSColor(white: 0.22, alpha: 1)
-        /// Overall keyboard window background
-        static let keyboardBg  = NSColor(white: 0.13, alpha: 1)
+        // MARK: Theme-driven backgrounds
+        static var statusBarBg: NSColor { theme.panelBg }
+        static var dragBarBg:   NSColor { theme.panelBg }
+        static var keyboardBg:  NSColor { theme.bodyBg }
+        static var keyNormal:   NSColor { theme.keyBg }
 
-        // MARK: Keys
-
-        /// Key — default state
-        static let keyNormal   = NSColor(white: 0.22, alpha: 1)
+        // MARK: Shared across themes
         /// Key — mouse hover
         static let keyHover    = NSColor(white: 0.36, alpha: 1)
         /// Key — pressed flash

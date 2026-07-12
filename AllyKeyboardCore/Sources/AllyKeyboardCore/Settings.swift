@@ -40,6 +40,9 @@ public struct Settings: Codable, Equatable {
     /// Launch with the keyboard collapsed (hidden; only the floating launcher shown).
     public var startCollapsed: Bool
 
+    /// Background theme identifier (e.g. "darkCustom" / "darkSystem"); interpreted by the app.
+    public var theme: String
+
     /// User-defined phrases opened by the list key, inserted on tap.
     public var savedPhrases: [String]
 
@@ -80,10 +83,12 @@ public struct Settings: Codable, Equatable {
                 topBarHeight: Int = 28,
                 bottomBarShow: Bool = true,
                 bottomBarHeight: Int = 28,
-                startCollapsed: Bool = false) {
+                startCollapsed: Bool = false,
+                theme: String = "darkSystem") {
         self.sizePercent = Settings.clampPercent(sizePercent)   // didSet does not run in init
         self.showSuggestions = showSuggestions
         self.startCollapsed = startCollapsed
+        self.theme = theme
         self.savedPhrases = savedPhrases
         self.launcherWidth = Settings.clampLauncherWidth(launcherWidth)
         self.launcherOpacityPercent = Settings.clampLauncherOpacity(launcherOpacityPercent)
@@ -115,7 +120,7 @@ public struct Settings: Codable, Equatable {
     // Decode leniently so older saved settings (missing new keys) still load.
     private enum CodingKeys: String, CodingKey {
         case sizePercent, showSuggestions, savedPhrases, launcherWidth, launcherOpacityPercent,
-             topBarHeight, bottomBarShow, bottomBarHeight, startCollapsed
+             topBarHeight, bottomBarShow, bottomBarHeight, startCollapsed, theme
     }
 
     public init(from decoder: Decoder) throws {
@@ -129,5 +134,6 @@ public struct Settings: Codable, Equatable {
         self.bottomBarShow = try c.decodeIfPresent(Bool.self, forKey: .bottomBarShow) ?? true
         self.bottomBarHeight = Settings.clampBottomBarHeight(try c.decodeIfPresent(Int.self, forKey: .bottomBarHeight) ?? 28)
         self.startCollapsed = try c.decodeIfPresent(Bool.self, forKey: .startCollapsed) ?? false
+        self.theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "darkSystem"
     }
 }

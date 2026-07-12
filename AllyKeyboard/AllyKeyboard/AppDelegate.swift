@@ -27,6 +27,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Run as a menu-bar accessory: no Dock icon (controls live in the menu bar / launcher).
         NSApp.setActivationPolicy(.accessory)
 
+        // Always dark, so the semantic system colors resolve to their dark variants.
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+
         // Request Accessibility permission needed for CGEvent key simulation.
         KeySender.requestAccessibilityIfNeeded()
 
@@ -116,6 +119,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             currentBottomBarShow: vc.currentBottomBarShow,
             currentBottomBarHeight: vc.currentBottomBarHeight,
             currentStartCollapsed: vc.currentStartCollapsed,
+            currentTheme: vc.currentTheme,
             onPercentChange: { [weak vc] percent in vc?.applySizePercent(percent) },
             onShowSuggestionsChange: { [weak vc] on in vc?.applyShowSuggestions(on) },
             onSavedPhrasesChange: { [weak vc] phrases in vc?.applySavedPhrases(phrases) },
@@ -124,7 +128,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onTopBarHeightChange: { [weak vc] pt in vc?.applyTopBarHeight(pt) },
             onBottomBarShowChange: { [weak vc] on in vc?.applyBottomBarShow(on) },
             onBottomBarHeightChange: { [weak vc] pt in vc?.applyBottomBarHeight(pt) },
-            onStartCollapsedChange: { [weak vc] on in vc?.applyStartCollapsed(on) })
+            onStartCollapsedChange: { [weak vc] on in vc?.applyStartCollapsed(on) },
+            onThemeChange: { [weak vc] raw in vc?.applyTheme(raw) })
         settingsWindow = win
         win.present()
     }
