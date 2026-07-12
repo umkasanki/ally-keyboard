@@ -36,8 +36,8 @@ enum AppConfig {
         static let keyHover    = NSColor(white: 0.36, alpha: 1)
         /// Key — pressed flash
         static let keyPressed  = NSColor(red: 0.72, green: 0.13, blue: 0.13, alpha: 1)
-        /// Key — active/toggled (e.g. Shift on)
-        static let keyActive   = NSColor(red: 0.20, green: 0.45, blue: 0.80, alpha: 1)
+        /// Key — active/toggled (e.g. Shift on) — systemRed, matching ally-clicker's active panel
+        static let keyActive   = NSColor.systemRed
     }
 
     // MARK: - Layout (base values at scale = 1.0)

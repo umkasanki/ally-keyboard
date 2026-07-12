@@ -8,10 +8,26 @@ import AllyKeyboardCore
 
 // MARK: - CustomStatusBar
 
+/// An NSButton that shows a pointing-hand cursor on hover.
+final class PointerButton: NSButton {
+    private var tracking: NSTrackingArea?
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let tracking = tracking { removeTrackingArea(tracking) }
+        let area = NSTrackingArea(rect: bounds,
+                                  options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                                  owner: self, userInfo: nil)
+        addTrackingArea(area)
+        tracking = area
+    }
+    override func mouseEntered(with event: NSEvent) { NSCursor.pointingHand.set() }
+    override func mouseExited (with event: NSEvent) { NSCursor.arrow.set() }
+}
+
 final class CustomStatusBar: NSView {
 
     private let titleIcon   = NSImageView()
-    private let minimizeBtn = NSButton()
+    private let minimizeBtn = PointerButton()
 
     override init(frame: NSRect) { super.init(frame: frame); setup() }
     required init?(coder: NSCoder) { super.init(coder: coder); setup() }
@@ -106,18 +122,12 @@ private class DragHandle: NSView {
     }
 
     override func rightMouseDown(with event: NSEvent) {
-        NSMenu.popUpContextMenu(DragHandle.appMenu, with: event, for: self)
+        if let menu = (NSApp.delegate as? AppDelegate)?.makeContextMenu() {
+            NSMenu.popUpContextMenu(menu, with: event, for: self)
+        }
     }
 
     override var mouseDownCanMoveWindow: Bool { false }
-
-    static let appMenu: NSMenu = {
-        let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Quit AllyKeyboard",
-                                action: #selector(NSApp.terminate(_:)),
-                                keyEquivalent: ""))
-        return menu
-    }()
 }
 
 // MARK: - KeyButton
@@ -177,6 +187,7 @@ final class KeyButton: NSButton {
         super.hitTest(point) != nil ? self : nil
     }
 
+
     private func configure() {
         wantsLayer = true
         layer?.cornerRadius = AppConfig.Layout.keyCornerRadius
@@ -199,8 +210,14 @@ final class KeyButton: NSButton {
         ))
     }
 
-    override func mouseEntered(with event: NSEvent) { isHovered = true;  updateBackground(); updateGlyphAlpha(animated: true) }
-    override func mouseExited (with event: NSEvent) { isHovered = false; updateBackground(); updateGlyphAlpha(animated: true) }
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true;  updateBackground(); updateGlyphAlpha(animated: true)
+        NSCursor.pointingHand.set()
+    }
+    override func mouseExited (with event: NSEvent) {
+        isHovered = false; updateBackground(); updateGlyphAlpha(animated: true)
+        NSCursor.arrow.set()
+    }
 
     override func highlight(_ flag: Bool) {
         super.highlight(flag)
@@ -298,6 +315,13 @@ class ViewController: NSViewController {
         settings.sizePercent = percent
         settingsStore.save(settings)
         scale = CGFloat(settings.scale)
+    }
+
+    var currentStartCollapsed: Bool { settings.startCollapsed }
+
+    func applyStartCollapsed(_ on: Bool) {
+        settings.startCollapsed = on
+        settingsStore.save(settings)
     }
 
     var currentShowSuggestions: Bool { settings.showSuggestions }
@@ -733,7 +757,9 @@ class ViewController: NSViewController {
     // MARK: - Context menu
 
     override func rightMouseDown(with event: NSEvent) {
-        NSMenu.popUpContextMenu(DragHandle.appMenu, with: event, for: view)
+        if let menu = (NSApp.delegate as? AppDelegate)?.makeContextMenu() {
+            NSMenu.popUpContextMenu(menu, with: event, for: view)
+        }
     }
 
     // MARK: - Actions

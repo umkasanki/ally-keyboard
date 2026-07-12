@@ -22,6 +22,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private let onTopBarHeightChange: (Int) -> Void
     private let onBottomBarShowChange: (Bool) -> Void
     private let onBottomBarHeightChange: (Int) -> Void
+    private let onStartCollapsedChange: (Bool) -> Void
     private let step = 5
     private var percentField: NSTextField!
     private var widthField: NSTextField!
@@ -39,6 +40,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          currentTopBarHeight: Int,
          currentBottomBarShow: Bool,
          currentBottomBarHeight: Int,
+         currentStartCollapsed: Bool,
          onPercentChange: @escaping (Int) -> Void,
          onShowSuggestionsChange: @escaping (Bool) -> Void,
          onSavedPhrasesChange: @escaping ([String]) -> Void,
@@ -46,7 +48,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          onLauncherOpacityChange: @escaping (Int) -> Void,
          onTopBarHeightChange: @escaping (Int) -> Void,
          onBottomBarShowChange: @escaping (Bool) -> Void,
-         onBottomBarHeightChange: @escaping (Int) -> Void) {
+         onBottomBarHeightChange: @escaping (Int) -> Void,
+         onStartCollapsedChange: @escaping (Bool) -> Void) {
         self.onPercentChange = onPercentChange
         self.onShowSuggestionsChange = onShowSuggestionsChange
         self.onSavedPhrasesChange = onSavedPhrasesChange
@@ -55,6 +58,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         self.onTopBarHeightChange = onTopBarHeightChange
         self.onBottomBarShowChange = onBottomBarShowChange
         self.onBottomBarHeightChange = onBottomBarHeightChange
+        self.onStartCollapsedChange = onStartCollapsedChange
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 300),
                               styleMask: [.titled, .closable],
                               backing: .buffered, defer: false)
@@ -69,14 +73,16 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                 currentLauncherOpacity: currentLauncherOpacity,
                 currentTopBarHeight: currentTopBarHeight,
                 currentBottomBarShow: currentBottomBarShow,
-                currentBottomBarHeight: currentBottomBarHeight)
+                currentBottomBarHeight: currentBottomBarHeight,
+                currentStartCollapsed: currentStartCollapsed)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func buildUI(currentPercent: Int, currentShowSuggestions: Bool, currentSavedPhrases: [String],
                          currentLauncherWidth: Int, currentLauncherOpacity: Int, currentTopBarHeight: Int,
-                         currentBottomBarShow: Bool, currentBottomBarHeight: Int) {
+                         currentBottomBarShow: Bool, currentBottomBarHeight: Int,
+                         currentStartCollapsed: Bool) {
         guard let content = window?.contentView else { return }
 
         let tabView = NSTabView(frame: content.bounds)
@@ -84,7 +90,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
 
         let general = NSTabViewItem(identifier: "general")
         general.label = "General"
-        general.view = makeGeneralView(currentPercent: currentPercent)
+        general.view = makeGeneralView(currentPercent: currentPercent,
+                                       currentStartCollapsed: currentStartCollapsed)
 
         let bars = NSTabViewItem(identifier: "bars")
         bars.label = "Bars"
@@ -105,19 +112,24 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         content.addSubview(tabView)
     }
 
-    private func makeGeneralView(currentPercent: Int) -> NSView {
+    private func makeGeneralView(currentPercent: Int, currentStartCollapsed: Bool) -> NSView {
         let v = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 270))
 
         let loginCheck = NSButton(checkboxWithTitle: "Launch at login (starts hidden)",
                                   target: self, action: #selector(loginToggled(_:)))
-        loginCheck.frame = NSRect(x: 20, y: 228, width: 300, height: 22)
+        loginCheck.frame = NSRect(x: 20, y: 236, width: 320, height: 22)
         loginCheck.state = LoginItem.isEnabled ? .on : .off
 
+        let collapsedCheck = NSButton(checkboxWithTitle: "Launch collapsed (keyboard hidden)",
+                                      target: self, action: #selector(startCollapsedToggled(_:)))
+        collapsedCheck.frame = NSRect(x: 20, y: 208, width: 320, height: 22)
+        collapsedCheck.state = currentStartCollapsed ? .on : .off
+
         let sizeLabel = NSTextField(labelWithString: "Keyboard size")
-        sizeLabel.frame = NSRect(x: 20, y: 186, width: 260, height: 20)
+        sizeLabel.frame = NSRect(x: 20, y: 170, width: 260, height: 20)
 
         let minus = makeStepButton("\u{2212}", #selector(minusTapped))   // −
-        minus.frame = NSRect(x: 20, y: 144, width: 34, height: 30)
+        minus.frame = NSRect(x: 20, y: 128, width: 34, height: 30)
 
         let fmt = NumberFormatter()
         fmt.numberStyle = .none
@@ -125,7 +137,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         fmt.minimum = NSNumber(value: Settings.percentRange.lowerBound)
         fmt.maximum = NSNumber(value: Settings.percentRange.upperBound)
 
-        percentField = NSTextField(frame: NSRect(x: 60, y: 147, width: 60, height: 24))
+        percentField = NSTextField(frame: NSRect(x: 60, y: 131, width: 60, height: 24))
         percentField.formatter = fmt
         percentField.integerValue = currentPercent
         percentField.alignment = .center
@@ -133,12 +145,12 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         percentField.action = #selector(fieldChanged(_:))
 
         let percentSign = NSTextField(labelWithString: "%")
-        percentSign.frame = NSRect(x: 124, y: 149, width: 20, height: 20)
+        percentSign.frame = NSRect(x: 124, y: 133, width: 20, height: 20)
 
         let plus = makeStepButton("+", #selector(plusTapped))
-        plus.frame = NSRect(x: 150, y: 144, width: 34, height: 30)
+        plus.frame = NSRect(x: 150, y: 128, width: 34, height: 30)
 
-        [loginCheck, sizeLabel, minus, percentField, percentSign, plus].forEach { v.addSubview($0) }
+        [loginCheck, collapsedCheck, sizeLabel, minus, percentField, percentSign, plus].forEach { v.addSubview($0) }
         return v
     }
 
@@ -340,6 +352,10 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
 
     @objc private func loginToggled(_ sender: NSButton) {
         LoginItem.setEnabled(sender.state == .on)
+    }
+
+    @objc private func startCollapsedToggled(_ sender: NSButton) {
+        onStartCollapsedChange(sender.state == .on)
     }
 
     @objc private func suggestionsToggled(_ sender: NSButton) {

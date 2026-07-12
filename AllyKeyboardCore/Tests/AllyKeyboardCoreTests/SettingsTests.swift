@@ -155,6 +155,20 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(s.bottomBarHeight, 28)
     }
 
+    func testStartCollapsedDefaultAndRoundTrip() {
+        XCTAssertFalse(Settings().startCollapsed)
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        let settings = Settings(startCollapsed: true)
+        store.save(settings)
+        XCTAssertEqual(store.load(), settings)
+    }
+
+    func testDecodesLegacyWithoutStartCollapsed() throws {
+        let json = Data(#"{"sizePercent":100}"#.utf8)
+        let s = try JSONDecoder().decode(Settings.self, from: json)
+        XCTAssertFalse(s.startCollapsed)
+    }
+
     private func freshDefaults() -> UserDefaults {
         let name = "test.allykeyboard.\(UUID().uuidString)"
         let d = UserDefaults(suiteName: name)!

@@ -24,6 +24,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // Run as a menu-bar accessory: no Dock icon (controls live in the menu bar / launcher).
+        NSApp.setActivationPolicy(.accessory)
+
         // Request Accessibility permission needed for CGEvent key simulation.
         KeySender.requestAccessibilityIfNeeded()
 
@@ -39,8 +42,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.showKeyboard()
         }
 
-        // Launched at login -> start hidden (the launcher stands in for the keyboard).
-        if LoginItem.isEnabled {
+        // Start hidden when launched at login, or when "start collapsed" is enabled.
+        if LoginItem.isEnabled || s.startCollapsed {
             DispatchQueue.main.async { [weak self] in self?.hideKeyboard() }
         }
     }
@@ -71,6 +74,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Apply a new launcher opacity live (called from Settings).
     func updateLauncherOpacity(_ percent: Int) { launcher?.setOpacity(CGFloat(percent) / 100.0) }
 
+    /// The context menu shown on right-click (keyboard body / drag bar), matching the menu bar.
+    func makeContextMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Show / Hide Keyboard", action: #selector(togglePanel), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Settings\u{2026}", action: #selector(openSettings), keyEquivalent: "").target = self
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit AllyKeyboard", action: #selector(quitApp), keyEquivalent: "").target = self
+        return menu
+    }
+
+    @objc private func quitApp() { NSApp.terminate(nil) }
+
     // Left click on the Dock icon toggles the keyboard (show if hidden, hide if shown).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         togglePanel()
@@ -100,6 +115,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             currentTopBarHeight: vc.currentTopBarHeight,
             currentBottomBarShow: vc.currentBottomBarShow,
             currentBottomBarHeight: vc.currentBottomBarHeight,
+            currentStartCollapsed: vc.currentStartCollapsed,
             onPercentChange: { [weak vc] percent in vc?.applySizePercent(percent) },
             onShowSuggestionsChange: { [weak vc] on in vc?.applyShowSuggestions(on) },
             onSavedPhrasesChange: { [weak vc] phrases in vc?.applySavedPhrases(phrases) },
@@ -107,7 +123,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onLauncherOpacityChange: { [weak vc] percent in vc?.applyLauncherOpacity(percent) },
             onTopBarHeightChange: { [weak vc] pt in vc?.applyTopBarHeight(pt) },
             onBottomBarShowChange: { [weak vc] on in vc?.applyBottomBarShow(on) },
-            onBottomBarHeightChange: { [weak vc] pt in vc?.applyBottomBarHeight(pt) })
+            onBottomBarHeightChange: { [weak vc] pt in vc?.applyBottomBarHeight(pt) },
+            onStartCollapsedChange: { [weak vc] on in vc?.applyStartCollapsed(on) })
         settingsWindow = win
         win.present()
     }

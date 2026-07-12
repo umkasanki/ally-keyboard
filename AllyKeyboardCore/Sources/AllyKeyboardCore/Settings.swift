@@ -37,6 +37,9 @@ public struct Settings: Codable, Equatable {
     /// Whether the word-prediction panel appears while typing.
     public var showSuggestions: Bool
 
+    /// Launch with the keyboard collapsed (hidden; only the floating launcher shown).
+    public var startCollapsed: Bool
+
     /// User-defined phrases opened by the list key, inserted on tap.
     public var savedPhrases: [String]
 
@@ -76,9 +79,11 @@ public struct Settings: Codable, Equatable {
                 launcherOpacityPercent: Int = 100,
                 topBarHeight: Int = 28,
                 bottomBarShow: Bool = true,
-                bottomBarHeight: Int = 28) {
+                bottomBarHeight: Int = 28,
+                startCollapsed: Bool = false) {
         self.sizePercent = Settings.clampPercent(sizePercent)   // didSet does not run in init
         self.showSuggestions = showSuggestions
+        self.startCollapsed = startCollapsed
         self.savedPhrases = savedPhrases
         self.launcherWidth = Settings.clampLauncherWidth(launcherWidth)
         self.launcherOpacityPercent = Settings.clampLauncherOpacity(launcherOpacityPercent)
@@ -110,7 +115,7 @@ public struct Settings: Codable, Equatable {
     // Decode leniently so older saved settings (missing new keys) still load.
     private enum CodingKeys: String, CodingKey {
         case sizePercent, showSuggestions, savedPhrases, launcherWidth, launcherOpacityPercent,
-             topBarHeight, bottomBarShow, bottomBarHeight
+             topBarHeight, bottomBarShow, bottomBarHeight, startCollapsed
     }
 
     public init(from decoder: Decoder) throws {
@@ -123,5 +128,6 @@ public struct Settings: Codable, Equatable {
         self.topBarHeight = Settings.clampTopBarHeight(try c.decodeIfPresent(Int.self, forKey: .topBarHeight) ?? 28)
         self.bottomBarShow = try c.decodeIfPresent(Bool.self, forKey: .bottomBarShow) ?? true
         self.bottomBarHeight = Settings.clampBottomBarHeight(try c.decodeIfPresent(Int.self, forKey: .bottomBarHeight) ?? 28)
+        self.startCollapsed = try c.decodeIfPresent(Bool.self, forKey: .startCollapsed) ?? false
     }
 }
