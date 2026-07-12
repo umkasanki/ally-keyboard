@@ -103,10 +103,10 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Phase 4 — Head Tracker UX
 > Goal: keyboard is comfortable to use with head tracker, correct key sizes and visual feedback
 
-- [ ] **4.1** Visual hover highlight — key changes color on mouseEnter
-- [ ] **4.2** Keyboard size presets: Small / Medium / Large (affects key size + font)
-- [ ] **4.3** Keyboard opacity setting (0.7–1.0, for seeing content behind)
-- [ ] **4.4** Test with actual head tracker device
+- [x] **4.1** Visual hover highlight — keys lighten on hover; sticky modifiers highlight red (systemRed, matching ally-clicker); dimmed function keys brighten on hover/press; pointing-hand cursor over keys.
+- [x] **4.2** Keyboard size — continuous percent setting (50–250%, replaces fixed S/M/L presets), affects key size + font.
+- [x] **4.3** Opacity — floating launcher has an opacity setting; keyboard opacity intentionally skipped (not wanted).
+- [x] **4.4** Tested with the actual head tracker (primary daily use).
 
 ---
 
@@ -185,11 +185,15 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Done:** Phases 0–3 and 5 complete. Floating non-activating keyboard, key/chord
-simulation, multilingual layout switching, docked word-prediction balloon, saved-phrase
-list key, tabbed Settings (size %, launch-at-login, suggestions toggle, phrases), menu bar
-+ Dock control, stable code signing, redesigned app/Dock icon. `AllyKeyboardCore` is a local
-Swift Package with 40 tests green on Linux CI.
+**Done:** Phases 0–6 complete. Floating non-activating keyboard, key/chord simulation,
+multilingual layout switching, docked word-prediction balloon (also hosts saved phrases,
+dismiss on outside click), right-hand action column (copy/cut/paste/undo/translate, Material
+icons), Translate key, `+ − =` keys, fixed function row, tabbed Settings (size %, Bars
+top/bottom height + show, suggestions, launcher width/opacity, launch-at-login, launch
+collapsed), floating launcher (draggable, remembers position), menu-bar + right-click control,
+runs as menu-bar accessory (no Dock icon), dimmed function keys with hover/press brighten,
+systemRed active keys, pointing-hand cursor, stable code signing, redesigned app icon.
+`AllyKeyboardCore` is a local Swift Package with 53 tests green on Linux CI.
 
-**Next up:** Phase 4 (real head-tracker testing; size presets already covered by the % setting)
-and Phase 7 polish (fullscreen/multi-monitor edge cases, global show/hide hotkey, punctuation panel).
+**Next up:** Phase 7 polish — fullscreen/multi-monitor edge cases (7.1), global show/hide
+hotkey (7.2), numbers-row toggle (7.3), punctuation panel (7.4), ongoing real-world use (7.5).
