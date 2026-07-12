@@ -114,8 +114,51 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         launcher.label = "Launcher"
         launcher.view = makeLauncherView(width: currentLauncherWidth, opacity: currentLauncherOpacity)
 
-        [general, bars, suggestions, launcher].forEach { tabView.addTabViewItem($0) }
+        let about = NSTabViewItem(identifier: "about")
+        about.label = "About"
+        about.view = makeAboutView()
+
+        [general, bars, suggestions, launcher, about].forEach { tabView.addTabViewItem($0) }
         content.addSubview(tabView)
+    }
+
+    private func makeAboutView() -> NSView {
+        let v = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 270))
+        let info = Bundle.main.infoDictionary
+        let version = (info?["CFBundleShortVersionString"] as? String) ?? "—"
+        let build = (info?["CFBundleVersion"] as? String) ?? ""
+
+        let icon = NSImageView(frame: NSRect(x: 138, y: 178, width: 64, height: 64))
+        icon.image = NSApp.applicationIconImage
+        icon.imageScaling = .scaleProportionallyUpOrDown
+
+        let name = NSTextField(labelWithString: "AllyKeyboard")
+        name.font = NSFont.systemFont(ofSize: 18, weight: .semibold)
+        name.alignment = .center
+        name.frame = NSRect(x: 20, y: 148, width: 300, height: 24)
+
+        let ver = NSTextField(labelWithString: "Version \(version)" + (build.isEmpty ? "" : " (\(build))"))
+        ver.textColor = .secondaryLabelColor
+        ver.alignment = .center
+        ver.frame = NSRect(x: 20, y: 126, width: 300, height: 18)
+
+        let desc = NSTextField(labelWithString: "On-screen keyboard for head-tracker users.")
+        desc.textColor = .secondaryLabelColor
+        desc.alignment = .center
+        desc.frame = NSRect(x: 20, y: 100, width: 300, height: 18)
+
+        let link = NSButton(title: "View on GitHub", target: self, action: #selector(openRepo))
+        link.bezelStyle = .rounded
+        link.frame = NSRect(x: 110, y: 56, width: 120, height: 28)
+
+        [icon, name, ver, desc, link].forEach { v.addSubview($0) }
+        return v
+    }
+
+    @objc private func openRepo() {
+        if let url = URL(string: "https://github.com/umkasanki/ally-keyboard") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     private func makeGeneralView(currentPercent: Int, currentStartCollapsed: Bool, currentTheme: String) -> NSView {
