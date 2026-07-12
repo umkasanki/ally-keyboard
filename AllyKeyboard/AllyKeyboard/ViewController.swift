@@ -211,6 +211,7 @@ class ViewController: NSViewController {
         let widthMultiplier: CGFloat     // 1.0 = standard key width
         let fontScale:       CGFloat     // title font size multiplier (1.0 = default)
         let fixed:           Bool        // label/output never change with the active layout
+        let colored:         Bool        // render the image in full color (not a template tint)
 
         init(_ id: String,
              title: String? = nil,
@@ -218,7 +219,8 @@ class ViewController: NSViewController {
              image: String? = nil,
              w: CGFloat = 1.0,
              fontScale: CGFloat = 1.0,
-             fixed: Bool = false) {
+             fixed: Bool = false,
+             colored: Bool = false) {
             self.id              = id
             self.title           = title ?? id
             self.secondary       = secondary
@@ -226,7 +228,12 @@ class ViewController: NSViewController {
             self.widthMultiplier = w
             self.fontScale       = fontScale
             self.fixed           = fixed
+            self.colored         = colored
         }
+
+        /// An empty, non-interactive gap used to keep rows aligned.
+        static func spacer(_ w: CGFloat) -> Key { Key("__spacer__", title: "", w: w) }
+        var isSpacer: Bool { id == "__spacer__" }
     }
 
 
@@ -369,14 +376,11 @@ class ViewController: NSViewController {
         Key("?",  title: "?", fixed: true),
         Key(".",  title: ".", fixed: true),
         Key(",",  title: ",", fixed: true),
-        Key("Mute",       image: "speaker.slash.fill"),
-        Key("VolumeDown", image: "speaker.minus.fill"),
-        Key("VolumeUp",   image: "speaker.plus.fill"),
-        Key("Cmd+C",      image: "doc.on.doc"),
-        Key("Cmd+V",      image: "doc.on.clipboard"),
-        Key("Cmd+X",      image: "scissors"),
-        Key("Cmd+Z",      image: "arrow.uturn.backward"),
-        Key("LangSwitch", title: "🇺🇸", fontScale: 1.5),
+        Key.spacer(5),
+        Key("Mute",       image: "volume-off-icon",  colored: true),
+        Key("VolumeDown", image: "volume-down-icon", colored: true),
+        Key("VolumeUp",   image: "volume-up-icon",   colored: true),
+        Key("LangSwitch", title: "🇺🇸", fontScale: 1.5),        // right column
     ]
 
     private let numberRow: [Key] = [
@@ -395,6 +399,7 @@ class ViewController: NSViewController {
         Key("=",   secondary: "+"),
         Key("Backspace", image: "delete.backward", w: 1.5, fontScale: 1.25),
         Key("Home",      title: "home", fontScale: 0.7),
+        Key("Cmd+C",     image: "copy-icon", colored: true),    // right column
     ]
 
     private let letterRows: [[Key]] = [
@@ -407,7 +412,8 @@ class ViewController: NSViewController {
          Key("[",        secondary: "{"),
          Key("]",        secondary: "}"),
          Key("\\",       secondary: "|"),
-         Key("PageUp",   title: "up",   fontScale: 0.7)],
+         Key("PageUp",   title: "up",   fontScale: 0.7),
+         Key("Cmd+X",    image: "cut-icon", colored: true)],   // right column
         // ASDF row
         [Key("CapsLock", title: "caps", w: 1.75, fontScale: 0.7),
          Key("A", title: "a"), Key("S", title: "s"), Key("D", title: "d"),
@@ -416,7 +422,8 @@ class ViewController: NSViewController {
          Key(";", secondary: ":"),
          Key("'", secondary: "\""),
          Key("Return", image: "return", w: 1.75),
-         Key("PageDown", title: "down", fontScale: 0.7)],
+         Key("PageDown", title: "down", fontScale: 0.7),
+         Key("Cmd+V",    image: "paste-icon", colored: true)],  // right column
         // ZXCV row
         [Key("Shift",      image: "shift", w: 1.75),
          Key("Z", title: "z"), Key("X", title: "x"), Key("C", title: "c"),
@@ -427,7 +434,8 @@ class ViewController: NSViewController {
          Key("/", secondary: "?"),
          Key("Shift",      image: "shift", w: 1.75),
          Key("ArrowUp",    image: "arrow.up"),
-         Key("End",        title: "end",  fontScale: 0.7)],
+         Key("End",        title: "end",  fontScale: 0.7),
+         Key("Cmd+Z",      image: "undo-icon", colored: true)], // right column
         // Bottom row
         [Key("Ctrl",       title: "^",  w: 1.5),
          Key("Alt",        title: "⌥", w: 1.5),
@@ -437,7 +445,8 @@ class ViewController: NSViewController {
          Key("HideKeyboard", image: "keyboard-glyph", w: 1.5),
          Key("ArrowLeft",  image: "arrow.left"),
          Key("ArrowDown",  image: "arrow.down"),
-         Key("ArrowRight", image: "arrow.right")],
+         Key("ArrowRight", image: "arrow.right"),
+         Key("Translate",  image: "translate-icon", colored: true)], // right column
     ]
 
     private var allRows: [[Key]] { [functionRow, numberRow] + letterRows }
@@ -594,7 +603,8 @@ class ViewController: NSViewController {
             var x = padding + (contentW - rowWidth) / 2
 
             for key in row {
-                let w   = keyW(key)
+                let w = keyW(key)
+                if key.isSpacer { x += w + keySpacing; continue }   // empty gap, no button
                 let btn = KeyButton(frame: NSRect(x: x, y: y, width: w, height: keyHeight))
                 btn.identifier = NSUserInterfaceItemIdentifier(key.id)
                 btn.target     = self
@@ -606,9 +616,10 @@ class ViewController: NSViewController {
                     btn.image         = sym.withSymbolConfiguration(cfg)
                     btn.imagePosition = .imageOnly
                 } else if let imageName = key.image, let asset = NSImage(named: imageName) {
-                    asset.isTemplate = true
-                    let h = keyHeight * 0.4
+                    asset.isTemplate = !key.colored          // colored assets keep their own colors
+                    let h = keyHeight * (key.colored ? 0.55 : 0.4)
                     let sized = (asset.copy() as! NSImage)
+                    sized.isTemplate = !key.colored
                     sized.size = NSSize(width: h * asset.size.width / max(asset.size.height, 1), height: h)
                     btn.image         = sized
                     btn.imagePosition = .imageOnly
@@ -698,6 +709,11 @@ class ViewController: NSViewController {
             return
         }
 
+        if key == "Translate" {
+            translateSelection()
+            return
+        }
+
         // Fixed keys (top-row punctuation) type their literal, independent of layout.
         if activeModifiers.isEmpty, let literal = (sender as? KeyButton)?.literalChar {
             KeySender.sendText(literal)
@@ -719,6 +735,23 @@ class ViewController: NSViewController {
             updateModifierHighlights()
         }
         refreshSuggestions()
+    }
+
+    /// Copy the current selection and open it in Google Translate (auto → Russian).
+    private func translateSelection() {
+        let pb = NSPasteboard.general
+        let previousChange = pb.changeCount
+        KeySender.send("Cmd+C")   // copy the current selection
+        // Give the frontmost app a moment to write the selection to the pasteboard.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            guard pb.changeCount != previousChange,
+                  let text = pb.string(forType: .string),
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                  let url = URL(string: "https://translate.google.com/?sl=auto&tl=ru&op=translate&text=\(encoded)")
+            else { return }
+            NSWorkspace.shared.open(url)
+        }
     }
 
     private func eventFlags(from mods: Set<String>) -> CGEventFlags {
