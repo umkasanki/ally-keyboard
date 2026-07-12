@@ -138,8 +138,44 @@ final class KeyButton: NSButton {
     /// When set, the key always types this literal string, regardless of the active layout.
     var literalChar: String?
 
+    /// A dimmed glyph (text/icon) hosted in a subview so its brightness can animate.
+    private var glyphView: NSView?
+    private var restGlyphAlpha: CGFloat = 1.0
+    private var isPressed = false
+
     override init(frame: NSRect) { super.init(frame: frame); configure() }
     required init?(coder: NSCoder) { super.init(coder: coder); configure() }
+
+    /// Host a glyph that rests dimmed and brightens to full on hover/press.
+    func installGlyph(_ view: NSView, restAlpha: CGFloat) {
+        title = ""            // hide the button's own default title/image behind the glyph
+        image = nil
+        glyphView?.removeFromSuperview()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(view)
+        NSLayoutConstraint.activate([
+            view.centerXAnchor.constraint(equalTo: centerXAnchor),
+            view.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        glyphView = view
+        restGlyphAlpha = restAlpha
+        updateGlyphAlpha(animated: false)
+    }
+
+    private func updateGlyphAlpha(animated: Bool) {
+        guard let glyphView = glyphView else { return }
+        let target: CGFloat = (isHovered || isPressed) ? 1.0 : restGlyphAlpha
+        if animated {
+            NSAnimationContext.runAnimationGroup { $0.duration = 0.15; glyphView.animator().alphaValue = target }
+        } else {
+            glyphView.alphaValue = target
+        }
+    }
+
+    // Keep the whole key clickable; the glyph subview is decorative.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        super.hitTest(point) != nil ? self : nil
+    }
 
     private func configure() {
         wantsLayer = true
@@ -163,11 +199,13 @@ final class KeyButton: NSButton {
         ))
     }
 
-    override func mouseEntered(with event: NSEvent) { isHovered = true;  updateBackground() }
-    override func mouseExited (with event: NSEvent) { isHovered = false; updateBackground() }
+    override func mouseEntered(with event: NSEvent) { isHovered = true;  updateBackground(); updateGlyphAlpha(animated: true) }
+    override func mouseExited (with event: NSEvent) { isHovered = false; updateBackground(); updateGlyphAlpha(animated: true) }
 
     override func highlight(_ flag: Bool) {
         super.highlight(flag)
+        isPressed = flag
+        updateGlyphAlpha(animated: true)
         if flag {
             layer?.backgroundColor = AppConfig.Colors.keyPressed.cgColor
         } else {
@@ -350,14 +388,18 @@ class ViewController: NSViewController {
     // MARK: - Keyboard rows
 
     private let functionRow: [Key] = [
-        Key("Escape", title: "esc", w: 1.5, fontScale: 0.7),
+        Key("Escape", title: "Esc", w: 1.5, fontScale: 0.7),
         Key("Hi",     image: "list.bullet"),
+        Key("Blank", title: ""),
+        Key("Blank", title: ""),
         Key("@",  title: "@", fixed: true),
         Key("!",  title: "!", fixed: true),
         Key("?",  title: "?", fixed: true),
         Key(".",  title: ".", fixed: true),
         Key(",",  title: ",", fixed: true),
-        Key.spacer(5),
+        Key("+",  title: "+", fixed: true),
+        Key("-",  title: "-", fixed: true),
+        Key("=",  title: "=", fixed: true),
         Key("Mute",       image: "volume-off-icon",  fontScale: 0.95, colored: true),
         Key("VolumeDown", image: "volume-down-icon", fontScale: 1.08, colored: true),
         Key("VolumeUp",   image: "volume-up-icon",   fontScale: 0.95, colored: true),
@@ -379,13 +421,13 @@ class ViewController: NSViewController {
         Key("-",   secondary: "_"),
         Key("=",   secondary: "+"),
         Key("Backspace", image: "delete.backward", w: 1.5, fontScale: 1.25),
-        Key("Home",      title: "home", fontScale: 0.7),
+        Key("Home",      title: "Home", fontScale: 0.7),
         Key("Cmd+C",     image: "copy-icon", fontScale: 0.85, colored: true),    // right column
     ]
 
     private let letterRows: [[Key]] = [
         // QWERTY row
-        [Key("Tab",     title: "tab", w: 1.5, fontScale: 0.7),
+        [Key("Tab",     title: "Tab", w: 1.5, fontScale: 0.7),
          Key("Q", title: "q"), Key("W", title: "w"), Key("E", title: "e"),
          Key("R", title: "r"), Key("T", title: "t"), Key("Y", title: "y"),
          Key("U", title: "u"), Key("I", title: "i"), Key("O", title: "o"),
@@ -393,36 +435,36 @@ class ViewController: NSViewController {
          Key("[",        secondary: "{"),
          Key("]",        secondary: "}"),
          Key("\\",       secondary: "|"),
-         Key("PageUp",   title: "up",   fontScale: 0.7),
+         Key("PageUp",   title: "Up",   fontScale: 0.7),
          Key("Cmd+X",    image: "cut-icon", fontScale: 0.85, colored: true)],   // right column
         // ASDF row
-        [Key("CapsLock", title: "caps", w: 1.75, fontScale: 0.7),
+        [Key("CapsLock", title: "Caps", w: 1.75, fontScale: 0.7),
          Key("A", title: "a"), Key("S", title: "s"), Key("D", title: "d"),
          Key("F", title: "f"), Key("G", title: "g"), Key("H", title: "h"),
          Key("J", title: "j"), Key("K", title: "k"), Key("L", title: "l"),
          Key(";", secondary: ":"),
          Key("'", secondary: "\""),
          Key("Return", image: "return", w: 1.75),
-         Key("PageDown", title: "down", fontScale: 0.7),
+         Key("PageDown", title: "Down", fontScale: 0.7),
          Key("Cmd+V",    image: "paste-icon", fontScale: 0.85, colored: true)],  // right column
         // ZXCV row
-        [Key("Shift",      image: "shift", w: 1.75),
+        [Key("Shift",      image: "shift", w: 2.25),
          Key("Z", title: "z"), Key("X", title: "x"), Key("C", title: "c"),
          Key("V", title: "v"), Key("B", title: "b"), Key("N", title: "n"),
          Key("M", title: "m"),
          Key(",", secondary: "<"),
          Key(".", secondary: ">"),
          Key("/", secondary: "?"),
-         Key("Shift",      image: "shift", w: 1.75),
+         Key("Shift",      image: "shift", w: 1.25),
          Key("ArrowUp",    image: "arrow.up"),
-         Key("End",        title: "end",  fontScale: 0.7),
+         Key("End",        title: "End",  fontScale: 0.7),
          Key("Cmd+Z",      image: "undo-icon", fontScale: 0.85, colored: true)], // right column
         // Bottom row
         [Key("Ctrl",       title: "^",  w: 1.5),
          Key("Alt",        title: "⌥", w: 1.5),
          Key("Cmd",        title: "⌘", w: 1.5),
          Key("Space",      title: "",  w: 5.0),
-         Key("Delete",     title: "del", w: 1.5, fontScale: 0.7),
+         Key("Delete",     title: "Del", w: 1.5, fontScale: 0.7),
          Key("HideKeyboard", image: "keyboard-glyph", w: 1.5),
          Key("ArrowLeft",  image: "arrow.left"),
          Key("ArrowDown",  image: "arrow.down"),
@@ -459,6 +501,14 @@ class ViewController: NSViewController {
     // MARK: - Modifier state (Ctrl / Alt / Cmd — sticky, one-shot like Shift)
 
     private static let modifierIDs: Set<String> = ["Ctrl", "Alt", "Cmd"]
+
+    /// Function/service keys drawn slightly dimmed; their glyph brightens on hover/press.
+    private static let functionKeyIDs: Set<String> = [
+        "Escape", "Tab", "CapsLock", "Home", "PageUp", "PageDown", "End", "Delete",
+        "Ctrl", "Alt", "Cmd", "Shift",
+        "Return", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
+        "HideKeyboard",
+    ]
     private var activeModifiers: Set<String> = []
     private var modifierButtons: [String: [KeyButton]] = [:]
     private var langSwitchButtons: [KeyButton] = []
@@ -598,19 +648,47 @@ class ViewController: NSViewController {
                 if let imageName = key.image,
                    let sym = NSImage(systemSymbolName: imageName, accessibilityDescription: nil) {
                     let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize * key.fontScale, weight: .medium)
-                    btn.image         = sym.withSymbolConfiguration(cfg)
-                    btn.imagePosition = .imageOnly
+                    let img = sym.withSymbolConfiguration(cfg)
+                    if Self.functionKeyIDs.contains(key.id) {
+                        let iv = NSImageView()
+                        iv.image = img
+                        iv.contentTintColor = .white
+                        btn.installGlyph(iv, restAlpha: 0.65)  // dimmed, brightens on hover/press
+                    } else {
+                        btn.image         = img
+                        btn.imagePosition = .imageOnly
+                    }
                 } else if let imageName = key.image, let asset = NSImage(named: imageName) {
                     asset.isTemplate = !key.colored          // colored assets keep their own colors
                     let h = keyHeight * (key.colored ? 0.55 : 0.4) * key.fontScale
                     let sized = (asset.copy() as! NSImage)
                     sized.isTemplate = !key.colored
                     sized.size = NSSize(width: h * asset.size.width / max(asset.size.height, 1), height: h)
-                    btn.image         = sized
-                    btn.imagePosition = .imageOnly
+                    if Self.functionKeyIDs.contains(key.id) {
+                        let iv = NSImageView()
+                        iv.image = sized
+                        iv.contentTintColor = .white
+                        btn.installGlyph(iv, restAlpha: 0.65)  // dimmed, brightens on hover/press
+                    } else {
+                        btn.image         = sized
+                        btn.imagePosition = .imageOnly
+                    }
                 } else {
-                    btn.title = key.title
-                    btn.font  = NSFont.systemFont(ofSize: keyFontSizePrimary * key.fontScale, weight: .medium)
+                    // Single letters look heavier than digits at the same weight (more ink),
+                    // so give the letter keys a lighter weight to match the number row.
+                    let isLetter = key.id.count == 1 && (key.id.first?.isLetter ?? false)
+                    let font = NSFont.systemFont(ofSize: keyFontSizePrimary * key.fontScale * 1.1,
+                                                 weight: isLetter ? .regular : .medium)
+                    if Self.functionKeyIDs.contains(key.id) {
+                        let label = NSTextField(labelWithString: key.title)
+                        label.font = font
+                        label.textColor = .white
+                        label.alignment = .center
+                        btn.installGlyph(label, restAlpha: 0.65)  // dimmed, brightens on hover/press
+                    } else {
+                        btn.title = key.title
+                        btn.font  = font
+                    }
                 }
 
                 // Secondary symbol drawn in top-right corner via KeyButton.draw()
@@ -688,6 +766,8 @@ class ViewController: NSViewController {
             (NSApp.delegate as? AppDelegate)?.hideKeyboard()
             return
         }
+
+        if key == "Blank" { return }   // empty placeholder key — does nothing
 
         if key == "Hi" {
             showGreetings()
