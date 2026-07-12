@@ -358,9 +358,9 @@ class ViewController: NSViewController {
         Key(".",  title: ".", fixed: true),
         Key(",",  title: ",", fixed: true),
         Key.spacer(5),
-        Key("Mute",       image: "volume-off-icon",  colored: true),
-        Key("VolumeDown", image: "volume-down-icon", colored: true),
-        Key("VolumeUp",   image: "volume-up-icon",   colored: true),
+        Key("Mute",       image: "volume-off-icon",  fontScale: 0.95, colored: true),
+        Key("VolumeDown", image: "volume-down-icon", fontScale: 1.08, colored: true),
+        Key("VolumeUp",   image: "volume-up-icon",   fontScale: 0.95, colored: true),
         Key("LangSwitch", title: "🇺🇸", fontScale: 1.5),        // right column
     ]
 
@@ -380,7 +380,7 @@ class ViewController: NSViewController {
         Key("=",   secondary: "+"),
         Key("Backspace", image: "delete.backward", w: 1.5, fontScale: 1.25),
         Key("Home",      title: "home", fontScale: 0.7),
-        Key("Cmd+C",     image: "copy-icon", colored: true),    // right column
+        Key("Cmd+C",     image: "copy-icon", fontScale: 0.85, colored: true),    // right column
     ]
 
     private let letterRows: [[Key]] = [
@@ -394,7 +394,7 @@ class ViewController: NSViewController {
          Key("]",        secondary: "}"),
          Key("\\",       secondary: "|"),
          Key("PageUp",   title: "up",   fontScale: 0.7),
-         Key("Cmd+X",    image: "cut-icon", colored: true)],   // right column
+         Key("Cmd+X",    image: "cut-icon", fontScale: 0.85, colored: true)],   // right column
         // ASDF row
         [Key("CapsLock", title: "caps", w: 1.75, fontScale: 0.7),
          Key("A", title: "a"), Key("S", title: "s"), Key("D", title: "d"),
@@ -404,7 +404,7 @@ class ViewController: NSViewController {
          Key("'", secondary: "\""),
          Key("Return", image: "return", w: 1.75),
          Key("PageDown", title: "down", fontScale: 0.7),
-         Key("Cmd+V",    image: "paste-icon", colored: true)],  // right column
+         Key("Cmd+V",    image: "paste-icon", fontScale: 0.85, colored: true)],  // right column
         // ZXCV row
         [Key("Shift",      image: "shift", w: 1.75),
          Key("Z", title: "z"), Key("X", title: "x"), Key("C", title: "c"),
@@ -416,7 +416,7 @@ class ViewController: NSViewController {
          Key("Shift",      image: "shift", w: 1.75),
          Key("ArrowUp",    image: "arrow.up"),
          Key("End",        title: "end",  fontScale: 0.7),
-         Key("Cmd+Z",      image: "undo-icon", colored: true)], // right column
+         Key("Cmd+Z",      image: "undo-icon", fontScale: 0.85, colored: true)], // right column
         // Bottom row
         [Key("Ctrl",       title: "^",  w: 1.5),
          Key("Alt",        title: "⌥", w: 1.5),
@@ -427,7 +427,7 @@ class ViewController: NSViewController {
          Key("ArrowLeft",  image: "arrow.left"),
          Key("ArrowDown",  image: "arrow.down"),
          Key("ArrowRight", image: "arrow.right"),
-         Key("Translate",  image: "translate-icon", colored: true)], // right column
+         Key("Translate",  image: "translate-icon", fontScale: 0.85, colored: true)], // right column
     ]
 
     private var allRows: [[Key]] { [functionRow, numberRow] + letterRows }
@@ -602,7 +602,7 @@ class ViewController: NSViewController {
                     btn.imagePosition = .imageOnly
                 } else if let imageName = key.image, let asset = NSImage(named: imageName) {
                     asset.isTemplate = !key.colored          // colored assets keep their own colors
-                    let h = keyHeight * (key.colored ? 0.55 : 0.4)
+                    let h = keyHeight * (key.colored ? 0.55 : 0.4) * key.fontScale
                     let sized = (asset.copy() as! NSImage)
                     sized.isTemplate = !key.colored
                     sized.size = NSSize(width: h * asset.size.width / max(asset.size.height, 1), height: h)
