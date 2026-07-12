@@ -327,25 +327,6 @@ class ViewController: NSViewController {
 
     // MARK: - Saved phrases (list key)
 
-    private func showGreetingsMenu(from view: NSView) {
-        let phrases = settings.savedPhrases
-        guard !phrases.isEmpty else { return }
-        let menu = NSMenu()
-        for phrase in phrases {
-            let item = menu.addItem(withTitle: phrase, action: #selector(greetingSelected(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = phrase
-        }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: view.bounds.height), in: view)
-    }
-
-    @objc private func greetingSelected(_ sender: NSMenuItem) {
-        guard let phrase = sender.representedObject as? String else { return }
-        KeySender.sendText(phrase)
-        textTracker.reset()
-        hideSuggestions()
-    }
-
     // MARK: - Scaled layout values (base constants live in AppConfig.Layout)
 
     private var keyWidth:         CGFloat { AppConfig.Layout.keyWidth    * scale }
@@ -496,6 +477,9 @@ class ViewController: NSViewController {
     private var suggestionRowHeight: CGFloat { (keyFontSizePrimary * 1.7).rounded() }
     private let suggestionSpacing: CGFloat = 0
     private var suggestionPanel: NSPanel?
+    private var clickMonitors: [Any] = []
+    /// The balloon currently shows saved phrases (from the list key) rather than word predictions.
+    private var balloonIsGreetings = false
     private var currentSuggestions: [String] = []
     private let textTracker = TextTracker()
     private let speller = SpellCheckerPredictionEngine()
@@ -559,6 +543,7 @@ class ViewController: NSViewController {
         refreshForCurrentLayout()
         observeInputSourceChanges()
         observeKeyboardMove()
+        installClickDismissMonitors()
 
         if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
             UserDefaults.standard.set(true, forKey: hasLaunchedKey)
@@ -705,7 +690,7 @@ class ViewController: NSViewController {
         }
 
         if key == "Hi" {
-            showGreetingsMenu(from: sender)
+            showGreetings()
             return
         }
 
@@ -814,34 +799,85 @@ class ViewController: NSViewController {
         panel.isOpaque = false
         panel.hasShadow = true
         let bar = SuggestionBarView(frame: NSRect(origin: .zero, size: panel.frame.size),
-                                    maxSlots: suggestionBarSlots, spacing: suggestionSpacing, fontSize: keyFontSizePrimary)
+                                    maxSlots: 10, spacing: suggestionSpacing, fontSize: keyFontSizePrimary)
         bar.autoresizingMask = [.width, .height]
         bar.wantsLayer = true
-        bar.onSelect = { [weak self] word in self?.applySuggestion(word) }
+        bar.onSelect = { [weak self] item in self?.balloonSelected(item) }
         panel.contentView = bar
         suggestionPanel = panel
         return panel
     }
 
     private func showSuggestions(_ words: [String]) {
-        currentSuggestions = words
-        guard !words.isEmpty, let keyboard = view.window else { hideSuggestions(); return }
+        showBalloon(words, prefixLength: textTracker.currentWord.count,
+                    widthFactor: 0.32, greetings: false)
+    }
+
+    /// Show the saved phrases in the same docked balloon (top or bottom, where there's room).
+    private func showGreetings() {
+        let phrases = settings.savedPhrases
+        guard !phrases.isEmpty else { hideSuggestions(); return }
+        // prefixLength larger than any phrase => the whole phrase is drawn bright.
+        showBalloon(phrases, prefixLength: Int.max, widthFactor: 0.5, greetings: true)
+    }
+
+    private func showBalloon(_ items: [String], prefixLength: Int, widthFactor: CGFloat, greetings: Bool) {
+        currentSuggestions = items
+        balloonIsGreetings = greetings
+        guard !items.isEmpty, let keyboard = view.window else { hideSuggestions(); return }
         let panel = ensureSuggestionPanel()
-        let n = min(words.count, suggestionBarSlots)
+        let n = items.count
         let tailHeight: CGFloat = 7
         let bodyHeight = CGFloat(n) * suggestionRowHeight + CGFloat(n - 1) * suggestionSpacing
-        let size = NSSize(width: keyboard.frame.width * 0.32, height: bodyHeight + tailHeight)
+        let size = NSSize(width: keyboard.frame.width * widthFactor, height: bodyHeight + tailHeight)
         let tailOnTop = positionSuggestionPanel(panel, relativeTo: keyboard, size: size)
         (panel.contentView as? SuggestionBarView)?.setSuggestions(
-            words, prefixLength: textTracker.currentWord.count,
+            items, prefixLength: prefixLength,
             tailOnTop: tailOnTop, tailHeight: tailHeight,
             cornerRadius: AppConfig.Layout.keyCornerRadius * scale)
         panel.order(.above, relativeTo: keyboard.windowNumber)
     }
 
+    /// Handle a click on a balloon row: insert a phrase as-is, or apply a word prediction.
+    private func balloonSelected(_ item: String) {
+        if balloonIsGreetings {
+            KeySender.sendText(item)
+            textTracker.reset()
+            hideSuggestions()
+        } else {
+            applySuggestion(item)
+        }
+    }
+
     private func hideSuggestions() {
         currentSuggestions = []
         suggestionPanel?.orderOut(nil)
+    }
+
+    /// Dismiss the suggestion balloon when the user clicks away from the keys —
+    /// in another app (global) or on the keyboard's own bars/background (local).
+    private func installClickDismissMonitors() {
+        let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            self?.hideSuggestions()
+        }
+        let local = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            self?.handleLocalClick(event)
+            return event
+        }
+        clickMonitors = [global, local].compactMap { $0 }
+    }
+
+    private func handleLocalClick(_ event: NSEvent) {
+        guard suggestionPanel?.isVisible == true else { return }
+        // Clicking a suggestion selects it — the panel handles that itself.
+        if let panel = suggestionPanel, event.window == panel { return }
+        // Clicking a key is a normal keystroke (it refreshes suggestions on its own).
+        if let window = event.window, window == view.window,
+           window.contentView?.hitTest(event.locationInWindow) is KeyButton {
+            return
+        }
+        // Anything else — top/bottom bars, background, another window — dismisses.
+        hideSuggestions()
     }
 
     /// Dock the panel to the keyboard on whichever vertical side has more room.
@@ -874,7 +910,7 @@ class ViewController: NSViewController {
 
     @objc private func keyboardMoved() {
         guard let panel = suggestionPanel, panel.isVisible, !currentSuggestions.isEmpty else { return }
-        showSuggestions(currentSuggestions)
+        if balloonIsGreetings { showGreetings() } else { showSuggestions(currentSuggestions) }
     }
 
     /// Replace the partial word with the chosen suggestion, then a space.
@@ -956,6 +992,7 @@ class ViewController: NSViewController {
     deinit {
         DistributedNotificationCenter.default().removeObserver(self)
         NotificationCenter.default.removeObserver(self)
+        clickMonitors.forEach { NSEvent.removeMonitor($0) }
     }
 
     private func observeInputSourceChanges() {
