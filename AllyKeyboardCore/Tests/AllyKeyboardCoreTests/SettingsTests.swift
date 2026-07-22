@@ -131,6 +131,25 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(s.topBarHeight, 28)
     }
 
+    func testDragDefaultsClampAndRoundTrip() {
+        XCTAssertTrue(Settings().dragToMove)
+        XCTAssertEqual(Settings().dragCooldownMs, 400)
+        XCTAssertEqual(Settings(dragCooldownMs: -50).dragCooldownMs, 0)
+        XCTAssertEqual(Settings(dragCooldownMs: 9999).dragCooldownMs, 1500)
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        let settings = Settings(dragToMove: false, dragCooldownMs: 250)
+        store.save(settings)
+        XCTAssertEqual(store.load(), settings)
+    }
+
+    func testTopBarShowDefaultAndRoundTrip() {
+        XCTAssertTrue(Settings().topBarShow)
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        let settings = Settings(topBarShow: false)
+        store.save(settings)
+        XCTAssertEqual(store.load(), settings)
+    }
+
     func testBottomBarDefaultsAndClamp() {
         XCTAssertEqual(Settings().bottomBarHeight, 28)
         XCTAssertTrue(Settings().bottomBarShow)

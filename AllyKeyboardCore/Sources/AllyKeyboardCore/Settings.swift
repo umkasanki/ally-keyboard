@@ -20,6 +20,8 @@ public struct Settings: Codable, Equatable {
     public static let topBarHeightRange = 20...40
     /// Allowed bottom-bar (drag handle) height, in points.
     public static let bottomBarHeightRange = 20...40
+    /// Allowed drag cooldown, in milliseconds.
+    public static let dragCooldownRange = 0...1500
     /// Default saved phrases shown by the list ("Hi") key.
     public static let defaultGreetings = [
         "Hello!",
@@ -36,6 +38,15 @@ public struct Settings: Codable, Equatable {
 
     /// Whether the word-prediction panel appears while typing.
     public var showSuggestions: Bool
+
+    /// Move the whole keyboard by pressing-and-dragging a key (a plain click still types).
+    public var dragToMove: Bool
+
+    /// After a key-drag moves the window, key presses are ignored for this many ms
+    /// (absorbs the synthetic click a head tracker emits at the end of a drag-select).
+    public var dragCooldownMs: Int {
+        didSet { dragCooldownMs = Settings.clampDragCooldown(dragCooldownMs) }
+    }
 
     /// Launch with the keyboard collapsed (hidden; only the floating launcher shown).
     public var startCollapsed: Bool
@@ -55,6 +66,9 @@ public struct Settings: Codable, Equatable {
     public var launcherOpacityPercent: Int {
         didSet { launcherOpacityPercent = Settings.clampLauncherOpacity(launcherOpacityPercent) }
     }
+
+    /// Whether the top bar (minimize strip) is shown at all.
+    public var topBarShow: Bool
 
     /// Top-bar (minimize strip) height, in points.
     public var topBarHeight: Int {
@@ -80,9 +94,12 @@ public struct Settings: Codable, Equatable {
                 savedPhrases: [String] = Settings.defaultGreetings,
                 launcherWidth: Int = 50,
                 launcherOpacityPercent: Int = 100,
+                topBarShow: Bool = true,
                 topBarHeight: Int = 28,
                 bottomBarShow: Bool = true,
                 bottomBarHeight: Int = 28,
+                dragToMove: Bool = true,
+                dragCooldownMs: Int = 400,
                 startCollapsed: Bool = false,
                 theme: String = "darkSystem") {
         self.sizePercent = Settings.clampPercent(sizePercent)   // didSet does not run in init
@@ -92,9 +109,12 @@ public struct Settings: Codable, Equatable {
         self.savedPhrases = savedPhrases
         self.launcherWidth = Settings.clampLauncherWidth(launcherWidth)
         self.launcherOpacityPercent = Settings.clampLauncherOpacity(launcherOpacityPercent)
+        self.topBarShow = topBarShow
         self.topBarHeight = Settings.clampTopBarHeight(topBarHeight)
         self.bottomBarShow = bottomBarShow
         self.bottomBarHeight = Settings.clampBottomBarHeight(bottomBarHeight)
+        self.dragToMove = dragToMove
+        self.dragCooldownMs = Settings.clampDragCooldown(dragCooldownMs)
     }
 
     public static func clampPercent(_ percent: Int) -> Int {
@@ -117,10 +137,15 @@ public struct Settings: Codable, Equatable {
         min(bottomBarHeightRange.upperBound, max(bottomBarHeightRange.lowerBound, pt))
     }
 
+    public static func clampDragCooldown(_ ms: Int) -> Int {
+        min(dragCooldownRange.upperBound, max(dragCooldownRange.lowerBound, ms))
+    }
+
     // Decode leniently so older saved settings (missing new keys) still load.
     private enum CodingKeys: String, CodingKey {
         case sizePercent, showSuggestions, savedPhrases, launcherWidth, launcherOpacityPercent,
-             topBarHeight, bottomBarShow, bottomBarHeight, startCollapsed, theme
+             topBarShow, topBarHeight, bottomBarShow, bottomBarHeight,
+             dragToMove, dragCooldownMs, startCollapsed, theme
     }
 
     public init(from decoder: Decoder) throws {
@@ -130,9 +155,12 @@ public struct Settings: Codable, Equatable {
         self.savedPhrases = try c.decodeIfPresent([String].self, forKey: .savedPhrases) ?? Settings.defaultGreetings
         self.launcherWidth = Settings.clampLauncherWidth(try c.decodeIfPresent(Int.self, forKey: .launcherWidth) ?? 50)
         self.launcherOpacityPercent = Settings.clampLauncherOpacity(try c.decodeIfPresent(Int.self, forKey: .launcherOpacityPercent) ?? 100)
+        self.topBarShow = try c.decodeIfPresent(Bool.self, forKey: .topBarShow) ?? true
         self.topBarHeight = Settings.clampTopBarHeight(try c.decodeIfPresent(Int.self, forKey: .topBarHeight) ?? 28)
         self.bottomBarShow = try c.decodeIfPresent(Bool.self, forKey: .bottomBarShow) ?? true
         self.bottomBarHeight = Settings.clampBottomBarHeight(try c.decodeIfPresent(Int.self, forKey: .bottomBarHeight) ?? 28)
+        self.dragToMove = try c.decodeIfPresent(Bool.self, forKey: .dragToMove) ?? true
+        self.dragCooldownMs = Settings.clampDragCooldown(try c.decodeIfPresent(Int.self, forKey: .dragCooldownMs) ?? 400)
         self.startCollapsed = try c.decodeIfPresent(Bool.self, forKey: .startCollapsed) ?? false
         self.theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "darkSystem"
     }

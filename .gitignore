@@ -33,3 +33,8 @@ build/
 
 # compiled icon generator binary
 tools/make-icon
+
+# Release build + artifacts
+AllyKeyboard/build-release/
+AllyKeyboard-*.zip
+AllyKeyboard-*.dmg

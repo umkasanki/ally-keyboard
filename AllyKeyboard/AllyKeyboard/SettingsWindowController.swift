@@ -20,7 +20,12 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private let onLauncherWidthChange: (Int) -> Void
     private let onLauncherOpacityChange: (Int) -> Void
     private let onTopBarHeightChange: (Int) -> Void
+    private let onTopBarShowChange: (Bool) -> Void
     private let onBottomBarShowChange: (Bool) -> Void
+    private let onDragToMoveChange: (Bool) -> Void
+    private let onDragCooldownChange: (Int) -> Void
+    private var cooldownField: NSTextField!
+    private var cooldownViews: [NSView] = []   // shown only when drag-to-move is on
     private let onBottomBarHeightChange: (Int) -> Void
     private let onStartCollapsedChange: (Bool) -> Void
     private let onThemeChange: (String) -> Void
@@ -38,9 +43,12 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          currentSavedPhrases: [String],
          currentLauncherWidth: Int,
          currentLauncherOpacity: Int,
+         currentTopBarShow: Bool,
          currentTopBarHeight: Int,
          currentBottomBarShow: Bool,
          currentBottomBarHeight: Int,
+         currentDragToMove: Bool,
+         currentDragCooldownMs: Int,
          currentStartCollapsed: Bool,
          currentTheme: String,
          onPercentChange: @escaping (Int) -> Void,
@@ -49,7 +57,10 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          onLauncherWidthChange: @escaping (Int) -> Void,
          onLauncherOpacityChange: @escaping (Int) -> Void,
          onTopBarHeightChange: @escaping (Int) -> Void,
+         onTopBarShowChange: @escaping (Bool) -> Void,
          onBottomBarShowChange: @escaping (Bool) -> Void,
+         onDragToMoveChange: @escaping (Bool) -> Void,
+         onDragCooldownChange: @escaping (Int) -> Void,
          onBottomBarHeightChange: @escaping (Int) -> Void,
          onStartCollapsedChange: @escaping (Bool) -> Void,
          onThemeChange: @escaping (String) -> Void) {
@@ -59,11 +70,14 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         self.onLauncherWidthChange = onLauncherWidthChange
         self.onLauncherOpacityChange = onLauncherOpacityChange
         self.onTopBarHeightChange = onTopBarHeightChange
+        self.onTopBarShowChange = onTopBarShowChange
         self.onBottomBarShowChange = onBottomBarShowChange
+        self.onDragToMoveChange = onDragToMoveChange
+        self.onDragCooldownChange = onDragCooldownChange
         self.onBottomBarHeightChange = onBottomBarHeightChange
         self.onStartCollapsedChange = onStartCollapsedChange
         self.onThemeChange = onThemeChange
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 300),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: 390),
                               styleMask: [.titled, .closable],
                               backing: .buffered, defer: false)
         window.title = "AllyKeyboard Settings"
@@ -75,9 +89,12 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                 currentSavedPhrases: currentSavedPhrases,
                 currentLauncherWidth: currentLauncherWidth,
                 currentLauncherOpacity: currentLauncherOpacity,
+                currentTopBarShow: currentTopBarShow,
                 currentTopBarHeight: currentTopBarHeight,
                 currentBottomBarShow: currentBottomBarShow,
                 currentBottomBarHeight: currentBottomBarHeight,
+                currentDragToMove: currentDragToMove,
+                currentDragCooldownMs: currentDragCooldownMs,
                 currentStartCollapsed: currentStartCollapsed,
                 currentTheme: currentTheme)
     }
@@ -85,8 +102,10 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func buildUI(currentPercent: Int, currentShowSuggestions: Bool, currentSavedPhrases: [String],
-                         currentLauncherWidth: Int, currentLauncherOpacity: Int, currentTopBarHeight: Int,
+                         currentLauncherWidth: Int, currentLauncherOpacity: Int,
+                         currentTopBarShow: Bool, currentTopBarHeight: Int,
                          currentBottomBarShow: Bool, currentBottomBarHeight: Int,
+                         currentDragToMove: Bool, currentDragCooldownMs: Int,
                          currentStartCollapsed: Bool, currentTheme: String) {
         guard let content = window?.contentView else { return }
 
@@ -101,9 +120,12 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
 
         let bars = NSTabViewItem(identifier: "bars")
         bars.label = "Bars"
-        bars.view = makeBarsView(topBarHeight: currentTopBarHeight,
+        bars.view = makeBarsView(topBarShow: currentTopBarShow,
+                                 topBarHeight: currentTopBarHeight,
                                  bottomBarShow: currentBottomBarShow,
-                                 bottomBarHeight: currentBottomBarHeight)
+                                 bottomBarHeight: currentBottomBarHeight,
+                                 dragToMove: currentDragToMove,
+                                 dragCooldownMs: currentDragCooldownMs)
 
         let suggestions = NSTabViewItem(identifier: "suggestions")
         suggestions.label = "Suggestions"
@@ -218,44 +240,84 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         return v
     }
 
-    private func makeBarsView(topBarHeight: Int, bottomBarShow: Bool, bottomBarHeight: Int) -> NSView {
-        let v = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 270))
+    private func makeBarsView(topBarShow: Bool, topBarHeight: Int, bottomBarShow: Bool, bottomBarHeight: Int,
+                              dragToMove: Bool, dragCooldownMs: Int) -> NSView {
+        let v = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 360))
 
         // --- Top bar ---
+        let topShowCheck = NSButton(checkboxWithTitle: "Show top bar",
+                                    target: self, action: #selector(topShowToggled(_:)))
+        topShowCheck.frame = NSRect(x: 20, y: 326, width: 300, height: 22)
+        topShowCheck.state = topBarShow ? .on : .off
+
         let topBarLabel = NSTextField(labelWithString: "Top bar height")
-        topBarLabel.frame = NSRect(x: 20, y: 228, width: 260, height: 20)
+        topBarLabel.frame = NSRect(x: 20, y: 298, width: 260, height: 20)
 
         let tbMinus = makeStepButton("\u{2212}", #selector(topBarMinusTapped))
-        tbMinus.frame = NSRect(x: 20, y: 186, width: 34, height: 30)
+        tbMinus.frame = NSRect(x: 20, y: 262, width: 34, height: 30)
         topBarField = makeBarField(value: topBarHeight, range: Settings.topBarHeightRange,
                                    action: #selector(topBarFieldChanged(_:)))
-        topBarField.frame = NSRect(x: 60, y: 189, width: 60, height: 24)
+        topBarField.frame = NSRect(x: 60, y: 265, width: 60, height: 24)
         let tbPt = NSTextField(labelWithString: "pt")
-        tbPt.frame = NSRect(x: 124, y: 191, width: 24, height: 20)
+        tbPt.frame = NSRect(x: 124, y: 267, width: 24, height: 20)
         let tbPlus = makeStepButton("+", #selector(topBarPlusTapped))
-        tbPlus.frame = NSRect(x: 152, y: 186, width: 34, height: 30)
+        tbPlus.frame = NSRect(x: 152, y: 262, width: 34, height: 30)
 
         // --- Bottom bar ---
         let showCheck = NSButton(checkboxWithTitle: "Show bottom bar",
                                  target: self, action: #selector(bottomShowToggled(_:)))
-        showCheck.frame = NSRect(x: 20, y: 132, width: 300, height: 22)
+        showCheck.frame = NSRect(x: 20, y: 228, width: 300, height: 22)
         showCheck.state = bottomBarShow ? .on : .off
 
         let bottomBarLabel = NSTextField(labelWithString: "Bottom bar height")
-        bottomBarLabel.frame = NSRect(x: 20, y: 96, width: 260, height: 20)
+        bottomBarLabel.frame = NSRect(x: 20, y: 200, width: 260, height: 20)
 
         let bbMinus = makeStepButton("\u{2212}", #selector(bottomBarMinusTapped))
-        bbMinus.frame = NSRect(x: 20, y: 54, width: 34, height: 30)
+        bbMinus.frame = NSRect(x: 20, y: 164, width: 34, height: 30)
         bottomBarField = makeBarField(value: bottomBarHeight, range: Settings.bottomBarHeightRange,
                                       action: #selector(bottomBarFieldChanged(_:)))
-        bottomBarField.frame = NSRect(x: 60, y: 57, width: 60, height: 24)
+        bottomBarField.frame = NSRect(x: 60, y: 167, width: 60, height: 24)
         let bbPt = NSTextField(labelWithString: "pt")
-        bbPt.frame = NSRect(x: 124, y: 59, width: 24, height: 20)
+        bbPt.frame = NSRect(x: 124, y: 169, width: 24, height: 20)
         let bbPlus = makeStepButton("+", #selector(bottomBarPlusTapped))
-        bbPlus.frame = NSRect(x: 152, y: 54, width: 34, height: 30)
+        bbPlus.frame = NSRect(x: 152, y: 164, width: 34, height: 30)
 
-        [topBarLabel, tbMinus, topBarField, tbPt, tbPlus,
-         showCheck, bottomBarLabel, bbMinus, bottomBarField, bbPt, bbPlus].forEach { v.addSubview($0) }
+        // --- Drag to move ---
+        let dragCheck = NSButton(checkboxWithTitle: "Move keyboard by dragging keys",
+                                 target: self, action: #selector(dragToMoveToggled(_:)))
+        dragCheck.frame = NSRect(x: 20, y: 126, width: 320, height: 22)
+        dragCheck.state = dragToMove ? .on : .off
+
+        let cdLabel = NSTextField(labelWithString: "Drag cooldown")
+        cdLabel.frame = NSRect(x: 20, y: 96, width: 120, height: 20)
+        let cdFmt = NumberFormatter()
+        cdFmt.numberStyle = .none; cdFmt.allowsFloats = false
+        cdFmt.minimum = NSNumber(value: Settings.dragCooldownRange.lowerBound)
+        cdFmt.maximum = NSNumber(value: Settings.dragCooldownRange.upperBound)
+        cooldownField = NSTextField(frame: NSRect(x: 130, y: 94, width: 60, height: 24))
+        cooldownField.formatter = cdFmt
+        cooldownField.integerValue = dragCooldownMs
+        cooldownField.alignment = .center
+        cooldownField.target = self
+        cooldownField.action = #selector(cooldownChanged(_:))
+        let cdMs = NSTextField(labelWithString: "ms")
+        cdMs.frame = NSRect(x: 194, y: 96, width: 24, height: 20)
+
+        let cdDesc = NSTextField(wrappingLabelWithString:
+            "After you drag the keyboard by a key, key presses are ignored for this long. "
+            + "A head tracker ends a drag with a click at the release point — this delay "
+            + "prevents that click from typing a stray character. 0 disables it.")
+        cdDesc.frame = NSRect(x: 20, y: 18, width: 320, height: 64)
+        cdDesc.font = NSFont.systemFont(ofSize: 11)
+        cdDesc.textColor = .secondaryLabelColor
+
+        // Cooldown row + description apply only when drag-to-move is on — hide otherwise.
+        cooldownViews = [cdLabel, cooldownField, cdMs, cdDesc]
+        cooldownViews.forEach { $0.isHidden = !dragToMove }
+
+        [topShowCheck, topBarLabel, tbMinus, topBarField, tbPt, tbPlus,
+         showCheck, bottomBarLabel, bbMinus, bottomBarField, bbPt, bbPlus,
+         dragCheck, cdLabel, cooldownField, cdMs, cdDesc].forEach { v.addSubview($0) }
         return v
     }
 
@@ -403,6 +465,17 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         onTopBarHeightChange(pt)
     }
 
+    @objc private func dragToMoveToggled(_ sender: NSButton) {
+        onDragToMoveChange(sender.state == .on)
+        cooldownViews.forEach { $0.isHidden = sender.state != .on }
+    }
+    @objc private func cooldownChanged(_ sender: NSTextField) {
+        let ms = Settings.clampDragCooldown(sender.integerValue)
+        cooldownField.integerValue = ms
+        onDragCooldownChange(ms)
+    }
+
+    @objc private func topShowToggled(_ sender: NSButton) { onTopBarShowChange(sender.state == .on) }
     @objc private func bottomShowToggled(_ sender: NSButton) { onBottomBarShowChange(sender.state == .on) }
     @objc private func bottomBarMinusTapped() { applyBottomBar(bottomBarField.integerValue - 1) }
     @objc private func bottomBarPlusTapped()  { applyBottomBar(bottomBarField.integerValue + 1) }

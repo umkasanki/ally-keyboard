@@ -33,8 +33,8 @@ final class PointerButton: NSButton {
         addTrackingArea(area)
         tracking = area
     }
-    override func mouseEntered(with event: NSEvent) { NSCursor.pointingHand.set() }
-    override func mouseExited (with event: NSEvent) { NSCursor.arrow.set() }
+    override func mouseEntered(with event: NSEvent) { if !KeyButton.isDraggingWindow { NSCursor.pointingHand.set() } }
+    override func mouseExited (with event: NSEvent) { if !KeyButton.isDraggingWindow { NSCursor.arrow.set() } }
 }
 
 final class CustomStatusBar: NSView {
@@ -93,7 +93,20 @@ final class CustomStatusBar: NSView {
 
     @objc private func minimizeTapped() { (NSApp.delegate as? AppDelegate)?.hideKeyboard() }
 
-    override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
+    private var dragStart: NSPoint = .zero
+    private var winOrigin: NSPoint = .zero
+    override func mouseDown(with event: NSEvent) {
+        dragStart = NSEvent.mouseLocation
+        winOrigin = window?.frame.origin ?? .zero
+    }
+    override func mouseDragged(with event: NSEvent) {
+        guard let window = window else { return }
+        KeyButton.isDraggingWindow = true
+        let now = NSEvent.mouseLocation
+        window.setFrameOrigin(NSPoint(x: winOrigin.x + now.x - dragStart.x, y: winOrigin.y + now.y - dragStart.y))
+        NSCursor.closedHand.set()
+    }
+    override func mouseUp(with event: NSEvent) { KeyButton.isDraggingWindow = false; NSCursor.arrow.set() }
     override var mouseDownCanMoveWindow: Bool { false }
 }
 
@@ -130,9 +143,20 @@ private class DragHandle: NSView {
         }
     }
 
+    private var dragStart: NSPoint = .zero
+    private var winOrigin: NSPoint = .zero
     override func mouseDown(with event: NSEvent) {
-        window?.performDrag(with: event)
+        dragStart = NSEvent.mouseLocation
+        winOrigin = window?.frame.origin ?? .zero
     }
+    override func mouseDragged(with event: NSEvent) {
+        guard let window = window else { return }
+        KeyButton.isDraggingWindow = true
+        let now = NSEvent.mouseLocation
+        window.setFrameOrigin(NSPoint(x: winOrigin.x + now.x - dragStart.x, y: winOrigin.y + now.y - dragStart.y))
+        NSCursor.closedHand.set()
+    }
+    override func mouseUp(with event: NSEvent) { KeyButton.isDraggingWindow = false; NSCursor.arrow.set() }
 
     override func rightMouseDown(with event: NSEvent) {
         if let menu = (NSApp.delegate as? AppDelegate)?.makeContextMenu() {
@@ -165,6 +189,20 @@ final class KeyButton: NSButton {
     private var glyphView: NSView?
     private var restGlyphAlpha: CGFloat = 1.0
     private var isPressed = false
+
+    /// When true, dragging the key (beyond a small threshold) moves the keyboard window
+    /// instead of typing; a plain click still types. Set for main keyboard keys only.
+    var movesWindowOnDrag = false
+    private var dragStartScreen: NSPoint = .zero
+    private var windowOriginAtDown: NSPoint = .zero
+    private var didDrag = false
+    private let dragThreshold: CGFloat = 4
+    /// When a key-drag last moved the window. A head tracker ends a drag-select with a
+    /// synthetic click at the release point — this lets `keyPressed` ignore that stray click.
+    static var lastWindowDragEnd: Date = .distantPast
+    /// True while the window is being dragged (by a key or a panel) — hover handlers
+    /// must not reset the cursor so the "grabbing" cursor holds.
+    static var isDraggingWindow = false
 
     override init(frame: NSRect) { super.init(frame: frame); configure() }
     required init?(coder: NSCoder) { super.init(coder: coder); configure() }
@@ -225,11 +263,11 @@ final class KeyButton: NSButton {
 
     override func mouseEntered(with event: NSEvent) {
         isHovered = true;  updateBackground(); updateGlyphAlpha(animated: true)
-        NSCursor.pointingHand.set()
+        if !KeyButton.isDraggingWindow { NSCursor.pointingHand.set() }
     }
     override func mouseExited (with event: NSEvent) {
         isHovered = false; updateBackground(); updateGlyphAlpha(animated: true)
-        NSCursor.arrow.set()
+        if !KeyButton.isDraggingWindow { NSCursor.arrow.set() }
     }
 
     override func highlight(_ flag: Bool) {
@@ -240,6 +278,43 @@ final class KeyButton: NSButton {
             layer?.backgroundColor = AppConfig.Colors.keyPressed.cgColor(for: self)
         } else {
             updateBackground()
+        }
+    }
+
+    // Drag-to-move: press + drag past the threshold moves the window (manual move so the
+    // "grabbing" cursor holds); a plain click types.
+    override func mouseDown(with event: NSEvent) {
+        guard movesWindowOnDrag else { super.mouseDown(with: event); return }
+        didDrag = false
+        dragStartScreen = NSEvent.mouseLocation
+        windowOriginAtDown = window?.frame.origin ?? .zero
+        highlight(true)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard movesWindowOnDrag else { super.mouseDragged(with: event); return }
+        let now = NSEvent.mouseLocation
+        let dx = now.x - dragStartScreen.x, dy = now.y - dragStartScreen.y
+        if !didDrag, abs(dx) > dragThreshold || abs(dy) > dragThreshold {
+            didDrag = true
+            KeyButton.isDraggingWindow = true
+            highlight(false)
+        }
+        if didDrag {
+            window?.setFrameOrigin(NSPoint(x: windowOriginAtDown.x + dx, y: windowOriginAtDown.y + dy))
+            NSCursor.closedHand.set()           // hold the "grabbing" cursor throughout
+        }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard movesWindowOnDrag else { super.mouseUp(with: event); return }
+        highlight(false)
+        if didDrag {
+            KeyButton.isDraggingWindow = false
+            KeyButton.lastWindowDragEnd = Date()
+            NSCursor.pointingHand.set()         // back to the hover cursor
+        } else {
+            performClick(nil)                   // real click — type / toggle
         }
     }
 
@@ -381,6 +456,14 @@ class ViewController: NSViewController {
         (NSApp.delegate as? AppDelegate)?.updateLauncherOpacity(settings.launcherOpacityPercent)
     }
 
+    var currentTopBarShow: Bool { settings.topBarShow }
+
+    func applyTopBarShow(_ show: Bool) {
+        settings.topBarShow = show
+        settingsStore.save(settings)
+        rebuildForBarChange()
+    }
+
     var currentTopBarHeight: Int { settings.topBarHeight }
 
     /// Apply and persist the top-bar height in points (live-resizes the keyboard window).
@@ -404,6 +487,21 @@ class ViewController: NSViewController {
         settings.bottomBarHeight = pt
         settingsStore.save(settings)
         rebuildForBarChange()
+    }
+
+    var currentDragToMove: Bool { settings.dragToMove }
+
+    func applyDragToMove(_ on: Bool) {
+        settings.dragToMove = on
+        settingsStore.save(settings)
+        buildKeyboard()   // re-tag keys with the new movesWindowOnDrag flag
+    }
+
+    var currentDragCooldownMs: Int { settings.dragCooldownMs }
+
+    func applyDragCooldownMs(_ ms: Int) {
+        settings.dragCooldownMs = ms
+        settingsStore.save(settings)   // read live in keyPressed; no rebuild needed
     }
 
     /// Resize the window and rebuild the layout after a bar setting changes.
@@ -431,7 +529,7 @@ class ViewController: NSViewController {
     }
 
     /// Top minimize strip — a fixed height in points (from Settings).
-    private var customStatusBarHeight: CGFloat { CGFloat(settings.topBarHeight) }
+    private var customStatusBarHeight: CGFloat { settings.topBarShow ? CGFloat(settings.topBarHeight) : 0 }
     /// Bottom drag bar — a fixed height in points, or 0 when hidden.
     private var dragBarHeight: CGFloat { settings.bottomBarShow ? CGFloat(settings.bottomBarHeight) : 0 }
 
@@ -672,7 +770,7 @@ class ViewController: NSViewController {
             view.addSubview(handle)
         }
 
-        if AppConfig.useCustomTitleBar {
+        if AppConfig.useCustomTitleBar && settings.topBarShow {
             let statusBar = CustomStatusBar(frame: NSRect(
                 x: 0,
                 y: size.height - customStatusBarHeight,
@@ -696,6 +794,7 @@ class ViewController: NSViewController {
                 btn.identifier = NSUserInterfaceItemIdentifier(key.id)
                 btn.target     = self
                 btn.action     = #selector(keyPressed(_:))
+                btn.movesWindowOnDrag = settings.dragToMove   // drag a key to move the keyboard
 
                 if let imageName = key.image,
                    let sym = NSImage(systemSymbolName: imageName, accessibilityDescription: nil) {
@@ -793,6 +892,9 @@ class ViewController: NSViewController {
     // MARK: - Actions
 
     @objc private func keyPressed(_ sender: NSButton) {
+        // Ignore the stray click a head tracker emits at the end of a drag that just moved the window.
+        if Date().timeIntervalSince(KeyButton.lastWindowDragEnd) < Double(settings.dragCooldownMs) / 1000 { return }
+
         guard let key = sender.identifier?.rawValue else {
             assertionFailure("Key button missing identifier — fix buildKeyboard()")
             return
