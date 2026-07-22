@@ -185,15 +185,22 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
+**Released: v1.0.0** — [GitHub release](https://github.com/umkasanki/ally-keyboard/releases/tag/v1.0.0)
+(self-signed .dmg + .zip; notarization skipped — no Developer ID).
+
 **Done:** Phases 0–6 complete. Floating non-activating keyboard, key/chord simulation,
 multilingual layout switching, docked word-prediction balloon (also hosts saved phrases,
 dismiss on outside click), right-hand action column (copy/cut/paste/undo/translate, Material
-icons), Translate key, `+ − =` keys, fixed function row, tabbed Settings (size %, Bars
-top/bottom height + show, suggestions, launcher width/opacity, launch-at-login, launch
-collapsed), floating launcher (draggable, remembers position), menu-bar + right-click control,
-runs as menu-bar accessory (no Dock icon), dimmed function keys with hover/press brighten,
-systemRed active keys, pointing-hand cursor, stable code signing, redesigned app icon.
-`AllyKeyboardCore` is a local Swift Package with 53 tests green on Linux CI.
+icons), Translate key, `+ − =` keys, fixed function row, tabbed Settings (General size %/theme,
+Bars top/bottom show+height + drag-to-move + cooldown, Suggestions, Launcher width/opacity,
+About), launch-at-login, launch-collapsed, floating launcher (draggable, remembers position),
+menu-bar + right-click control (full menu), runs as agent app (LSUIElement — no Dock icon),
+dimmed function keys with hover/press brighten, systemRed active keys, pointing-hand cursor,
+two dark themes (custom / system colors, effective-appearance-safe), drag keyboard by keys/
+panels (grabbing cursor + click cooldown), stable code signing, redesigned app icon.
+`AllyKeyboardCore` is a local Swift Package with 57 tests green on Linux CI.
 
 **Next up:** Phase 7 polish — fullscreen/multi-monitor edge cases (7.1), global show/hide
 hotkey (7.2), numbers-row toggle (7.3), punctuation panel (7.4), ongoing real-world use (7.5).
+
+**Possible future:** Apple notarization (needs Developer ID) + Sparkle auto-updates.
