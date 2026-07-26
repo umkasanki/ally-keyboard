@@ -538,8 +538,8 @@ class ViewController: NSViewController {
     private let functionRow: [Key] = [
         Key("Escape", title: "Esc", w: 1.5, fontScale: 0.7),
         Key("Hi",     image: "list.bullet"),
-        Key("Blank", title: ""),
-        Key("Blank", title: ""),
+        Key("ResizeWidth",  image: "resize-width-icon",  colored: true),
+        Key("ResizeHeight", image: "resize-height-icon", colored: true),
         Key("@",  title: "@", fixed: true),
         Key("!",  title: "!", fixed: true),
         Key("?",  title: "?", fixed: true),
@@ -925,6 +925,33 @@ class ViewController: NSViewController {
 
         if key == "Blank" { return }   // empty placeholder key — does nothing
 
+        if key == "ResizeWidth" {
+            if activeModifiers.contains("Ctrl") {
+                moveFrontWindowHorizontally(byFraction: -0.1)   // Ctrl+⇄ = move window left
+            } else if activeModifiers.contains("Cmd") {
+                moveFrontWindowHorizontally(byFraction: 0.1)    // Cmd+⇄ = move window right
+            } else {
+                let pct = resizeWidthPercents[resizeWidthIdx % resizeWidthPercents.count]
+                resizeWidthIdx += 1
+                applyFrontWindow(widthPct: pct, heightPct: nil)
+            }
+            clearOneShotModifiers()
+            return
+        }
+        if key == "ResizeHeight" {
+            if activeModifiers.contains("Ctrl") {
+                moveFrontWindowVertically(byFraction: 0.05)     // Ctrl+↕ = move window down
+            } else if activeModifiers.contains("Cmd") {
+                moveFrontWindowVertically(byFraction: -0.05)    // Cmd+↕ = move window up
+            } else {
+                let pct = resizeHeightPercents[resizeHeightIdx % resizeHeightPercents.count]
+                resizeHeightIdx += 1
+                applyFrontWindow(widthPct: nil, heightPct: pct)
+            }
+            clearOneShotModifiers()
+            return
+        }
+
         if key == "Hi" {
             showGreetings()
             return
@@ -956,6 +983,114 @@ class ViewController: NSViewController {
             updateModifierHighlights()
         }
         refreshSuggestions()
+    }
+
+    // MARK: - Window resize (cycle the frontmost window through preset sizes via Accessibility)
+
+    // One button cycles width, the other height (each keeps the other dimension), then
+    // recenters horizontally with the top edge 5% down from the visible area.
+    private let resizeWidthPercents:  [CGFloat] = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3]
+    private let resizeHeightPercents: [CGFloat] = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5]
+    private var resizeWidthIdx = 0
+    private var resizeHeightIdx = 0
+
+    /// Resize the frontmost window: set width and/or height as a fraction of the screen's
+    /// visible frame; the unchanged dimension keeps the window's current size.
+    private func applyFrontWindow(widthPct: CGFloat?, heightPct: CGFloat?) {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return }
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        var winRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &winRef) == .success,
+              let axWindow = winRef, CFGetTypeID(axWindow) == AXUIElementGetTypeID()
+        else { return }
+        let window = axWindow as! AXUIElement
+
+        guard let screen = NSScreen.main, let primaryH = NSScreen.screens.first?.frame.height else { return }
+        let vf = screen.visibleFrame
+
+        // Current size, so we can keep the dimension that isn't being changed.
+        var curSize = CGSize.zero
+        var curSizeRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &curSizeRef) == .success,
+           let v = curSizeRef { AXValueGetValue(v as! AXValue, .cgSize, &curSize) }
+
+        let w = widthPct.map  { $0 * vf.width }  ?? (curSize.width  > 0 ? curSize.width  : vf.width)
+        let h = heightPct.map { $0 * vf.height } ?? (curSize.height > 0 ? curSize.height : vf.height)
+        // Full-height windows sit flush at the top; shorter ones drop 5% down.
+        let topGap = h >= vf.height - 0.5 ? 0 : vf.height * 0.05
+        let rect = NSRect(x: vf.midX - w / 2, y: vf.maxY - topGap - h, width: w, height: h)
+
+        // AppKit (bottom-left, primary-relative) -> Accessibility (top-left of primary display).
+        var pos = CGPoint(x: rect.origin.x, y: primaryH - (rect.origin.y + rect.height))
+        var size = CGSize(width: rect.width, height: rect.height)
+        if let sizeVal = AXValueCreate(.cgSize, &size) { AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeVal) }
+        if let posVal  = AXValueCreate(.cgPoint, &pos) { AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, posVal) }
+        if let sizeVal = AXValueCreate(.cgSize, &size) { AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeVal) }
+    }
+
+    /// Reset the one-shot Shift / modifier state (used by keys that return early).
+    private func clearOneShotModifiers() {
+        if isShifted { isShifted = false }
+        if !activeModifiers.isEmpty { activeModifiers.removeAll(); updateModifierHighlights() }
+    }
+
+    /// Move the frontmost window horizontally by a fraction of the screen width,
+    /// wrapping around the edge; size and vertical position stay put.
+    private func moveFrontWindowHorizontally(byFraction f: CGFloat) {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return }
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        var winRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &winRef) == .success,
+              let axWindow = winRef, CFGetTypeID(axWindow) == AXUIElementGetTypeID() else { return }
+        let window = axWindow as! AXUIElement
+        guard let screen = NSScreen.main else { return }
+        let vf = screen.visibleFrame
+
+        var pos = CGPoint.zero, size = CGSize.zero
+        var posRef: CFTypeRef?, sizeRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &posRef) == .success,
+           let v = posRef { AXValueGetValue(v as! AXValue, .cgPoint, &pos) }
+        if AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &sizeRef) == .success,
+           let v = sizeRef { AXValueGetValue(v as! AXValue, .cgSize, &size) }
+
+        var newX = pos.x + vf.width * f          // x matches in AX and AppKit coords
+        if f < 0, newX < vf.minX { newX = vf.maxX - size.width }             // past left → wrap right
+        if f > 0, newX + size.width > vf.maxX { newX = vf.minX }             // past right → wrap left
+        var newPos = CGPoint(x: newX, y: pos.y)
+        if let v = AXValueCreate(.cgPoint, &newPos) {
+            AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, v)
+        }
+    }
+
+    /// Move the frontmost window vertically by a fraction of the screen height
+    /// (positive = down, in on-screen terms), wrapping around; size/x stay put.
+    private func moveFrontWindowVertically(byFraction f: CGFloat) {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return }
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        var winRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &winRef) == .success,
+              let axWindow = winRef, CFGetTypeID(axWindow) == AXUIElementGetTypeID() else { return }
+        let window = axWindow as! AXUIElement
+        guard let screen = NSScreen.main, let primaryH = NSScreen.screens.first?.frame.height else { return }
+        let vf = screen.visibleFrame
+
+        var pos = CGPoint.zero, size = CGSize.zero
+        var posRef: CFTypeRef?, sizeRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &posRef) == .success,
+           let v = posRef { AXValueGetValue(v as! AXValue, .cgPoint, &pos) }
+        if AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &sizeRef) == .success,
+           let v = sizeRef { AXValueGetValue(v as! AXValue, .cgSize, &size) }
+
+        // AX y grows downward. Visible band top/bottom in AX coords:
+        let topAX = primaryH - vf.maxY
+        let bottomAX = primaryH - vf.minY
+        var newY = pos.y + vf.height * f                     // f>0 (down) increases AX y
+        if f > 0, newY + size.height > bottomAX { newY = topAX }             // past bottom → wrap top
+        if f < 0, newY < topAX { newY = bottomAX - size.height }             // past top → wrap bottom
+        var newPos = CGPoint(x: pos.x, y: newY)
+        if let v = AXValueCreate(.cgPoint, &newPos) {
+            AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, v)
+        }
     }
 
     /// Copy the current selection and open it in Google Translate (auto → Russian).
