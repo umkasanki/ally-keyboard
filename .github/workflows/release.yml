@@ -52,9 +52,18 @@ jobs:
           rm -f /tmp/signing.p12
           security list-keychains -d user -s "$KC" $(security list-keychains -d user | sed 's/"//g')
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k allykeyboard "$KC" >/dev/null
-          IDENTITY=$(security find-identity -v -p codesigning "$KC" | awk -F'"' 'NR==1{print $2}')
-          echo "Signing as: $IDENTITY"
-          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          # NOT `find-identity -v -p codesigning`: `-v` keeps only identities
+          # macOS considers *trusted*, and a self-signed certificate never is.
+          # That flag silently produced an empty name in v1.2.0 and the release
+          # went out ad-hoc signed.
+          NAME="AllyKeyboard Self-Signed"
+          if ! security find-identity "$KC" | grep -qF "$NAME"; then
+            echo "::error::the identity '$NAME' is not in the keychain after import"
+            security find-identity "$KC" | tail -5
+            exit 1
+          fi
+          echo "Signing as: $NAME"
+          echo "SIGN_IDENTITY=$NAME" >> "$GITHUB_ENV"
           echo "SIGN_KEYCHAIN=$KC" >> "$GITHUB_ENV"
 
       - name: Build
@@ -78,7 +87,18 @@ jobs:
             DEVELOPMENT_TEAM= \
             ${KEYCHAIN_FLAG:+"$KEYCHAIN_FLAG"} \
             build
+          # Say what came out, and refuse to publish an ad-hoc build when an
+          # identity was supposed to be used. A release that is quietly signed
+          # with nothing costs the user their Accessibility grant, and nothing
+          # in the log would have said so.
           codesign -dv --verbose=2 build/Build/Products/Release/AllyKeyboard.app 2>&1 | grep -E 'Authority|Signature|Identifier=' || true
+          if [ "$IDENTITY" != "-" ]; then
+            codesign -dv --verbose=2 build/Build/Products/Release/AllyKeyboard.app 2>&1 \
+              | grep -qF "Authority=$IDENTITY" || {
+                echo "::error::asked to sign as '$IDENTITY' but the app is not signed with it"
+                exit 1
+              }
+          fi
 
       - name: Package
         run: |
