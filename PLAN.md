@@ -185,8 +185,53 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Released: v1.0.0** — [GitHub release](https://github.com/umkasanki/ally-keyboard/releases/tag/v1.0.0)
-(self-signed .dmg + .zip; notarization skipped — no Developer ID).
+**Released: v1.2.1** — [GitHub release](https://github.com/umkasanki/ally-keyboard/releases/tag/v1.2.1)
+(.dmg + .zip, signed with a stable self-signed identity; notarization skipped — no Developer ID).
+
+### 2026-09-13
+
+**Caps Lock.** An internal caps mode rather than the system one, which macOS does not let an
+application set. Shift is applied to letters only — Caps XOR Shift, as the physical key
+behaves — and the state survives a rebuild of the keyboard, so the key stays highlighted and
+the letters stay relabelled.
+
+**The keyboard floats above everything.** It sat at `.statusBar`, where a menu-bar extra's
+panel covered the keys — a keyboard a panel can cover cannot answer what the panel asks. The
+keyboard, its suggestion panel and the launcher are now at `.screenSaver`, where macOS's own
+Accessibility Keyboard sits. The price is real: it covers notification banners and system
+alerts too, which for a user whose only way to answer one is this keyboard is the right side
+of the trade. The three levels live in `AppConfig.Levels` so they cannot drift apart.
+
+Found while doing it: the settings window carried `.modalPanel // above the keyboard panel
+(.statusBar)`. Level 8 is not above level 25 — it had been *behind* the keyboard all along.
+
+**Releases are cut by Actions now** (`.github/workflows/release.yml`, ported from
+ally-clicker). Push a tag `vX.Y.Z` → build, `.dmg` + `.zip`, GitHub release. Three differences
+from the clicker's: xcodebuild rather than SwiftPM, the version passed as `MARKETING_VERSION`
+because `GENERATE_INFOPLIST_FILE` is YES and there is no plist to stamp, and no Homebrew cask
+to update.
+
+**A stable signing identity, at last** (`tools/setup-signing.sh`, `tools/build-install.sh`).
+Ad-hoc signing gave every build a different signature, so macOS asked for the Accessibility
+grant again after each update — being asked means being locked out until somebody else clicks
+the toggle. The certificate is now **created by the script** rather than exported from
+Keychain Access, which is what had blocked this: the `.p12` exists from the start and goes
+straight into the repository secrets with no GUI session. It lives on the Mac at
+`~/.allykeyboard-signing/` (mode 600) and in the repo secrets `SIGNING_P12_BASE64` /
+`SIGNING_P12_PASSWORD`. **Keep that folder**: lose it and the keychain together and the
+identity cannot be recovered, and the grant resets once more.
+
+*The mistake worth remembering:* v1.2.0 went out ad-hoc signed although the secrets were in
+place, because the job looked the identity up with `security find-identity -v -p codesigning`.
+`-v` keeps only identities macOS considers **trusted**, and a self-signed certificate never
+is. The name came back empty, the build fell through to ad-hoc, and the only trace was a log
+line reading `Signing as:` with nothing after it. The job now looks the identity up by name
+and fails loudly in two places rather than continuing — missing identity after import, and a
+built app that does not carry the expected `Authority`.
+
+**Left open:** the signed v1.2.1 is installed and the grant was given, but that nothing else
+broke with it — typing, the keyboard above menus, the settings window above the keyboard —
+has not been confirmed by eye yet.
 
 **Done:** Phases 0–6 complete. Floating non-activating keyboard, key/chord simulation,
 multilingual layout switching, docked word-prediction balloon (also hosts saved phrases,
