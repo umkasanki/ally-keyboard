@@ -756,6 +756,7 @@ class ViewController: NSViewController {
     private func buildKeyboard() {
         view.subviews.forEach { $0.removeFromSuperview() }
         shiftButtons = []
+        capsButtons = []
         modifierButtons = [:]
         activeModifiers = []
         langSwitchButtons = []
@@ -859,6 +860,11 @@ class ViewController: NSViewController {
                     shiftButtons.append(btn)
                 }
 
+                if key.id == "CapsLock" {
+                    btn.isActive = isCapsLockOn   // stays highlighted while Caps is on
+                    capsButtons.append(btn)
+                }
+
                 if Self.modifierIDs.contains(key.id) {
                     modifierButtons[key.id, default: []].append(btn)
                 }
@@ -925,6 +931,11 @@ class ViewController: NSViewController {
 
         if key == "Blank" { return }   // empty placeholder key — does nothing
 
+        if key == "CapsLock" {
+            toggleCapsLock()
+            return
+        }
+
         if key == "ResizeWidth" {
             if activeModifiers.contains("Ctrl") {
                 moveFrontWindowHorizontally(byFraction: -0.1)   // Ctrl+⇄ = move window left
@@ -972,9 +983,11 @@ class ViewController: NSViewController {
         }
 
         let modifierFlags = eventFlags(from: activeModifiers)
-        let wasShifted = isShifted
-        KeySender.send(key, shifted: isShifted, modifiers: modifierFlags)
-        updateTextTracker(key: key, shifted: wasShifted, hasModifiers: !modifierFlags.isEmpty)
+        // Caps Lock uppercases letters only (Caps XOR Shift), like the real key.
+        let isLetter = key.count == 1 && (key.first?.isLetter ?? false)
+        let effectiveShift = isLetter ? (isShifted != isCapsLockOn) : isShifted
+        KeySender.send(key, shifted: effectiveShift, modifiers: modifierFlags)
+        updateTextTracker(key: key, shifted: effectiveShift, hasModifiers: !modifierFlags.isEmpty)
 
         // One-shot: reset Shift and modifiers after any real keystroke.
         if isShifted { isShifted = false }
@@ -1027,6 +1040,19 @@ class ViewController: NSViewController {
         if let posVal  = AXValueCreate(.cgPoint, &pos) { AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, posVal) }
         if let sizeVal = AXValueCreate(.cgSize, &size) { AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, sizeVal) }
     }
+
+    /// Caps Lock mode: while on, letters type and display uppercase until toggled off.
+    /// Implemented internally (applying Shift to letters) rather than via the system
+    /// Caps Lock, which macOS restricts from being set programmatically.
+    private var isCapsLockOn = false {
+        didSet {
+            capsButtons.forEach { $0.isActive = isCapsLockOn }
+            relabelForCurrentLayout()
+        }
+    }
+    private var capsButtons: [KeyButton] = []
+
+    private func toggleCapsLock() { isCapsLockOn.toggle() }
 
     /// Reset the one-shot Shift / modifier state (used by keys that return early).
     private func clearOneShotModifiers() {
@@ -1349,7 +1375,7 @@ class ViewController: NSViewController {
         for (button, code) in characterButtons {
             guard let base = InputSourceSwitcher.character(forKeyCode: code, shift: false, from: source),
                   !base.isEmpty else { continue }
-            button.title = base
+            button.title = isCapsLockOn ? base.uppercased() : base   // Caps Lock uppercases letters
             if let shifted = InputSourceSwitcher.character(forKeyCode: code, shift: true, from: source),
                shifted != base, shifted.lowercased() != base.lowercased() {
                 button.secondaryText = shifted   // punctuation / digit symbol
