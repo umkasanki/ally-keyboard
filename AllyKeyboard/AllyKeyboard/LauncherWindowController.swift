@@ -24,7 +24,7 @@ final class LauncherWindowController {
         window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: size, height: size),
                          styleMask: [.borderless, .nonactivatingPanel],
                          backing: .buffered, defer: false)
-        window.level = .statusBar
+        window.level = AppConfig.Levels.keyboard
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         window.isFloatingPanel = true
         window.hidesOnDeactivate = false

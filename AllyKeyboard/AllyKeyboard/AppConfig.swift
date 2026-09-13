@@ -10,6 +10,29 @@ import Cocoa
 
 enum AppConfig {
 
+    // MARK: - Window levels
+
+    /// How high the keyboard floats, kept here so the four windows that make up
+    /// this application cannot drift apart from each other.
+    ///
+    /// **Above everything**, which is what an on-screen keyboard has to be: if a
+    /// panel or a dialog can cover it, then whatever that panel asks for cannot
+    /// be typed. macOS's own Accessibility Keyboard behaves the same way. At
+    /// `.statusBar`, where this used to sit, a menu-bar extra's panel — the
+    /// BetterDisplay menu, for one — covered the keys.
+    ///
+    /// The price is real and worth knowing: at this level the keyboard also
+    /// covers notification banners and system alerts. For a user whose only way
+    /// to answer an alert is this keyboard, that is the right side of the trade.
+    enum Levels {
+        static let keyboard = NSWindow.Level.screenSaver
+        /// One above the keyboard, so the settings window is reachable while the
+        /// keyboard is up. It used to be `.modalPanel`, which is level 8 against
+        /// the keyboard's 25 — it was *below* the keyboard, despite the comment
+        /// that said otherwise.
+        static let settings = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
+    }
+
     // MARK: - Feature flags
 
     /// Hide the native macOS title bar and use CustomStatusBar instead.

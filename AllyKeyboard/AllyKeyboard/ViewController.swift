@@ -707,7 +707,7 @@ class ViewController: NSViewController {
 
         window.appearance = NSAppearance(named: .darkAqua)
         window.backgroundColor = AppConfig.Colors.statusBarBg
-        window.level = .statusBar
+        window.level = AppConfig.Levels.keyboard
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
 
         // Non-activating panel: clicking keys must not steal focus from
@@ -1187,7 +1187,7 @@ class ViewController: NSViewController {
         let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 200, height: keyHeight + padding),
                             styleMask: [.borderless, .nonactivatingPanel],
                             backing: .buffered, defer: false)
-        panel.level = .statusBar
+        panel.level = AppConfig.Levels.keyboard
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         panel.isFloatingPanel = true
         panel.hidesOnDeactivate = false

@@ -82,7 +82,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                               backing: .buffered, defer: false)
         window.title = "AllyKeyboard Settings"
         window.isReleasedWhenClosed = false
-        window.level = .modalPanel   // above the keyboard panel (.statusBar)
+        window.level = AppConfig.Levels.settings   // genuinely above the keyboard
         super.init(window: window)
         buildUI(currentPercent: currentPercent,
                 currentShowSuggestions: currentShowSuggestions,
