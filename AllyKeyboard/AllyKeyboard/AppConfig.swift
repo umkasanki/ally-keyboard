@@ -105,8 +105,14 @@ enum AppConfig {
         static let padding:         CGFloat = 8
         /// Corner radius of key buttons
         static let keyCornerRadius: CGFloat = 5
-        /// Font size for primary key label (e.g. letter, symbol)
-        static let fontSizePrimary:   CGFloat = 13
+        /// Font size for primary key label (e.g. letter, symbol).
+        ///
+        /// **Measured against the Windows keyboard the user came from**, on the
+        /// same physical monitor, both screenshots normalised to its pixels:
+        /// there a letter stands 28% of the key's height, here it stood 24%.
+        /// The keys had grown and the type had not, which reads as a keyboard
+        /// with small letters however large the keys are. 13 → 15 closes it.
+        static let fontSizePrimary:   CGFloat = 15
         /// Font size for secondary key label (shifted symbol shown top-left)
         static let fontSizeSecondary: CGFloat = 8
         /// Default keyboard scale factor
