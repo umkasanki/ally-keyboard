@@ -538,8 +538,13 @@ class ViewController: NSViewController {
     private let functionRow: [Key] = [
         Key("Escape", title: "Esc", w: 1.5, fontScale: 0.7),
         Key("Hi",     image: "list.bullet"),
-        Key("ResizeWidth",  image: "resize-width-icon",  colored: true),
-        Key("ResizeHeight", image: "resize-height-icon", colored: true),
+        // Blanked on the user's request 2026-09-26: window width/height cycling
+        // went unused. The keys stay in place rather than being removed, so the
+        // row does not shift and nothing else has to be re-learned. Their
+        // handlers are still in `handleKey` — the feature is one line away if it
+        // is ever wanted back.
+        Key("Blank", title: ""),
+        Key("Blank", title: ""),
         Key("@",  title: "@", fixed: true),
         Key("!",  title: "!", fixed: true),
         Key("?",  title: "?", fixed: true),
