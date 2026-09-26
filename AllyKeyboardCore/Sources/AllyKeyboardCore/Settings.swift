@@ -22,6 +22,22 @@ public struct Settings: Codable, Equatable {
     public static let bottomBarHeightRange = 20...40
     /// Allowed drag cooldown, in milliseconds.
     public static let dragCooldownRange = 0...1500
+    /// Allowed icon side for the running-applications panel, in points.
+    /// It is aimed at with a head tracker, so the range starts where the Dock
+    /// ends rather than where it begins.
+    public static let appPanelIconRange = 40...140
+    /// Allowed background opacity of that panel, in percent.
+    public static let appPanelOpacityRange = 20...100
+    /// Allowed auto-hide delay, in seconds. Zero means it stays until dismissed.
+    public static let appPanelAutoHideRange = 0...60
+    /// Allowed outline thickness, in points. Zero draws no outline at all.
+    public static let appPanelOutlineWidthRange = 0...12
+    /// Allowed distance between the icon and its outline, in points.
+    public static let appPanelOutlineGapRange = 0...24
+    /// Allowed space between two icons, in points.
+    public static let appPanelIconSpacingRange = 0...60
+    /// Allowed space between the icons and the panel's edge, in points.
+    public static let appPanelEdgeSpacingRange = 0...60
     /// Default saved phrases shown by the list ("Hi") key.
     public static let defaultGreetings = [
         "Hello!",
@@ -34,6 +50,53 @@ public struct Settings: Codable, Equatable {
     /// Keyboard size as a percentage; 100% == `baseScale`.
     public var sizePercent: Int {
         didSet { sizePercent = Settings.clampPercent(sizePercent) }
+    }
+
+    /// Icon side for the running-applications panel, in points.
+    public var appPanelIconSize: Int {
+        didSet { appPanelIconSize = Settings.clampAppPanelIcon(appPanelIconSize) }
+    }
+
+    /// Background opacity of that panel, in percent.
+    public var appPanelOpacityPercent: Int {
+        didSet { appPanelOpacityPercent = Settings.clampAppPanelOpacity(appPanelOpacityPercent) }
+    }
+
+    /// Applications to leave out of that panel, by name, one per line in the
+    /// settings window. Matched case-insensitively against the name macOS shows.
+    public var appPanelHiddenApps: [String]
+
+    /// Seconds before the panel closes on its own. Zero keeps it until it is
+    /// dismissed — which is the honest default, because a panel that vanishes
+    /// while somebody is still aiming at it is worse than one that lingers.
+    public var appPanelAutoHideSeconds: Int {
+        didSet { appPanelAutoHideSeconds = Settings.clampAppPanelAutoHide(appPanelAutoHideSeconds) }
+    }
+
+    /// Space between two icons.
+    public var appPanelIconSpacing: Int {
+        didSet { appPanelIconSpacing = Settings.clampAppPanelIconSpacing(appPanelIconSpacing) }
+    }
+
+    /// Space between the icons and the panel's edge.
+    public var appPanelEdgeSpacing: Int {
+        didSet { appPanelEdgeSpacing = Settings.clampAppPanelEdgeSpacing(appPanelEdgeSpacing) }
+    }
+
+    /// Whether an icon grows a little while the pointer is on it. Not
+    /// decoration: with a head tracker it confirms which icon is under the
+    /// cursor before the click, which is the moment a mistake still costs
+    /// nothing.
+    public var appPanelHoverZoom: Bool
+
+    /// Thickness of the outline drawn around the icon under the pointer.
+    public var appPanelOutlineWidth: Int {
+        didSet { appPanelOutlineWidth = Settings.clampAppPanelOutlineWidth(appPanelOutlineWidth) }
+    }
+
+    /// How far that outline stands off the icon.
+    public var appPanelOutlineGap: Int {
+        didSet { appPanelOutlineGap = Settings.clampAppPanelOutlineGap(appPanelOutlineGap) }
     }
 
     /// Whether the word-prediction panel appears while typing.
@@ -101,7 +164,16 @@ public struct Settings: Codable, Equatable {
                 dragToMove: Bool = true,
                 dragCooldownMs: Int = 400,
                 startCollapsed: Bool = false,
-                theme: String = "darkSystem") {
+                theme: String = "darkSystem",
+                appPanelIconSize: Int = 64,
+                appPanelOpacityPercent: Int = 92,
+                appPanelHiddenApps: [String] = [],
+                appPanelAutoHideSeconds: Int = 0,
+                appPanelHoverZoom: Bool = true,
+                appPanelOutlineWidth: Int = 3,
+                appPanelOutlineGap: Int = 4,
+                appPanelIconSpacing: Int = 14,
+                appPanelEdgeSpacing: Int = 10) {
         self.sizePercent = Settings.clampPercent(sizePercent)   // didSet does not run in init
         self.showSuggestions = showSuggestions
         self.startCollapsed = startCollapsed
@@ -115,6 +187,15 @@ public struct Settings: Codable, Equatable {
         self.bottomBarHeight = Settings.clampBottomBarHeight(bottomBarHeight)
         self.dragToMove = dragToMove
         self.dragCooldownMs = Settings.clampDragCooldown(dragCooldownMs)
+        self.appPanelIconSize = Settings.clampAppPanelIcon(appPanelIconSize)
+        self.appPanelOpacityPercent = Settings.clampAppPanelOpacity(appPanelOpacityPercent)
+        self.appPanelHiddenApps = appPanelHiddenApps
+        self.appPanelAutoHideSeconds = Settings.clampAppPanelAutoHide(appPanelAutoHideSeconds)
+        self.appPanelHoverZoom = appPanelHoverZoom
+        self.appPanelOutlineWidth = Settings.clampAppPanelOutlineWidth(appPanelOutlineWidth)
+        self.appPanelOutlineGap = Settings.clampAppPanelOutlineGap(appPanelOutlineGap)
+        self.appPanelIconSpacing = Settings.clampAppPanelIconSpacing(appPanelIconSpacing)
+        self.appPanelEdgeSpacing = Settings.clampAppPanelEdgeSpacing(appPanelEdgeSpacing)
     }
 
     public static func clampPercent(_ percent: Int) -> Int {
@@ -137,6 +218,34 @@ public struct Settings: Codable, Equatable {
         min(bottomBarHeightRange.upperBound, max(bottomBarHeightRange.lowerBound, pt))
     }
 
+    public static func clampAppPanelIcon(_ pt: Int) -> Int {
+        min(max(pt, appPanelIconRange.lowerBound), appPanelIconRange.upperBound)
+    }
+
+    public static func clampAppPanelOpacity(_ percent: Int) -> Int {
+        min(max(percent, appPanelOpacityRange.lowerBound), appPanelOpacityRange.upperBound)
+    }
+
+    public static func clampAppPanelOutlineWidth(_ pt: Int) -> Int {
+        min(max(pt, appPanelOutlineWidthRange.lowerBound), appPanelOutlineWidthRange.upperBound)
+    }
+
+    public static func clampAppPanelOutlineGap(_ pt: Int) -> Int {
+        min(max(pt, appPanelOutlineGapRange.lowerBound), appPanelOutlineGapRange.upperBound)
+    }
+
+    public static func clampAppPanelIconSpacing(_ pt: Int) -> Int {
+        min(max(pt, appPanelIconSpacingRange.lowerBound), appPanelIconSpacingRange.upperBound)
+    }
+
+    public static func clampAppPanelEdgeSpacing(_ pt: Int) -> Int {
+        min(max(pt, appPanelEdgeSpacingRange.lowerBound), appPanelEdgeSpacingRange.upperBound)
+    }
+
+    public static func clampAppPanelAutoHide(_ seconds: Int) -> Int {
+        min(max(seconds, appPanelAutoHideRange.lowerBound), appPanelAutoHideRange.upperBound)
+    }
+
     public static func clampDragCooldown(_ ms: Int) -> Int {
         min(dragCooldownRange.upperBound, max(dragCooldownRange.lowerBound, ms))
     }
@@ -145,7 +254,10 @@ public struct Settings: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case sizePercent, showSuggestions, savedPhrases, launcherWidth, launcherOpacityPercent,
              topBarShow, topBarHeight, bottomBarShow, bottomBarHeight,
-             dragToMove, dragCooldownMs, startCollapsed, theme
+             dragToMove, dragCooldownMs, startCollapsed, theme,
+             appPanelIconSize, appPanelOpacityPercent, appPanelHiddenApps, appPanelAutoHideSeconds,
+             appPanelHoverZoom, appPanelOutlineWidth, appPanelOutlineGap,
+             appPanelIconSpacing, appPanelEdgeSpacing
     }
 
     public init(from decoder: Decoder) throws {
@@ -163,5 +275,21 @@ public struct Settings: Codable, Equatable {
         self.dragCooldownMs = Settings.clampDragCooldown(try c.decodeIfPresent(Int.self, forKey: .dragCooldownMs) ?? 400)
         self.startCollapsed = try c.decodeIfPresent(Bool.self, forKey: .startCollapsed) ?? false
         self.theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "darkSystem"
+        self.appPanelIconSize = Settings.clampAppPanelIcon(
+            try c.decodeIfPresent(Int.self, forKey: .appPanelIconSize) ?? 64)
+        self.appPanelOpacityPercent = Settings.clampAppPanelOpacity(
+            try c.decodeIfPresent(Int.self, forKey: .appPanelOpacityPercent) ?? 92)
+        self.appPanelHiddenApps = try c.decodeIfPresent([String].self, forKey: .appPanelHiddenApps) ?? []
+        self.appPanelAutoHideSeconds = Settings.clampAppPanelAutoHide(
+            try c.decodeIfPresent(Int.self, forKey: .appPanelAutoHideSeconds) ?? 0)
+        self.appPanelHoverZoom = try c.decodeIfPresent(Bool.self, forKey: .appPanelHoverZoom) ?? true
+        self.appPanelOutlineWidth = Settings.clampAppPanelOutlineWidth(
+            try c.decodeIfPresent(Int.self, forKey: .appPanelOutlineWidth) ?? 3)
+        self.appPanelOutlineGap = Settings.clampAppPanelOutlineGap(
+            try c.decodeIfPresent(Int.self, forKey: .appPanelOutlineGap) ?? 4)
+        self.appPanelIconSpacing = Settings.clampAppPanelIconSpacing(
+            try c.decodeIfPresent(Int.self, forKey: .appPanelIconSpacing) ?? 14)
+        self.appPanelEdgeSpacing = Settings.clampAppPanelEdgeSpacing(
+            try c.decodeIfPresent(Int.self, forKey: .appPanelEdgeSpacing) ?? 10)
     }
 }

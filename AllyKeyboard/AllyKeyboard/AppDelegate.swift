@@ -123,6 +123,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             currentDragCooldownMs: vc.currentDragCooldownMs,
             currentStartCollapsed: vc.currentStartCollapsed,
             currentTheme: vc.currentTheme,
+            currentAppPanelIcon: vc.currentAppPanelIconSize,
+            currentAppPanelOpacity: vc.currentAppPanelOpacity,
+            currentAppPanelHidden: vc.currentAppPanelHiddenApps,
+            currentAppPanelAutoHide: vc.currentAppPanelAutoHide,
+            currentAppPanelHoverZoom: vc.currentAppPanelHoverZoom,
+            currentAppPanelOutlineWidth: vc.currentAppPanelOutlineWidth,
+            currentAppPanelOutlineGap: vc.currentAppPanelOutlineGap,
+            currentAppPanelIconSpacing: vc.currentAppPanelIconSpacing,
+            currentAppPanelEdgeSpacing: vc.currentAppPanelEdgeSpacing,
             onPercentChange: { [weak vc] percent in vc?.applySizePercent(percent) },
             onShowSuggestionsChange: { [weak vc] on in vc?.applyShowSuggestions(on) },
             onSavedPhrasesChange: { [weak vc] phrases in vc?.applySavedPhrases(phrases) },
@@ -135,7 +144,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onDragCooldownChange: { [weak vc] ms in vc?.applyDragCooldownMs(ms) },
             onBottomBarHeightChange: { [weak vc] pt in vc?.applyBottomBarHeight(pt) },
             onStartCollapsedChange: { [weak vc] on in vc?.applyStartCollapsed(on) },
-            onThemeChange: { [weak vc] raw in vc?.applyTheme(raw) })
+            onThemeChange: { [weak vc] raw in vc?.applyTheme(raw) },
+            onAppPanelIconChange: { [weak vc] pt in vc?.applyAppPanelIconSize(pt) },
+            onAppPanelOpacityChange: { [weak vc] percent in vc?.applyAppPanelOpacity(percent) },
+            onAppPanelHiddenChange: { [weak vc] names in vc?.applyAppPanelHiddenApps(names) },
+            onAppPanelAutoHideChange: { [weak vc] seconds in vc?.applyAppPanelAutoHide(seconds) },
+            onAppPanelHoverZoomChange: { [weak vc] on in vc?.applyAppPanelHoverZoom(on) },
+            onAppPanelOutlineWidthChange: { [weak vc] pt in vc?.applyAppPanelOutlineWidth(pt) },
+            onAppPanelOutlineGapChange: { [weak vc] pt in vc?.applyAppPanelOutlineGap(pt) },
+            onAppPanelIconSpacingChange: { [weak vc] pt in vc?.applyAppPanelIconSpacing(pt) },
+            onAppPanelEdgeSpacingChange: { [weak vc] pt in vc?.applyAppPanelEdgeSpacing(pt) })
         settingsWindow = win
         win.present()
     }

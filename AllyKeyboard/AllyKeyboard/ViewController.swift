@@ -406,6 +406,75 @@ class ViewController: NSViewController {
         scale = CGFloat(settings.scale)
     }
 
+    // MARK: - The running-applications panel, as configured
+
+    var currentAppPanelIconSize: Int { settings.appPanelIconSize }
+    var currentAppPanelOpacity: Int { settings.appPanelOpacityPercent }
+    var currentAppPanelHiddenApps: [String] { settings.appPanelHiddenApps }
+    var currentAppPanelAutoHide: Int { settings.appPanelAutoHideSeconds }
+    var currentAppPanelHoverZoom: Bool { settings.appPanelHoverZoom }
+    var currentAppPanelOutlineWidth: Int { settings.appPanelOutlineWidth }
+    var currentAppPanelOutlineGap: Int { settings.appPanelOutlineGap }
+    var currentAppPanelIconSpacing: Int { settings.appPanelIconSpacing }
+    var currentAppPanelEdgeSpacing: Int { settings.appPanelEdgeSpacing }
+
+    /// Each of these closes the panel if it is open: the next opening then shows
+    /// the change, and nobody is left looking at a panel that no longer matches
+    /// the settings they are editing.
+    func applyAppPanelIconSize(_ pt: Int) {
+        settings.appPanelIconSize = pt
+        settingsStore.save(settings)
+        appSwitcher.hide()
+    }
+
+    func applyAppPanelOpacity(_ percent: Int) {
+        settings.appPanelOpacityPercent = percent
+        settingsStore.save(settings)
+        appSwitcher.hide()
+    }
+
+    func applyAppPanelHiddenApps(_ names: [String]) {
+        settings.appPanelHiddenApps = names
+        settingsStore.save(settings)
+        appSwitcher.hide()
+    }
+
+    func applyAppPanelAutoHide(_ seconds: Int) {
+        settings.appPanelAutoHideSeconds = seconds
+        settingsStore.save(settings)
+        appSwitcher.hide()
+    }
+
+    func applyAppPanelHoverZoom(_ on: Bool) {
+        settings.appPanelHoverZoom = on
+        settingsStore.save(settings)
+        appSwitcher.hide()
+    }
+
+    func applyAppPanelOutlineWidth(_ pt: Int) {
+        settings.appPanelOutlineWidth = pt
+        settingsStore.save(settings)
+        appSwitcher.hide()
+    }
+
+    func applyAppPanelOutlineGap(_ pt: Int) {
+        settings.appPanelOutlineGap = pt
+        settingsStore.save(settings)
+        appSwitcher.hide()
+    }
+
+    func applyAppPanelIconSpacing(_ pt: Int) {
+        settings.appPanelIconSpacing = pt
+        settingsStore.save(settings)
+        appSwitcher.hide()
+    }
+
+    func applyAppPanelEdgeSpacing(_ pt: Int) {
+        settings.appPanelEdgeSpacing = pt
+        settingsStore.save(settings)
+        appSwitcher.hide()
+    }
+
     var currentStartCollapsed: Bool { settings.startCollapsed }
 
     func applyStartCollapsed(_ on: Bool) {
@@ -543,7 +612,7 @@ class ViewController: NSViewController {
         // row does not shift and nothing else has to be re-learned. Their
         // handlers are still in `handleKey` — the feature is one line away if it
         // is ever wanted back.
-        Key("Blank", title: ""),
+        Key("AppSwitcher", image: "square.grid.2x2"),
         Key("Blank", title: ""),
         Key("@",  title: "@", fixed: true),
         Key("!",  title: "!", fixed: true),
@@ -973,6 +1042,11 @@ class ViewController: NSViewController {
             return
         }
 
+        if key == "AppSwitcher" {
+            appSwitcher.toggle(settings: settings, scale: scale, over: view.window)
+            return
+        }
+
         if key == "Translate" {
             translateSelection()
             return
@@ -1216,6 +1290,10 @@ class ViewController: NSViewController {
     }
 
     /// Show the saved phrases in the same docked balloon (top or bottom, where there's room).
+    /// The running-applications strip. Ours rather than the system's ⌘-Tab
+    /// panel, which cannot restore minimised windows — see `AppSwitcherPanel`.
+    private let appSwitcher = AppSwitcherPanel()
+
     private func showGreetings() {
         let phrases = settings.savedPhrases
         guard !phrases.isEmpty else { hideSuggestions(); return }
