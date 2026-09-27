@@ -267,6 +267,67 @@ two dark themes (custom / system colors, effective-appearance-safe), drag keyboa
 panels (grabbing cursor + click cooldown), stable code signing, redesigned app icon.
 `AllyKeyboardCore` is a local Swift Package with 57 tests green on Linux CI.
 
+## The pointer over the keyboard, 2026-09-27
+
+**The complaint:** typing into Sublime left the pointer a text caret everywhere over the
+keyboard, which is an unpleasant thing to aim a head tracker with.
+
+**What it is not.** Four separate attempts failed before the cause was measured, and each
+looked reasonable: `NSCursor.set()` on hover (what the code already did), cursor rects on the
+keys and on the root view, cursor rects plus a tracking area, and finally
+`SLSSetSystemDefinedCursor` — the private SkyLight call that sets the pointer for a
+connection. Diagnostics written to a file (an `NSLog` of an interpolated Swift string reaches
+the unified log as `<private>` and tells you nothing) showed the truth in one run:
+
+```
+root mouseEntered
+bridge ready, connection 842579
+set arrow -> 0, app active = false
+key mouseEntered з
+```
+
+Every handler fires, per key and per window; the private call returns `kCGErrorSuccess`; the
+pointer does not change. **macOS draws the cursor of the active application and of no other,**
+and the keyboard is a non-activating panel precisely so that it never is one. Apple's DTS,
+asked this exact question, answered that they know of no supported way
+(developer.apple.com/forums/thread/738051).
+
+**The fix** is therefore not about cursors at all: while the pointer is over one of our
+windows we genuinely take the front (`TypingTarget.takeFront`), and hand it back the moment it
+leaves. Key presses are then addressed to the remembered application with `postToPid` rather
+than posted to the HID tap, or they would arrive back in the keyboard. Being active also makes
+ordinary AppKit work again, so the pointing hand over the keys came back with it.
+
+**The cost, accepted knowingly:** while the pointer rests on the keyboard the document is not
+the active application, so its caret does not blink and its selection is drawn unfocused; and
+an agent app that activates puts its menu in the menu bar. Confirmed working in use before
+this was written. Still to confirm: that a selection made in the document survives a command
+sent from the keyboard — copy, cut and backspace-over-a-selection are the cases that matter.
+If they do not, the fallback is to hand the front back for the instant of the key press, so
+the moment of typing is identical to the old behaviour.
+
+**Tried and failed, 2026-09-27: claiming the pointer without keeping the front.** The cursor
+is sticky — nothing repaints it until the active application asks, and the application under
+the keyboard cannot ask, because the pointer is over our window and the mouse-moved events
+come to us. So the front looked as if it were needed only for the instant it takes to set the
+shape: activate, set the cursor, hand the front straight back, and the document keeps its
+blinking caret and its bright selection. It does not hold. Handing the front back restores the
+cursor of the application receiving it, so the caret came straight back. Stickiness survives
+within one activation state, not across a change of it. **Being active is therefore not a
+detail of the implementation but the whole mechanism**, and the dim selection is not a bug to
+be engineered away — it is the price. Mitigate it in the editor instead (Sublime's colour
+schemes carry a separate `inactive_selection` colour; setting it to the ordinary selection
+colour hides the difference).
+
+**Rejected, 2026-09-27: hiding the system cursor and drawing our own.** It would allow any
+shape at all, including one sized for a head tracker, and it was raised as the alternative to
+taking the front. The user declined it outright and it should not be proposed again. The
+reasons it deserved to be declined: a drawn pointer lags the real one by a frame or more,
+which costs exactly the aiming accuracy that matters most here; it is clipped at the window's
+edge, so half a pointer shows at the keyboard's border; and it is not even known whether an
+inactive application may hide the cursor at all — finding out means a live test that leaves
+the only input device invisible if it goes wrong.
+
 **Next up:** Phase 7 polish — fullscreen/multi-monitor edge cases (7.1), global show/hide
 hotkey (7.2), numbers-row toggle (7.3), punctuation panel (7.4), ongoing real-world use (7.5).
 

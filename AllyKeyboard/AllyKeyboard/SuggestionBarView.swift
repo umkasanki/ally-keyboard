@@ -110,6 +110,27 @@ final class SuggestionBarView: NSView {
         return bodyRect
     }
 
+    /// The balloon is a panel of its own, so it needs its own claim on the
+    /// pointer — see `KeyboardRootView`.
+    private var cursorTracking: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let cursorTracking { removeTrackingArea(cursorTracking) }
+        let area = NSTrackingArea(rect: bounds,
+                                  options: [.mouseEnteredAndExited, .mouseMoved,
+                                            .activeAlways, .inVisibleRect],
+                                  owner: self, userInfo: nil)
+        addTrackingArea(area)
+        cursorTracking = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { TypingTarget.takeFront() }
+    override func mouseMoved  (with event: NSEvent) { TypingTarget.takeFront() }
+    override func mouseExited (with event: NSEvent) { TypingTarget.handBack() }
+
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
+
     @objc private func tapped(_ sender: NSButton) {
         guard let word = sender.identifier?.rawValue else { return }
         onSelect?(word)

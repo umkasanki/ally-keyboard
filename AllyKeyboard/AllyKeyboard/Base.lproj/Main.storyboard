@@ -704,7 +704,7 @@
         <scene sceneID="hIz-AP-VOD">
             <objects>
                 <viewController id="XfG-lQ-9wD" customClass="ViewController" customModuleProvider="target" sceneMemberID="viewController">
-                    <view key="view" id="m2S-Jp-Qdl">
+                    <view key="view" id="m2S-Jp-Qdl" customClass="KeyboardRootView" customModuleProvider="target">
                         <rect key="frame" x="0.0" y="0.0" width="520" height="180"/>
                         <autoresizingMask key="autoresizingMask"/>
                     </view>

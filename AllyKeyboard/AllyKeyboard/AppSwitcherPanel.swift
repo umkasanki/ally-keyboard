@@ -418,9 +418,7 @@ private final class AppIconView: NSView {
         outline.opacity = wanted
     }
 
-    override func resetCursorRects() {
-        addCursorRect(bounds, cursor: .pointingHand)
-    }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 
     override func mouseUp(with event: NSEvent) {
         guard let app else { return }
@@ -447,10 +445,16 @@ private final class HoverTrackingView: NSView {
     }
 
     override func mouseMoved(with event: NSEvent) {
+        TypingTarget.takeFront()
         onMouseMoved?(convert(event.locationInWindow, from: nil).x)
     }
 
+    override func mouseEntered(with event: NSEvent) { TypingTarget.takeFront() }
+
     override func mouseExited(with event: NSEvent) {
+        TypingTarget.handBack()
         onMouseExited?()
     }
+
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
 }

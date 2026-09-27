@@ -92,13 +92,29 @@ enum KeySender {
 
     private static let eventSource = CGEventSource(stateID: .hidSystemState)
 
+    /// Where a finished event goes.
+    ///
+    /// The HID tap delivers to whatever application is active, which is right as
+    /// long as that is never us. While the pointer is over the keyboard we make
+    /// ourselves active on purpose — see `TypingTarget` — and then the event has
+    /// to be addressed to the application the user is typing into, or it would
+    /// arrive back here.
+    private static func deliver(_ event: CGEvent?) {
+        guard let event else { return }
+        if NSApp.isActive, let pid = TypingTarget.pid {
+            event.postToPid(pid)
+        } else {
+            event.post(tap: .cghidEventTap)
+        }
+    }
+
     private static func sendKeyCode(_ keyCode: CGKeyCode, flags: CGEventFlags = []) {
         let down = CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: true)
         down?.flags = flags
         let up = CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: false)
         up?.flags = flags
-        down?.post(tap: .cghidEventTap)
-        up?.post(tap: .cghidEventTap)
+        deliver(down)
+        deliver(up)
     }
 
     private static func sendMediaKey(_ keyCode: Int32) {
@@ -112,8 +128,8 @@ enum KeySender {
             modifierFlags: NSEvent.ModifierFlags(rawValue: 0xb00),
             timestamp: 0, windowNumber: 0, context: nil,
             subtype: 8, data1: data1up, data2: -1)
-        down?.cgEvent?.post(tap: .cghidEventTap)
-        up?.cgEvent?.post(tap: .cghidEventTap)
+        deliver(down?.cgEvent)
+        deliver(up?.cgEvent)
     }
 
     /// Type a literal string (used to insert a chosen suggestion).
@@ -127,7 +143,7 @@ enum KeySender {
         down?.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
         let up = CGEvent(keyboardEventSource: eventSource, virtualKey: 0, keyDown: false)
         up?.keyboardSetUnicodeString(stringLength: chars.count, unicodeString: &chars)
-        down?.post(tap: .cghidEventTap)
-        up?.post(tap: .cghidEventTap)
+        deliver(down)
+        deliver(up)
     }
 }
