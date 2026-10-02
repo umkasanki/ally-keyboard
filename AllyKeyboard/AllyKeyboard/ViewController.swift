@@ -222,6 +222,9 @@ final class KeyButton: NSButton {
     /// When set, the key always types this literal string, regardless of the active layout.
     var literalChar: String?
 
+    /// The text glyph, when the glyph is text — see `setKeyText`.
+    private(set) var glyphLabel: NSTextField?
+
     /// A dimmed glyph (text/icon) hosted in a subview so its brightness can animate.
     private var glyphView: NSView?
     private var restGlyphAlpha: CGFloat = 1.0
@@ -265,7 +268,29 @@ final class KeyButton: NSButton {
             view.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
         glyphView = view
+        glyphLabel = view as? NSTextField
         restGlyphAlpha = restAlpha
+        updateGlyphAlpha(animated: false)
+    }
+
+    /// Set the key's text wherever it actually lives.
+    ///
+    /// A key's text is a label hosted in a subview, not the button's own title,
+    /// so that its brightness can be animated. Relabelling for a new keyboard
+    /// layout therefore has to go through here, or it would set a title nobody
+    /// draws.
+    func setKeyText(_ text: String) {
+        if let glyphLabel {
+            glyphLabel.stringValue = text
+        } else {
+            title = text
+        }
+    }
+
+    /// How bright the key rests. Hover and press still take it to full.
+    func setRestAlpha(_ alpha: CGFloat) {
+        guard restGlyphAlpha != alpha else { return }
+        restGlyphAlpha = alpha
         updateGlyphAlpha(animated: false)
     }
 
@@ -665,7 +690,7 @@ class ViewController: NSViewController {
         // handlers are still in `handleKey` — the feature is one line away if it
         // is ever wanted back.
         Key("AppSwitcher", image: "square.grid.2x2"),
-        Key("Blank", title: ""),
+        Key("Screenshot", image: "camera"),
         Key("@",  title: "@", fixed: true),
         Key("!",  title: "!", fixed: true),
         Key("?",  title: "?", fixed: true),
@@ -776,13 +801,28 @@ class ViewController: NSViewController {
 
     private static let modifierIDs: Set<String> = ["Ctrl", "Alt", "Cmd"]
 
-    /// Function/service keys drawn slightly dimmed; their glyph brightens on hover/press.
-    private static let functionKeyIDs: Set<String> = [
-        "Escape", "Tab", "CapsLock", "Home", "PageUp", "PageDown", "End", "Delete",
-        "Ctrl", "Alt", "Cmd", "Shift",
-        "Return", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
-        "HideKeyboard",
-    ]
+    /// How bright a key rests, by the only rule there is: **a letter is bright,
+    /// everything else recedes.** Asked for on 2026-10-02 so that the thing
+    /// actually aimed at while typing is the brightest thing on the keyboard.
+    ///
+    /// It has to be decided from the character the key *currently shows*, not
+    /// from a list of keys: in the Russian layout `[`, `;`, `'`, `,` and `.`
+    /// are the letters х, ж, э, б and ю, and a list would leave them dim while
+    /// they carry letters. So it is recomputed on every layout change.
+    static let dimAlpha: CGFloat = 0.65
+    /// Coloured icons carry their own colour through the dimming, and colour
+    /// draws the eye on its own, so they rest lower still or they stand out
+    /// among the grey ones they are meant to sit beside.
+    static let coloredDimAlpha: CGFloat = 0.5
+    static func restAlpha(forText text: String) -> CGFloat {
+        // **One** letter, not letters. A label of several characters is always
+        // the name of a service key — Esc, Tab, Caps, Home, Up, Down, End, Del
+        // — and the first version of this rule left every one of them bright,
+        // because "Esc" is spelt with letters too.
+        guard text.count == 1, let c = text.first, c.isLetter else { return dimAlpha }
+        return 1.0
+    }
+
     private var activeModifiers: Set<String> = []
     private var modifierButtons: [String: [KeyButton]] = [:]
     private var langSwitchButtons: [KeyButton] = []
@@ -927,46 +967,35 @@ class ViewController: NSViewController {
                    let sym = NSImage(systemSymbolName: imageName, accessibilityDescription: nil) {
                     let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize * key.fontScale, weight: .medium)
                     let img = sym.withSymbolConfiguration(cfg)
-                    if Self.functionKeyIDs.contains(key.id) {
-                        let iv = NSImageView()
-                        iv.image = img
-                        iv.contentTintColor = .white
-                        btn.installGlyph(iv, restAlpha: 0.65)  // dimmed, brightens on hover/press
-                    } else {
-                        btn.image         = img
-                        btn.imagePosition = .imageOnly
-                    }
+                    let iv = NSImageView()
+                    iv.image = img
+                    iv.contentTintColor = .white
+                    btn.installGlyph(iv, restAlpha: Self.dimAlpha)
                 } else if let imageName = key.image, let asset = NSImage(named: imageName) {
                     asset.isTemplate = !key.colored          // colored assets keep their own colors
                     let h = keyHeight * (key.colored ? 0.55 : 0.4) * key.fontScale
                     let sized = (asset.copy() as! NSImage)
                     sized.isTemplate = !key.colored
                     sized.size = NSSize(width: h * asset.size.width / max(asset.size.height, 1), height: h)
-                    if Self.functionKeyIDs.contains(key.id) {
-                        let iv = NSImageView()
-                        iv.image = sized
-                        iv.contentTintColor = .white
-                        btn.installGlyph(iv, restAlpha: 0.65)  // dimmed, brightens on hover/press
-                    } else {
-                        btn.image         = sized
-                        btn.imagePosition = .imageOnly
-                    }
+                    let iv = NSImageView()
+                    iv.image = sized
+                    iv.contentTintColor = .white
+                    btn.installGlyph(iv, restAlpha: key.colored ? Self.coloredDimAlpha
+                                                                : Self.dimAlpha)
                 } else {
                     // Single letters look heavier than digits at the same weight (more ink),
                     // so give the letter keys a lighter weight to match the number row.
                     let isLetter = key.id.count == 1 && (key.id.first?.isLetter ?? false)
                     let font = NSFont.systemFont(ofSize: keyFontSizePrimary * key.fontScale * 1.1,
                                                  weight: isLetter ? .regular : .medium)
-                    if Self.functionKeyIDs.contains(key.id) {
-                        let label = NSTextField(labelWithString: key.title)
-                        label.font = font
-                        label.textColor = .white
-                        label.alignment = .center
-                        btn.installGlyph(label, restAlpha: 0.65)  // dimmed, brightens on hover/press
-                    } else {
-                        btn.title = key.title
-                        btn.font  = font
-                    }
+                    // Every text key is a glyph key, not only the dimmed ones:
+                    // the brightness has to be able to change when the layout
+                    // does, and only a glyph's can.
+                    let label = NSTextField(labelWithString: key.title)
+                    label.font = font
+                    label.textColor = .white
+                    label.alignment = .center
+                    btn.installGlyph(label, restAlpha: Self.restAlpha(forText: key.title))
                 }
 
                 // Secondary symbol drawn in top-right corner via KeyButton.draw()
@@ -1052,6 +1081,19 @@ class ViewController: NSViewController {
 
         if key == "HideKeyboard" {
             (NSApp.delegate as? AppDelegate)?.hideKeyboard()
+            return
+        }
+
+        if key == "Screenshot" {
+            // Out of the way first: the keyboard covers half the screen, and
+            // what is being photographed is almost never the keyboard. Then
+            // the system's own capture panel, which offers the whole screen, a
+            // window or a region — all of them a click, none of them a drag.
+            (NSApp.delegate as? AppDelegate)?.hideKeyboard()
+            // After the window has actually gone, or it is in the picture.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                KeySender.send("Screenshot")
+            }
             return
         }
 
@@ -1460,20 +1502,28 @@ class ViewController: NSViewController {
     private func updateLangFlag() {
         let source = InputSourceSwitcher.currentSource()
         for button in langSwitchButtons {
+            // The glyph is replaced rather than the button's image or title:
+            // every key hosts its face in a subview now, so that its brightness
+            // can be changed, and a button image set underneath one would not
+            // be seen. The key rests dimmed either way — it is a service key,
+            // not one of the letters the eye is meant to go to.
             if let region = InputSourceSwitcher.regionCode(for: source),
                let base = NSImage(named: "flag_\(region)") {
                 // Render as a rounded card with a thin border. flagpack flags are a
                 // uniform 4:3, so every language keeps the same shape.
                 let h = button.bounds.height * 0.5
                 let size = NSSize(width: h * 4.0 / 3.0, height: h)
-                button.image = Self.roundedCard(base, size: size, cornerRadius: h * 0.2)
-                button.imageScaling = .scaleNone
-                button.imagePosition = .imageOnly
-                button.title = ""
+                let view = NSImageView()
+                view.image = Self.roundedCard(base, size: size, cornerRadius: h * 0.2)
+                view.imageScaling = .scaleNone
+                button.installGlyph(view, restAlpha: Self.dimAlpha)
             } else {
-                button.image = nil
-                button.imagePosition = .noImage
-                button.title = InputSourceSwitcher.languageAbbrev(for: source)
+                let label = NSTextField(labelWithString:
+                    InputSourceSwitcher.languageAbbrev(for: source))
+                label.font = NSFont.systemFont(ofSize: keyFontSizePrimary, weight: .medium)
+                label.textColor = .white
+                label.alignment = .center
+                button.installGlyph(label, restAlpha: Self.dimAlpha)
             }
         }
     }
@@ -1510,7 +1560,9 @@ class ViewController: NSViewController {
         for (button, code) in characterButtons {
             guard let base = InputSourceSwitcher.character(forKeyCode: code, shift: false, from: source),
                   !base.isEmpty else { continue }
-            button.title = isCapsLockOn ? base.uppercased() : base   // Caps Lock uppercases letters
+            let shown = isCapsLockOn ? base.uppercased() : base   // Caps Lock uppercases letters
+            button.setKeyText(shown)
+            button.setRestAlpha(Self.restAlpha(forText: shown))
             if let shifted = InputSourceSwitcher.character(forKeyCode: code, shift: true, from: source),
                shifted != base, shifted.lowercased() != base.lowercased() {
                 button.secondaryText = shifted   // punctuation / digit symbol

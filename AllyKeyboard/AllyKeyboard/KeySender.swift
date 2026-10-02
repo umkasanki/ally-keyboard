@@ -28,6 +28,10 @@ enum KeySender {
         case "Return":    sendKeyCode(36)
         case "Tab":       sendKeyCode(48)
         case "Escape":    sendKeyCode(53)
+        // The system's capture panel — Shift-Cmd-5. Not Shift-Cmd-3, which fires
+        // immediately and gives no choice, and not Shift-Cmd-4, which asks for
+        // a rectangle to be dragged. The panel's options are all clicks.
+        case "Screenshot": sendKeyCode(23,  flags: [.maskCommand, .maskShift])
         case "Cmd+C":      sendKeyCode(8,   flags: .maskCommand)
         case "Cmd+V":      sendKeyCode(9,   flags: .maskCommand)
         case "Cmd+Z":      sendKeyCode(6,   flags: .maskCommand)

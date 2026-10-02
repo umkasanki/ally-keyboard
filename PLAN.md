@@ -262,7 +262,7 @@ icons), Translate key, `+ − =` keys, fixed function row, tabbed Settings (Gene
 Bars top/bottom show+height + drag-to-move + cooldown, Suggestions, Launcher width/opacity,
 About), launch-at-login, launch-collapsed, floating launcher (draggable, remembers position),
 menu-bar + right-click control (full menu), runs as agent app (LSUIElement — no Dock icon),
-dimmed function keys with hover/press brighten, systemRed active keys, pointing-hand cursor,
+every key dimmed except the one it types a letter with, decided from the character the key currently shows so a layout change re-decides it, with hover/press brighten; screenshot key that hides the keyboard first and then opens the system capture panel, systemRed active keys, pointing-hand cursor,
 two dark themes (custom / system colors, effective-appearance-safe), drag keyboard by keys/
 panels (grabbing cursor + click cooldown), stable code signing, redesigned app icon.
 `AllyKeyboardCore` is a local Swift Package with 57 tests green on Linux CI.
