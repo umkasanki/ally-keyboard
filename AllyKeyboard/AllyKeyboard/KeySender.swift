@@ -15,11 +15,21 @@ enum KeySender {
     static func send(_ keyID: String, shifted: Bool = false, modifiers: CGEventFlags = []) {
         // Chord (Ctrl/Alt/Cmd held): send via virtual keycode + flags so the target
         // app recognises the shortcut — unicode injection ignores modifier flags.
-        if !modifiers.isEmpty, let code = keyCode(for: keyID) {
-            var flags = modifiers
-            if shifted { flags.insert(.maskShift) }
-            sendKeyCode(code, flags: flags)
-            return
+        if !modifiers.isEmpty {
+            // Some of the top row's characters have no key of their own. `+` is
+            // Shift and `=`, and a lookup by the character alone finds nothing,
+            // so Command-plus used to fall through to unicode injection, which
+            // carries no modifiers at all: the shortcut simply never arrived.
+            if let s = shiftedKeyCodes[keyID] {
+                sendKeyCode(s, flags: modifiers.union(.maskShift))
+                return
+            }
+            if let code = keyCode(for: keyID) {
+                var flags = modifiers
+                if shifted { flags.insert(.maskShift) }
+                sendKeyCode(code, flags: flags)
+                return
+            }
         }
         switch keyID {
         case "Space":     sendKeyCode(49)
@@ -88,6 +98,19 @@ enum KeySender {
         "Space": 49, "Return": 36, "Tab": 48, "Escape": 53,
         "ArrowUp": 126, "ArrowDown": 125, "ArrowLeft": 123, "ArrowRight": 124,
         "Home": 115, "End": 119, "PageUp": 116, "PageDown": 121,
+    ]
+
+    /// Characters that are a key *plus Shift*, not a key. Without these a chord
+    /// built on one of them is lost: the top row types `+`, `!`, `?` and `@` as
+    /// literals, which is right on its own and useless the moment Command is
+    /// held. US-ANSI positions, which is what the virtual keycodes above are.
+    private static let shiftedKeyCodes: [String: CGKeyCode] = [
+        "+": 24,   // Shift-=
+        "_": 27,   // Shift--
+        "!": 18, "@": 19, "#": 20, "$": 21, "%": 23, "^": 22, "&": 26, "*": 28,
+        "(": 25, ")": 29,
+        "?": 44,   // Shift-/
+        ":": 41, "\"": 39, "<": 43, ">": 47, "{": 33, "}": 30, "|": 42, "~": 50,
     ]
 
     static func keyCode(for keyID: String) -> CGKeyCode? {
