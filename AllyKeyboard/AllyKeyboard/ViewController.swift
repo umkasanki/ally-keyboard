@@ -756,6 +756,10 @@ class ViewController: NSViewController {
                 $0.isActive = isShifted
                 if !isShifted { $0.state = .off }
             }
+            // The faces follow, as they do for Caps Lock. Without this the keys
+            // stayed lowercase while Shift was held and the next keystroke
+            // arrived uppercase anyway — the keyboard disagreeing with itself.
+            relabelForCurrentLayout()
         }
     }
     private var shiftButtons: [KeyButton] = []
@@ -1523,7 +1527,11 @@ class ViewController: NSViewController {
         for (button, code) in characterButtons {
             guard let base = InputSourceSwitcher.character(forKeyCode: code, shift: false, from: source),
                   !base.isEmpty else { continue }
-            let shown = isCapsLockOn ? base.uppercased() : base   // Caps Lock uppercases letters
+            // Letters follow Shift XOR Caps, exactly as the keystroke does — see
+            // `effectiveShift` in `keyPressed`. Everything else keeps its face:
+            // a real keyboard does not redraw its number row for Shift either.
+            let isLetter = base.count == 1 && (base.first?.isLetter ?? false)
+            let shown = (isLetter && (isShifted != isCapsLockOn)) ? base.uppercased() : base
             button.setKeyText(shown)
             button.setRestAlpha(Self.restAlpha(forText: shown))
             if let shifted = InputSourceSwitcher.character(forKeyCode: code, shift: true, from: source),
