@@ -96,20 +96,12 @@ enum KeySender {
 
     private static let eventSource = CGEventSource(stateID: .hidSystemState)
 
-    /// Where a finished event goes.
-    ///
-    /// The HID tap delivers to whatever application is active, which is right as
-    /// long as that is never us. While the pointer is over the keyboard we make
-    /// ourselves active on purpose — see `TypingTarget` — and then the event has
-    /// to be addressed to the application the user is typing into, or it would
-    /// arrive back here.
+    /// Where a finished event goes: to whatever application is active, which is
+    /// right because this one never is — the keyboard is a non-activating panel
+    /// on purpose, so that a key press does not take focus from the document
+    /// being typed into.
     private static func deliver(_ event: CGEvent?) {
-        guard let event else { return }
-        if NSApp.isActive, let pid = TypingTarget.pid {
-            event.postToPid(pid)
-        } else {
-            event.post(tap: .cghidEventTap)
-        }
+        event?.post(tap: .cghidEventTap)
     }
 
     private static func sendKeyCode(_ keyCode: CGKeyCode, flags: CGEventFlags = []) {

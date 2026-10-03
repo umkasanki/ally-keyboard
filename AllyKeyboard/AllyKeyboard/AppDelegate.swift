@@ -24,10 +24,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // Remember which application the typing belongs to, before we ever take
-        // the front away from it. See `TypingTarget`.
-        TypingTarget.startWatching()
-
         // Run as a menu-bar accessory: no Dock icon (controls live in the menu bar / launcher).
         NSApp.setActivationPolicy(.accessory)
 

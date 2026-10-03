@@ -147,27 +147,6 @@ private final class LauncherView: NSView {
         glyph.frame = bounds.insetBy(dx: inset, dy: inset)
     }
 
-    /// A click target in a non-activating panel — see `KeyboardRootView` for how
-    /// the pointer's shape is claimed at all.
-    private var cursorTracking: NSTrackingArea?
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let cursorTracking { removeTrackingArea(cursorTracking) }
-        let area = NSTrackingArea(rect: bounds,
-                                  options: [.mouseEnteredAndExited, .mouseMoved,
-                                            .activeAlways, .inVisibleRect],
-                                  owner: self, userInfo: nil)
-        addTrackingArea(area)
-        cursorTracking = area
-    }
-
-    override func mouseEntered(with event: NSEvent) { TypingTarget.takeFront() }
-    override func mouseMoved  (with event: NSEvent) { TypingTarget.takeFront() }
-    override func mouseExited (with event: NSEvent) { TypingTarget.handBack() }
-
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
-
     override func draw(_ dirtyRect: NSRect) {
         let radius = bounds.width * 0.10
         let path = NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius)

@@ -21,42 +21,20 @@ extension NSColor {
 
 // MARK: - CustomStatusBar
 
-/// The keyboard's root view: it claims the front while the pointer is over the
-/// keyboard, and declares the pointer's shape for the parts that are not a key.
+/// The keyboard's root view.
 ///
-/// macOS shows the cursor of the **active application** and of no other. The
-/// keyboard is a non-activating panel, so AllyKeyboard is normally inactive and
-/// every way of setting the cursor is ignored — measured on 2026-09-27: the
-/// handlers fire, the private window-server call even returns success, and the
-/// caret belonging to the editor underneath stays on screen regardless. So the
-/// only way to own the pointer is to genuinely be the active application, which
-/// is what `TypingTarget.takeFront` does; key presses are then addressed to the
-/// application being typed into instead of to the front. The front is handed
-/// back the moment the pointer leaves, so the document keeps its caret and its
-/// selection highlight whenever the user is looking at it rather than at the
-/// keys.
-final class KeyboardRootView: NSView {
-    private var tracking: NSTrackingArea?
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(rect: bounds,
-                                  options: [.mouseEnteredAndExited, .mouseMoved,
-                                            .activeAlways, .inVisibleRect],
-                                  owner: self, userInfo: nil)
-        addTrackingArea(area)
-        tracking = area
-    }
-
-    override func mouseEntered(with event: NSEvent) { TypingTarget.takeFront() }
-    /// Also on movement: the keyboard is often shown under a pointer that is
-    /// already inside it, and no boundary is crossed then.
-    override func mouseMoved(with event: NSEvent) { TypingTarget.takeFront() }
-    override func mouseExited(with event: NSEvent) { TypingTarget.handBack() }
-
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .arrow) }
-}
+/// **The pointer over it is whatever the application underneath asked for**,
+/// and there is nothing to be done about that: macOS draws the cursor of the
+/// active application and of no other, and this one is a non-activating panel
+/// so that a key press does not take focus from the document. Every way of
+/// setting the cursor from an inactive application was measured and found inert
+/// on 2026-09-27 — `NSCursor.set`, cursor rects, `cursorUpdate:`, and the
+/// private `SLSSetSystemDefinedCursor`, which reports success and changes
+/// nothing. Taking the front genuinely does work and shipped for a week; it was
+/// removed on 2026-10-03 because the price was documents losing their focused
+/// field while the pointer rested on the keys. `PLAN.md` has the whole account,
+/// so that it is not attempted a third time.
+final class KeyboardRootView: NSView {}
 
 /// An NSButton that shows a pointing-hand cursor on hover.
 final class PointerButton: NSButton {
@@ -242,16 +220,7 @@ final class KeyButton: NSButton {
     static var lastWindowDragEnd: Date = .distantPast
     /// True while the window is being dragged (by a key or a panel) — hover handlers
     /// must not reset the cursor so the "grabbing" cursor holds.
-    ///
-    /// The cursor rects read this, so flipping it has to make the rects be asked
-    /// for again; otherwise the grabbing cursor would appear only once the
-    /// pointer crossed into another key.
-    static var isDraggingWindow = false {
-        didSet {
-            guard oldValue != isDraggingWindow else { return }
-            NSApp.windows.forEach { $0.resetCursorRects() }
-        }
-    }
+    static var isDraggingWindow = false
 
     override init(frame: NSRect) { super.init(frame: frame); configure() }
     required init?(coder: NSCoder) { super.init(coder: coder); configure() }
@@ -339,12 +308,6 @@ final class KeyButton: NSButton {
     override func mouseExited (with event: NSEvent) {
         isHovered = false; updateBackground(); updateGlyphAlpha(animated: true)
         if !KeyButton.isDraggingWindow { NSCursor.arrow.set() }
-    }
-
-    /// The shape is declared rather than set, so that it survives the pointer
-    /// moving within the key. See `KeyboardRootView`.
-    override func resetCursorRects() {
-        addCursorRect(bounds, cursor: KeyButton.isDraggingWindow ? .closedHand : .pointingHand)
     }
 
     override func highlight(_ flag: Bool) {

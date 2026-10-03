@@ -267,7 +267,21 @@ two dark themes (custom / system colors, effective-appearance-safe), drag keyboa
 panels (grabbing cursor + click cooldown), stable code signing, redesigned app icon.
 `AllyKeyboardCore` is a local Swift Package with 57 tests green on Linux CI.
 
-## The pointer over the keyboard, 2026-09-27
+## The pointer over the keyboard — tried, shipped, removed. 2026-09-27 to 2026-10-03
+
+**Removed on 2026-10-03, and this section is kept so it is not attempted a third time.**
+Taking the front does fix the pointer and nothing else does; it was removed anyway, because
+the price turned out to be the thing the keyboard exists to do. While the pointer rested on
+the keys the document was not the active application, and applications lose more than a
+blinking caret that way — the user reported trouble with focus in input fields and asked for
+it out. `TypingTarget`, its call sites, the setting that had been added to switch it off, and
+the cursor rects that went with it are all gone. Verified after removal by warping the
+pointer into the keyboard's window and asking the system which application was frontmost: it
+did not change.
+
+**What stays true, and is the reason not to try again:**
+
+### The investigation, 2026-09-27
 
 **The complaint:** typing into Sublime left the pointer a text caret everywhere over the
 keyboard, which is an unpleasant thing to aim a head tracker with.
@@ -292,7 +306,7 @@ and the keyboard is a non-activating panel precisely so that it never is one. Ap
 asked this exact question, answered that they know of no supported way
 (developer.apple.com/forums/thread/738051).
 
-**The fix** is therefore not about cursors at all: while the pointer is over one of our
+**The fix that was shipped** is therefore not about cursors at all: while the pointer is over one of our
 windows we genuinely take the front (`TypingTarget.takeFront`), and hand it back the moment it
 leaves. Key presses are then addressed to the remembered application with `postToPid` rather
 than posted to the HID tap, or they would arrive back in the keyboard. Being active also makes
