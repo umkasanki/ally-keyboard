@@ -840,7 +840,6 @@ class ViewController: NSViewController {
 
         window.appearance = NSAppearance(named: .darkAqua)
         window.backgroundColor = AppConfig.Colors.statusBarBg
-        window.level = AppConfig.Levels.keyboard
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
 
         // Non-activating panel: clicking keys must not steal focus from
@@ -850,6 +849,12 @@ class ViewController: NSViewController {
             panel.isFloatingPanel = true
             panel.becomesKeyOnlyIfNeeded = true
         }
+
+        // After the panel block, never before it: `isFloatingPanel` sets the level
+        // to `.floating` as a side effect, so a level set earlier is thrown away.
+        // Measured on 2026-10-04 — the window was living at 3 while this file
+        // asked for 1000, which is why the Applications window covered the keys.
+        window.level = AppConfig.Levels.keyboard
 
         if AppConfig.useCustomTitleBar {
             // Expand content into title bar zone so CustomStatusBar can sit there
@@ -1327,9 +1332,10 @@ class ViewController: NSViewController {
         let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 200, height: keyHeight + padding),
                             styleMask: [.borderless, .nonactivatingPanel],
                             backing: .buffered, defer: false)
-        panel.level = AppConfig.Levels.keyboard
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         panel.isFloatingPanel = true
+        // The level goes last: `isFloatingPanel` resets it to `.floating`.
+        panel.level = AppConfig.Levels.keyboard
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.backgroundColor = .clear

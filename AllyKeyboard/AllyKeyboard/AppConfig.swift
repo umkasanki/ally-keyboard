@@ -24,13 +24,22 @@ enum AppConfig {
     /// The price is real and worth knowing: at this level the keyboard also
     /// covers notification banners and system alerts. For a user whose only way
     /// to answer an alert is this keyboard, that is the right side of the trade.
+    ///
+    /// Whatever stands here only matters if it is the *last* thing applied to the
+    /// window. It was not, for three weeks — see `viewWillAppear`.
     enum Levels {
-        static let keyboard = NSWindow.Level.screenSaver
+        /// The level macOS reserves for assistive technology, which is exactly
+        /// what this keyboard is — Apple's own on-screen keyboard sits here.
+        /// `.screenSaver` would also clear every ordinary window, but this one
+        /// says what the window is *for*, and the system can tell the difference.
+        static let keyboard =
+            NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)))
         /// One above the keyboard, so the settings window is reachable while the
         /// keyboard is up. It used to be `.modalPanel`, which is level 8 against
         /// the keyboard's 25 — it was *below* the keyboard, despite the comment
         /// that said otherwise.
-        static let settings = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)
+        static let settings =
+            NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)) + 1)
     }
 
     // MARK: - Feature flags

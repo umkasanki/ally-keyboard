@@ -267,6 +267,54 @@ two dark themes (custom / system colors, effective-appearance-safe), drag keyboa
 panels (grabbing cursor + click cooldown), stable code signing, redesigned app icon.
 `AllyKeyboardCore` is a local Swift Package with 57 tests green on Linux CI.
 
+## The window level was being thrown away. 2026-10-04
+
+**The complaints:** the system's Applications window covered the keyboard, and typing into
+Spotlight made Spotlight vanish instead of typing. The second one looked exactly like the
+focus trouble of 2026-09-27 come back, and it was not.
+
+**What was actually wrong** is one line in the wrong place, repeated in all four of this
+application's windows:
+
+```swift
+window.level = AppConfig.Levels.keyboard   // asks for 1000
+window.isFloatingPanel = true              // and this quietly sets it to 3
+```
+
+`isFloatingPanel` sets the panel's level to `.floating` as a side effect. Set before it, the
+level is thrown away. `AppConfig.Levels` carries a comment saying it is kept in one place so
+the four windows "cannot drift apart from each other" — they had all drifted, identically,
+since the level was raised on 2026-09-13. The raise never reached a single window.
+
+**Measured, not reasoned**, with `CGWindowListCopyWindowInfo`:
+
+| | before | after |
+|---|---|---|
+| AllyKeyboard | 3 | 1500 |
+| launcher button | 3 | 1500 |
+| Dock | 20 | 20 |
+| Spotlight | 23 | 23 |
+
+The level now goes **last** in every window, and it is `kCGAssistiveTechHighWindowLevel`
+(1500) rather than `.screenSaver`: 1000 would also clear every ordinary window, but 1500 is
+the level macOS reserves for assistive technology, which is what this keyboard is, and it is
+where Apple's own on-screen keyboard sits.
+
+**What the measurement ruled out, before any code was changed:** the keyboard was never
+taking focus. Across a full recording the frontmost application never once became
+AllyKeyboard — it stayed on a menu-bar agent the whole time — while Spotlight opened and
+closed. The panel is non-activating in the storyboard, `canBecomeKey` is `false`, and the
+installed binary carried no trace of the removed `takeFront`. The user's own test settled the
+rest: pressing `^`, which is an empty branch in `KeySender` and sends nothing at all, closed
+Spotlight just the same. So it was never our key events either.
+
+**Why raising the level fixes the typing is not proven, only observed.** Before: Spotlight
+lived 3–4 s and never grew past its empty-bar size, so nothing was being typed into it.
+After: it lives 6–8 s and grows to its results sizes (`720x547`, `924x657`), which is what it
+does when text arrives. If this ever regresses, the next step is the reference test that was
+not needed this time — turn on Apple's own Accessibility Keyboard and see whether Spotlight
+survives *it*.
+
 ## The pointer over the keyboard — tried, shipped, removed. 2026-09-27 to 2026-10-03
 
 **Removed on 2026-10-03, and this section is kept so it is not attempted a third time.**

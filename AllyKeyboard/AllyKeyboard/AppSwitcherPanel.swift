@@ -113,9 +113,10 @@ final class AppSwitcherPanel {
         let p = NSPanel(contentRect: NSRect(origin: origin, size: NSSize(width: width, height: height)),
                         styleMask: [.borderless, .nonactivatingPanel],
                         backing: .buffered, defer: false)
-        p.level = AppConfig.Levels.keyboard
         p.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         p.isFloatingPanel = true
+        // The level goes last: `isFloatingPanel` resets it to `.floating`.
+        p.level = AppConfig.Levels.keyboard
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
         p.backgroundColor = .clear

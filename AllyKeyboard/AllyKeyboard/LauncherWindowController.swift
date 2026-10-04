@@ -24,9 +24,10 @@ final class LauncherWindowController {
         window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: size, height: size),
                          styleMask: [.borderless, .nonactivatingPanel],
                          backing: .buffered, defer: false)
-        window.level = AppConfig.Levels.keyboard
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
         window.isFloatingPanel = true
+        // The level goes last: `isFloatingPanel` resets it to `.floating`.
+        window.level = AppConfig.Levels.keyboard
         window.hidesOnDeactivate = false
         window.isReleasedWhenClosed = false
         window.backgroundColor = .clear
