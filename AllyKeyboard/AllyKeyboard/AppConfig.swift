@@ -17,16 +17,21 @@ enum AppConfig {
     ///
     /// **Above everything**, which is what an on-screen keyboard has to be: if a
     /// panel or a dialog can cover it, then whatever that panel asks for cannot
-    /// be typed. macOS's own Accessibility Keyboard behaves the same way. At
-    /// `.statusBar`, where this used to sit, a menu-bar extra's panel — the
-    /// BetterDisplay menu, for one — covered the keys.
+    /// be typed. macOS's own Accessibility Keyboard behaves the same way.
     ///
-    /// The price is real and worth knowing: at this level the keyboard also
-    /// covers notification banners and system alerts. For a user whose only way
-    /// to answer an alert is this keyboard, that is the right side of the trade.
+    /// A menu-bar extra's panel — the BetterDisplay menu, for one — once covered
+    /// the keys, and this file used to blame `.statusBar` for it. That was wrong.
+    /// The window was measured at **3** on 2026-10-04 and had never been at 25 at
+    /// all, because `isFloatingPanel` was resetting it; a menu at 101 covered the
+    /// keys for that reason, not because 25 was too low. Whatever stands here only
+    /// matters if it is the *last* thing applied to the window — see
+    /// `viewWillAppear`.
     ///
-    /// Whatever stands here only matters if it is the *last* thing applied to the
-    /// window. It was not, for three weeks — see `viewWillAppear`.
+    /// The price is real and worth knowing: at this level the keyboard covers
+    /// notification banners and system alerts, and, unlike `.screenSaver` (1000),
+    /// it also sits above the screen saver itself (the keyboard joins all spaces
+    /// and is stationary, so it stays drawn there). For a user whose only way to
+    /// answer an alert is this keyboard, that is the right side of the trade.
     enum Levels {
         /// The level macOS reserves for assistive technology, which is exactly
         /// what this keyboard is — Apple's own on-screen keyboard sits here.
@@ -35,9 +40,10 @@ enum AppConfig {
         static let keyboard =
             NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)))
         /// One above the keyboard, so the settings window is reachable while the
-        /// keyboard is up. It used to be `.modalPanel`, which is level 8 against
-        /// the keyboard's 25 — it was *below* the keyboard, despite the comment
-        /// that said otherwise.
+        /// keyboard is up. It used to be `.modalPanel` (8), and the note here used
+        /// to say that put it below the keyboard's 25. Both numbers were wrong:
+        /// the keyboard was really at 3, so `.modalPanel` was already above it.
+        /// Measured at 1501 against the keyboard's 1500 on 2026-10-04.
         static let settings =
             NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)) + 1)
     }
