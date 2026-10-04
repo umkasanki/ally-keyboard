@@ -34,8 +34,6 @@ extension NSColor {
 /// removed on 2026-10-03 because the price was documents losing their focused
 /// field while the pointer rested on the keys. `PLAN.md` has the whole account,
 /// so that it is not attempted a third time.
-final class KeyboardRootView: NSView {}
-
 /// An NSButton that shows a pointing-hand cursor on hover.
 final class PointerButton: NSButton {
     private var tracking: NSTrackingArea?
