@@ -44,4 +44,11 @@ final class ReplacementPlanTests: XCTestCase {
         let plan = SuggestionApplier.plan(currentWord: "abc", suggestion: "xyz")
         XCTAssertEqual(plan, ReplacementPlan(backspaces: 3, textToInsert: "xyz "))
     }
+
+    // "когда-" -> "когда-нибудь": the hyphen is part of the common prefix, so
+    // nothing is erased and only the tail is typed.
+    func testHyphenatedStemCostsNoBackspaces() {
+        let plan = SuggestionApplier.plan(currentWord: "когда-", suggestion: "когда-нибудь")
+        XCTAssertEqual(plan, ReplacementPlan(backspaces: 0, textToInsert: "нибудь "))
+    }
 }

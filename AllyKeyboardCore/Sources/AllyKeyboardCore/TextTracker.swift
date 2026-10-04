@@ -21,15 +21,28 @@ public final class TextTracker {
     private let isWordCharacter: (Character) -> Bool
 
     /// - Parameter isWordCharacter: decides which characters extend the word.
-    ///   Defaults to letters, digits and the apostrophe (for contractions).
+    ///   Defaults to letters, digits, the apostrophe (for contractions) and the
+    ///   hyphen (for compounds).
     public init(isWordCharacter: @escaping (Character) -> Bool = TextTracker.defaultIsWordCharacter) {
         self.isWordCharacter = isWordCharacter
     }
 
-    /// Default rule: letters, digits, and `'` continue a word; everything else
-    /// (punctuation, symbols) terminates it.
+    /// Default rule: letters, digits, `'` and `-` continue a word; everything
+    /// else (punctuation, symbols) terminates it.
+    ///
+    /// The hyphen earns its place: Russian is full of compounds built with one —
+    /// когда-нибудь, что-то, кто-либо — and the system dictionary completes them
+    /// from a hyphenated stem, so "когда-" offers когда-нибудь, когда-то,
+    /// когда-либо. Without it the buffer emptied the instant the hyphen was
+    /// typed, and the suggestions went out exactly where they were worth most:
+    /// the user had typed the easy half of the word and was facing the long half.
+    ///
+    /// It is the ordinary hyphen-minus, U+002D. That is both what the key sends
+    /// and what the dictionary returns (checked, 2026-10-04), so the two line up
+    /// for the common-prefix comparison in `SuggestionApplier` and accepting a
+    /// suggestion costs no Backspaces at all.
     public static let defaultIsWordCharacter: (Character) -> Bool = { char in
-        char.isLetter || char.isNumber || char == "'"
+        char.isLetter || char.isNumber || char == "'" || char == "-"
     }
 
     /// Update the buffer for one keystroke.

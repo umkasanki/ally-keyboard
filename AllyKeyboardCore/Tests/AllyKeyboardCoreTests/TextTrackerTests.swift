@@ -51,6 +51,30 @@ final class TextTrackerTests: XCTestCase {
         XCTAssertEqual(t.currentWord, "don't")
     }
 
+    // The hyphen used to terminate the word, so typing the hyphen of
+    // "когда-нибудь" threw the buffer away and the suggestions went out just as
+    // the user reached the long half of the word.
+    func testHyphenStaysWithinWord() {
+        let t = TextTracker()
+        for c in "когда-нибудь" { t.handle(.character(c)) }
+        XCTAssertEqual(t.currentWord, "когда-нибудь")
+    }
+
+    func testWordEndingInAHyphenIsStillPartial() {
+        let t = TextTracker()
+        for c in "когда-" { t.handle(.character(c)) }
+        XCTAssertEqual(t.currentWord, "когда-")
+        XCTAssertTrue(t.hasPartialWord)
+        XCTAssertEqual(t.backspacesToClearWord, 6)
+    }
+
+    func testBackspaceOverAHyphenLeavesTheStem() {
+        let t = TextTracker()
+        for c in "что-" { t.handle(.character(c)) }
+        t.handle(.backspace)
+        XCTAssertEqual(t.currentWord, "что")
+    }
+
     func testDigitsExtendWord() {
         let t = TextTracker()
         for c in "abc123" { t.handle(.character(c)) }
