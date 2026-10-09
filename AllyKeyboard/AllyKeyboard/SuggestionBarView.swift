@@ -106,7 +106,7 @@ final class SuggestionBarView: NSView {
         let mask = CAShapeLayer()
         mask.path = path.cgPath
         layer?.mask = mask
-        layer?.backgroundColor = AppConfig.Colors.keyboardBg.cgColor
+        layer?.backgroundColor = AppConfig.Colors.keyboardBg.darkCGColor
         return bodyRect
     }
 
