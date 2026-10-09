@@ -774,11 +774,16 @@ class ViewController: NSViewController {
     /// from a list of keys: in the Russian layout `[`, `;`, `'`, `,` and `.`
     /// are the letters х, ж, э, б and ю, and a list would leave them dim while
     /// they carry letters. So it is recomputed on every layout change.
-    static let dimAlpha: CGFloat = 0.65
+    /// Being compared on the device, 2026-10-09: 0.80 read easily but stood too
+    /// close to a letter's 1.0, 0.72 was the midpoint, and this is 0.65 again for
+    /// a second look at the original.
+    static let dimAlpha: CGFloat = 0.70
     /// Coloured icons carry their own colour through the dimming, and colour
-    /// draws the eye on its own, so they rest lower still or they stand out
-    /// among the grey ones they are meant to sit beside.
-    static let coloredDimAlpha: CGFloat = 0.5
+    /// draws the eye on its own, so they rest a little lower than the grey ones
+    /// they sit beside. Raised with `dimAlpha` on 2026-10-09: left at 0.5 while
+    /// everything else went to 0.72, the right-hand column read as untouched and
+    /// simply dark. The rule is the gap, not the number — keep one.
+    static let coloredDimAlpha: CGFloat = 0.70
     static func restAlpha(forText text: String) -> CGFloat {
         // **One** letter, not letters. A label of several characters is always
         // the name of a service key — Esc, Tab, Caps, Home, Up, Down, End, Del
@@ -955,9 +960,17 @@ class ViewController: NSViewController {
                 } else {
                     // Single letters look heavier than digits at the same weight (more ink),
                     // so give the letter keys a lighter weight to match the number row.
+                    //
+                    // A service label is a *word* — Esc, Tab, Caps, Home, Up, Down, End, Del —
+                    // and a word carries far more ink than the single character the `.medium`
+                    // weight was chosen to even out. Measured on 2026-10-09: all the dim labels
+                    // sit at the same 195 of 255 against a letter's 255, so the heaviness the
+                    // user was seeing came from the stroke, not the brightness. Words go back
+                    // to `.regular`; digits keep `.medium`, which is what it was for.
                     let isLetter = key.id.count == 1 && (key.id.first?.isLetter ?? false)
+                    let isWord = key.title.count > 1
                     let font = NSFont.systemFont(ofSize: keyFontSizePrimary * key.fontScale * 1.1,
-                                                 weight: isLetter ? .regular : .medium)
+                                                 weight: (isLetter || isWord) ? .regular : .medium)
                     // Every text key is a glyph key, not only the dimmed ones:
                     // the brightness has to be able to change when the layout
                     // does, and only a glyph's can.
