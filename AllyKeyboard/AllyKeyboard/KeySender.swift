@@ -13,6 +13,17 @@ enum KeySender {
 
     /// Send a key event. `keyID` matches `Key.id` defined in ViewController.
     static func send(_ keyID: String, shifted: Bool = false, modifiers: CGEventFlags = []) {
+        // Navigation first, and before the chord branch on purpose. Shift arrives
+        // as `shifted`, not inside `modifiers`, and the branch below only runs when
+        // `modifiers` is non-empty — so Shift was dropped for every arrow, for Home
+        // and for End. Selecting text from this keyboard was simply impossible.
+        if let nav = navigation(keyID, modifiers: modifiers) {
+            var flags = modifiers.union(nav.extra)
+            if shifted { flags.insert(.maskShift) }
+            sendKeyCode(nav.code, flags: flags)
+            return
+        }
+
         // Chord (Ctrl/Alt/Cmd held): send via virtual keycode + flags so the target
         // app recognises the shortcut — unicode injection ignores modifier flags.
         if !modifiers.isEmpty {
@@ -47,14 +58,6 @@ enum KeySender {
         case "Cmd+Z":      sendKeyCode(6,   flags: .maskCommand)
         case "Cmd+A":      sendKeyCode(0,   flags: .maskCommand)
         case "Cmd+X":      sendKeyCode(7,   flags: .maskCommand)
-        case "ArrowUp":    sendKeyCode(126)
-        case "ArrowDown":  sendKeyCode(125)
-        case "ArrowLeft":  sendKeyCode(123)
-        case "ArrowRight": sendKeyCode(124)
-        case "Home":       sendKeyCode(115)
-        case "End":        sendKeyCode(119)
-        case "PageUp":     sendKeyCode(116)
-        case "PageDown":   sendKeyCode(121)
         case "Mute":       sendMediaKey(7)
         case "VolumeDown": sendMediaKey(1)
         case "VolumeUp":   sendMediaKey(0)
@@ -99,6 +102,43 @@ enum KeySender {
         "ArrowUp": 126, "ArrowDown": 125, "ArrowLeft": 123, "ArrowRight": 124,
         "Home": 115, "End": 119, "PageUp": 116, "PageDown": 121,
     ]
+
+    /// The navigation keys, with Shift honoured — and with the two whose label
+    /// means something else on macOS translated to the chord that means it.
+    ///
+    /// `Home` and `End` are *view* commands here. `StandardKeyBinding.dict` binds
+    /// them to `scrollToBeginningOfDocument:` and `scrollToEndOfDocument:` — note
+    /// `scroll`, not `move`: they shift the window over the document and leave the
+    /// insertion point where it was. What moves the caret to the ends of a line is
+    /// `⌘←` and `⌘→` (`moveToLeftEndOfLine:`).
+    ///
+    /// The user drives with a head tracker and asked for the Windows meaning,
+    /// having no use for a key that only scrolls. So these two send the chord that
+    /// matches their label, and Shift composes on top of it for free: `⇧⌘←` is
+    /// already `moveToLeftEndOfLineAndModifySelection:`, which is exactly
+    /// "select to the start of the line".
+    ///
+    /// PageUp and PageDown keep their own codes: nobody asked for those, and
+    /// scrolling by a page is what their label says on either system.
+    private static func navigation(_ keyID: String,
+                                   modifiers: CGEventFlags) -> (code: CGKeyCode, extra: CGEventFlags)? {
+        // Command holds the Windows meaning of Ctrl here: it widens the jump from
+        // the line to the whole document. Without this the modifier was swallowed,
+        // because Command is already part of what Home and End send — Cmd-Shift-Home
+        // did exactly what Shift-Home did.
+        let wholeDocument = modifiers.contains(.maskCommand)
+        switch keyID {
+        case "ArrowUp":    return (126, [])
+        case "ArrowDown":  return (125, [])
+        case "ArrowLeft":  return (123, [])
+        case "ArrowRight": return (124, [])
+        case "PageUp":     return (116, [])
+        case "PageDown":   return (121, [])
+        case "Home":       return wholeDocument ? (126, .maskCommand) : (123, .maskCommand)
+        case "End":        return wholeDocument ? (125, .maskCommand) : (124, .maskCommand)
+        default:           return nil
+        }
+    }
 
     /// Characters that are a key *plus Shift*, not a key. Without these a chord
     /// built on one of them is lost: the top row types `+`, `!`, `?` and `@` as
