@@ -167,13 +167,41 @@ enum KeySender {
         event?.post(tap: .cghidEventTap)
     }
 
+    /// The modifiers a chord can carry, with their own virtual keycodes, so that a
+    /// chord is pressed and released the way fingers do it on a hardware keyboard.
+    private static let modifierKeys: [(flag: CGEventFlags, code: CGKeyCode)] = [
+        (.maskCommand, 55), (.maskControl, 59), (.maskAlternate, 58), (.maskShift, 56),
+    ]
+
     private static func sendKeyCode(_ keyCode: CGKeyCode, flags: CGEventFlags = []) {
+        let held = modifierKeys.filter { flags.contains($0.flag) }
+        // Modifiers down first, one by one, as fingers would press them...
+        var pressed: CGEventFlags = []
+        for modifier in held {
+            pressed.insert(modifier.flag)
+            deliver(modifierEvent(modifier.code, flags: pressed))
+        }
         let down = CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: true)
         down?.flags = flags
         let up = CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: false)
         up?.flags = flags
         deliver(down)
         deliver(up)
+        // ...and up again afterwards. Without this the session took its modifier
+        // state from the last event, the key-up still flagged ⌘⌃, and kept them
+        // held after a chord: the next click from AllyClicker became a ⌘⌃-click.
+        for modifier in held.reversed() {
+            pressed.remove(modifier.flag)
+            deliver(modifierEvent(modifier.code, flags: pressed))
+        }
+    }
+
+    /// A modifier key changing state: a flags-changed event, as the hardware sends.
+    private static func modifierEvent(_ code: CGKeyCode, flags: CGEventFlags) -> CGEvent? {
+        let event = CGEvent(keyboardEventSource: eventSource, virtualKey: code, keyDown: true)
+        event?.type = .flagsChanged
+        event?.flags = flags
+        return event
     }
 
     private static func sendMediaKey(_ keyCode: Int32) {
