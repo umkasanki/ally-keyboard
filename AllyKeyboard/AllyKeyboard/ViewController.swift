@@ -1565,19 +1565,26 @@ class ViewController: NSViewController {
         for (button, code) in characterButtons {
             guard let base = InputSourceSwitcher.character(forKeyCode: code, shift: false, from: source),
                   !base.isEmpty else { continue }
+            let shifted = InputSourceSwitcher.character(forKeyCode: code, shift: true, from: source)
+            // A key with a second symbol of its own — digits, punctuation — as
+            // opposed to a letter, whose shifted form is only its capital.
+            let symbol = shifted.flatMap { $0 != base && $0.lowercased() != base.lowercased() ? $0 : nil }
             // Letters follow Shift XOR Caps, exactly as the keystroke does — see
-            // `effectiveShift` in `keyPressed`. Everything else keeps its face:
-            // a real keyboard does not redraw its number row for Shift either.
+            // `effectiveShift` in `keyPressed`. A key with a second symbol shows,
+            // while Shift is held, the symbol it will type — full size, the digit
+            // gone — and goes back when Shift is released. Caps Lock leaves those
+            // alone, as it does on a real keyboard.
             let isLetter = base.count == 1 && (base.first?.isLetter ?? false)
-            let shown = (isLetter && (isShifted != isCapsLockOn)) ? base.uppercased() : base
+            let shown: String
+            if let symbol, isShifted {
+                shown = symbol
+            } else {
+                shown = (isLetter && (isShifted != isCapsLockOn)) ? base.uppercased() : base
+            }
             button.setKeyText(shown)
             button.setRestAlpha(Self.restAlpha(forText: shown))
-            if let shifted = InputSourceSwitcher.character(forKeyCode: code, shift: true, from: source),
-               shifted != base, shifted.lowercased() != base.lowercased() {
-                button.secondaryText = shifted   // punctuation / digit symbol
-            } else {
-                button.secondaryText = nil       // letter — no secondary
-            }
+            // The small corner symbol only when it is not already the face.
+            button.secondaryText = isShifted ? nil : symbol
             button.needsDisplay = true
         }
     }
