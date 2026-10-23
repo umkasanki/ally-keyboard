@@ -25,17 +25,38 @@ AllyKeyboard is a clickable on-screen keyboard that stays on top of all windows.
 
 ## Install
 
-Download the latest build from the [**Releases**](https://github.com/umkasanki/ally-keyboard/releases/latest) page:
+**[Full installation guide →](docs/INSTALL.md)** — what Homebrew is and how to
+get it, what to do when macOS blocks the app, and how to grant the permission
+it needs.
 
-- **`AllyKeyboard-x.y.z.dmg`** — open it and drag `AllyKeyboard.app` into **Applications**, or
-- **`AllyKeyboard-x.y.z.zip`** — unzip and move `AllyKeyboard.app` into **Applications**.
+### Homebrew — recommended
 
-Then:
+```bash
+brew tap umkasanki/tap
+brew trust umkasanki/tap          # third-party taps are trusted once
+brew install --cask allykeyboard
+```
 
-1. Launch AllyKeyboard. Grant **Accessibility** permission when prompted (System Settings → Privacy & Security → Accessibility) — it's required to send keystrokes to other apps.
-2. Control it from the **menu-bar icon** (left-click show/hide, right-click menu) or the floating launcher.
+Nothing stands in the way: Homebrew clears the quarantine mark as it installs.
+Then allow the app to type — System Settings → Privacy & Security →
+Accessibility → enable **AllyKeyboard** — and restart it, since permissions are
+read at launch.
 
-> The build is **self-signed, not notarized** (personal-use project). On first launch macOS Gatekeeper will warn — **right-click the app → Open → Open**, then it runs normally.
+### .dmg — if you cannot use Homebrew
+
+Download `AllyKeyboard-<version>.dmg` from the
+[latest release](https://github.com/umkasanki/ally-keyboard/releases/latest),
+open it, and drag AllyKeyboard into Applications.
+
+**macOS will refuse the first launch.** The app is signed by me rather than by
+Apple, and a browser marks everything it downloads, so the refusal is expected
+rather than a fault. Allow it in **System Settings → Privacy & Security →
+Open Anyway**, then open the app again. Where to find that, and what each dialog
+says, is spelled out in the
+[installation guide](docs/INSTALL.md#method-2--the-dmg).
+
+Control the keyboard from the **menu-bar icon** (left-click show/hide,
+right-click menu) or the floating launcher.
 
 ## Build from source
 
