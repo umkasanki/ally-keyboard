@@ -401,7 +401,7 @@ final class KeyButton: NSButton {
         super.draw(dirtyRect)
         guard let text = secondaryText else { return }
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: secondaryFontSize, weight: .regular),
+            .font: NSFont.systemFont(ofSize: secondaryFontSize, weight: .light),
             .foregroundColor: NSColor(white: 1.0, alpha: 0.75)   // was 0.5: too dim to read at this size
         ]
         let str = NSAttributedString(string: text, attributes: attrs)
@@ -812,13 +812,13 @@ class ViewController: NSViewController {
     /// Being compared on the device, 2026-10-09: 0.80 read easily but stood too
     /// close to a letter's 1.0, 0.72 was the midpoint, and this is 0.65 again for
     /// a second look at the original.
-    static let dimAlpha: CGFloat = 0.70
+    static let dimAlpha: CGFloat = 0.78   // 2026-10-24: 0.70 read too dark once the labels went a weight lighter
     /// Coloured icons carry their own colour through the dimming, and colour
     /// draws the eye on its own, so they rest a little lower than the grey ones
     /// they sit beside. Raised with `dimAlpha` on 2026-10-09: left at 0.5 while
     /// everything else went to 0.72, the right-hand column read as untouched and
     /// simply dark. The rule is the gap, not the number — keep one.
-    static let coloredDimAlpha: CGFloat = 0.70
+    static let coloredDimAlpha: CGFloat = 0.78
     static func restAlpha(forText text: String) -> CGFloat {
         // **One** letter, not letters. A label of several characters is always
         // the name of a service key — Esc, Tab, Caps, Home, Up, Down, End, Del
@@ -975,7 +975,7 @@ class ViewController: NSViewController {
 
                 if let imageName = key.image,
                    let sym = NSImage(systemSymbolName: imageName, accessibilityDescription: nil) {
-                    let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize * key.fontScale, weight: .medium)
+                    let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize * key.fontScale, weight: .regular)
                     let img = sym.withSymbolConfiguration(cfg)
                     let iv = NSImageView()
                     iv.image = img
@@ -1000,12 +1000,16 @@ class ViewController: NSViewController {
                     // and a word carries far more ink than the single character the `.medium`
                     // weight was chosen to even out. Measured on 2026-10-09: all the dim labels
                     // sit at the same 195 of 255 against a letter's 255, so the heaviness the
-                    // user was seeing came from the stroke, not the brightness. Words go back
-                    // to `.regular`; digits keep `.medium`, which is what it was for.
+                    // user was seeing came from the stroke, not the brightness. Words went back
+                    // to `.regular`; digits kept `.medium`, which is what it was for.
+                    //
+                    // 2026-10-24: the whole scale stepped one weight lighter at the user's
+                    // request — letters `.light`, digits and symbols `.regular` — and the
+                    // service words one step lighter still, `.thin`, so they recede most.
                     let isLetter = key.id.count == 1 && (key.id.first?.isLetter ?? false)
                     let isWord = key.title.count > 1
                     let font = NSFont.systemFont(ofSize: keyFontSizePrimary * key.fontScale * 1.1,
-                                                 weight: (isLetter || isWord) ? .regular : .medium)
+                                                 weight: isWord ? .thin : (isLetter ? .light : .regular))
                     // Every text key is a glyph key, not only the dimmed ones:
                     // the brightness has to be able to change when the layout
                     // does, and only a glyph's can.
@@ -1027,7 +1031,7 @@ class ViewController: NSViewController {
                     btn.setButtonType(.toggle)
                     if let altImg = NSImage(systemSymbolName: "shift.fill",
                                            accessibilityDescription: nil) {
-                        let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize, weight: .bold)
+                        let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize, weight: .semibold)
                         btn.alternateImage = altImg.withSymbolConfiguration(cfg)
                     }
                     shiftButtons.append(btn)
@@ -1539,7 +1543,7 @@ class ViewController: NSViewController {
             } else {
                 let label = NSTextField(labelWithString:
                     InputSourceSwitcher.languageAbbrev(for: source))
-                label.font = NSFont.systemFont(ofSize: keyFontSizePrimary, weight: .medium)
+                label.font = NSFont.systemFont(ofSize: keyFontSizePrimary, weight: .regular)
                 label.textColor = .white
                 label.alignment = .center
                 button.installGlyph(label, restAlpha: Self.dimAlpha)
