@@ -8,7 +8,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"   # AllyKeyboard/ (dir with the .xcodeproj)
 
-IDENTITY="AllyKeyboard Local"
+IDENTITY="AllyKeyboard Self-Signed"
 KC="$HOME/Library/Keychains/allykeyboard.keychain-db"
 DD="$PWD/build"
 
