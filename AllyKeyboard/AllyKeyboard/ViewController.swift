@@ -212,8 +212,8 @@ final class KeyButton: NSButton {
     var normalColorOverride: NSColor? { didSet { updateBackground() } }
 
     /// Secondary symbol drawn in the top-right corner of the key (e.g. shifted character).
-    var secondaryText: String? { didSet { needsDisplay = true } }
-    var secondaryFontSize: CGFloat = 8
+    var secondaryText: String? { didSet { needsDisplay = true; updateGlyphOffset() } }
+    var secondaryFontSize: CGFloat = 8 { didSet { updateGlyphOffset() } }
     /// Character to send when Shift is active (overrides uppercased keyID for punctuation)
     var shiftedChar: String?
     /// When set, the key always types this literal string, regardless of the active layout.
@@ -251,14 +251,28 @@ final class KeyButton: NSButton {
         glyphView?.removeFromSuperview()
         view.translatesAutoresizingMaskIntoConstraints = false
         addSubview(view)
-        NSLayoutConstraint.activate([
-            view.centerXAnchor.constraint(equalTo: centerXAnchor),
-            view.centerYAnchor.constraint(equalTo: centerYAnchor),
-        ])
+        let cx = view.centerXAnchor.constraint(equalTo: centerXAnchor)
+        let cy = view.centerYAnchor.constraint(equalTo: centerYAnchor)
+        NSLayoutConstraint.activate([cx, cy])
+        glyphCenterX = cx
+        glyphCenterY = cy
         glyphView = view
         glyphLabel = view as? NSTextField
         restGlyphAlpha = restAlpha
         updateGlyphAlpha(animated: false)
+        updateGlyphOffset()
+    }
+
+    private var glyphCenterX: NSLayoutConstraint?
+    private var glyphCenterY: NSLayoutConstraint?
+
+    /// While the small symbol sits in the top-right corner, the main glyph steps
+    /// down and to the left so the two do not touch; with no corner symbol (or
+    /// with Shift held, when the symbol has become the face) it stays centred.
+    private func updateGlyphOffset() {
+        let shift: CGFloat = secondaryText == nil ? 0 : (secondaryFontSize * 0.3).rounded()
+        glyphCenterX?.constant = -shift
+        glyphCenterY?.constant = shift
     }
 
     /// Set the key's text wherever it actually lives.

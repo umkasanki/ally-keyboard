@@ -129,7 +129,7 @@ enum AppConfig {
         /// with small letters however large the keys are. 13 → 15 closes it.
         static let fontSizePrimary:   CGFloat = 15
         /// Font size for secondary key label (shifted symbol shown top-left)
-        static let fontSizeSecondary: CGFloat = 8
+        static let fontSizeSecondary: CGFloat = 9.6   // was 8; +20% so the shifted symbols can be read
         /// Default keyboard scale factor
         static let keyboardScale:   CGFloat = 1.5
     }
