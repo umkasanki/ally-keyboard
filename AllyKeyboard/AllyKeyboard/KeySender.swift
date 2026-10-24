@@ -179,26 +179,45 @@ enum KeySender {
         var pressed: CGEventFlags = []
         for modifier in held {
             pressed.insert(modifier.flag)
-            deliver(modifierEvent(modifier.code, flags: pressed))
+            deliver(modifierEvent(modifier.code, down: true, flags: pressed))
+            settle()
         }
         let down = CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: true)
         down?.flags = flags
         let up = CGEvent(keyboardEventSource: eventSource, virtualKey: keyCode, keyDown: false)
         up?.flags = flags
         deliver(down)
+        settle()
         deliver(up)
+        settle()
         // ...and up again afterwards. Without this the session took its modifier
         // state from the last event, the key-up still flagged ⌘⌃, and kept them
         // held after a chord: the next click from AllyClicker became a ⌘⌃-click.
+        // The release must be a real key-up: the event source keeps its own table
+        // of which keys are down, and a release built as a key-down left ⌘ "down"
+        // in it now and then, so ⌘ still came back held.
         for modifier in held.reversed() {
             pressed.remove(modifier.flag)
-            deliver(modifierEvent(modifier.code, flags: pressed))
+            deliver(modifierEvent(modifier.code, down: false, flags: pressed))
+            settle()
+        }
+        // Last guard: if the session still believes a chord modifier is down,
+        // release it once more.
+        let still = CGEventSource.flagsState(.combinedSessionState)
+        for modifier in held where still.contains(modifier.flag) {
+            deliver(modifierEvent(modifier.code, down: false, flags: []))
         }
     }
 
+    /// A short pause between the steps of a chord, so they are taken in order,
+    /// the way the hardware spaces them, instead of arriving in one burst.
+    private static func settle() {
+        usleep(8_000)
+    }
+
     /// A modifier key changing state: a flags-changed event, as the hardware sends.
-    private static func modifierEvent(_ code: CGKeyCode, flags: CGEventFlags) -> CGEvent? {
-        let event = CGEvent(keyboardEventSource: eventSource, virtualKey: code, keyDown: true)
+    private static func modifierEvent(_ code: CGKeyCode, down isDown: Bool, flags: CGEventFlags) -> CGEvent? {
+        let event = CGEvent(keyboardEventSource: eventSource, virtualKey: code, keyDown: isDown)
         event?.type = .flagsChanged
         event?.flags = flags
         return event
