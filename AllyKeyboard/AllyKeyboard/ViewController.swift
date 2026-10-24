@@ -402,7 +402,7 @@ final class KeyButton: NSButton {
         guard let text = secondaryText else { return }
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: secondaryFontSize, weight: .regular),
-            .foregroundColor: NSColor(white: 1.0, alpha: 0.5)
+            .foregroundColor: NSColor(white: 1.0, alpha: 0.75)   // was 0.5: too dim to read at this size
         ]
         let str = NSAttributedString(string: text, attributes: attrs)
         let size = str.size()
