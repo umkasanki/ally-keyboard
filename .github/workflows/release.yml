@@ -9,7 +9,9 @@ name: Release
 #   • this project builds with xcodebuild, not SwiftPM;
 #   • the version lives in MARKETING_VERSION (GENERATE_INFOPLIST_FILE is YES),
 #     so the tag is passed as a build setting rather than stamped into a plist;
-#   • there is no Homebrew cask for the keyboard, so no tap to update.
+#   • the Homebrew cask (umkasanki/homebrew-tap, Casks/allykeyboard.rb) is not
+#     updated here: once the release is published, set its `version` and the
+#     `sha256` of the .dmg by hand, then commit and push the tap.
 
 on:
   push:
