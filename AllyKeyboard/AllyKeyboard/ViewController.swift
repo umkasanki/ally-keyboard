@@ -836,7 +836,7 @@ class ViewController: NSViewController {
     private var characterButtons: [(button: KeyButton, keyCode: CGKeyCode)] = []
     /// Keycode keys that are NOT character keys (never relabelled).
     private static let nonCharacterKeys: Set<String> = [
-        "Space", "Return", "Tab", "Escape",
+        "Space", "Return", "Tab", "Escape", "Backspace", "Delete",
         "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
         "Home", "End", "PageUp", "PageDown",
     ]

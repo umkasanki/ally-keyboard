@@ -99,6 +99,10 @@ enum KeySender {
         "-": 27, "=": 24, "[": 33, "]": 30, "\\": 42, ";": 41, "'": 39,
         ",": 43, ".": 47, "/": 44, "`": 50,
         "Space": 49, "Return": 36, "Tab": 48, "Escape": 53,
+        // Without these two a chord on them lost its modifier: the lookup failed
+        // and the key fell through to the plain branch below, flagless. ⌘⌫ in
+        // Finder — Move to Trash — arrived as a bare ⌫ and only beeped.
+        "Backspace": 51, "Delete": 117,
         "ArrowUp": 126, "ArrowDown": 125, "ArrowLeft": 123, "ArrowRight": 124,
         "Home": 115, "End": 119, "PageUp": 116, "PageDown": 121,
     ]
