@@ -759,7 +759,10 @@ class ViewController: NSViewController {
          Key("Alt",        title: "⌥", w: 1.5),
          Key("Cmd",        title: "⌘", w: 1.5),
          Key("Space",      title: "",  w: 5.0),
-         Key("Delete",     title: "Del", w: 1.5, fontScale: 0.7),
+         // A second ⌘ in place of Del: the user found it the more useful of the
+         // two, since on macOS ⌫ covers nearly everything Del was there for.
+         // Same id as the left one, so both light up together, as Shift does.
+         Key("Cmd",        title: "⌘", w: 1.5),
          Key("HideKeyboard", image: "keyboard-glyph", w: 1.5),
          Key("ArrowLeft",  image: "arrow.left"),
          Key("ArrowDown",  image: "arrow.down"),
