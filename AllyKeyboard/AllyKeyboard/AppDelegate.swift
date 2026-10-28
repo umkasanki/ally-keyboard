@@ -11,10 +11,26 @@ import AllyKeyboardCore
 @main
 class AppDelegate: NSObject, NSApplicationDelegate {
 
+    /// Held for the life of the process: the system may not throttle us (see below).
+    private var activity: NSObjectProtocol?
 
     private var statusBar: StatusBarController!
     private var settingsWindow: SettingsWindowController?
     private var launcher: LauncherWindowController?
+
+    // App Nap off, as AllyClicker and SmartNav Lite do. The keyboard has no Dock
+    // icon and is never the active application — exactly what App Nap looks for —
+    // and a napping app's events and timers are slowed and coalesced: a key that
+    // lands late. The defaults key is the measured mechanism, read at launch, so it
+    // is written as early as AppKit lets us; the activity is the documented one and
+    // covers this launch too. Latency-critical keeps timers from being coalesced;
+    // idle system sleep stays allowed, so the Mac still sleeps.
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        UserDefaults.standard.set(true, forKey: "NSAppSleepDisabled")
+        activity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
+            reason: "The on-screen keyboard is this user's only way to type and must not be throttled")
+    }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // Enforce single instance: if another copy is already running, quit this one.
