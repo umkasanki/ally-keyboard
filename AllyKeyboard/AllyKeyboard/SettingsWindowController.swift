@@ -54,6 +54,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private var appAutoHideValue: NSTextField!
     private var appHiddenView: NSTextView!
     private let step = 5
+    private let sizeStep = 1   // keyboard size, finer than the rest at the user's request
     private var percentField: NSTextField!
     private var widthField: NSTextField!
     private var widthSlider: NSSlider!
@@ -796,8 +797,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         return b
     }
 
-    @objc private func minusTapped()  { applyPercent(percentField.integerValue - step) }
-    @objc private func plusTapped()   { applyPercent(percentField.integerValue + step) }
+    @objc private func minusTapped()  { applyPercent(percentField.integerValue - sizeStep) }
+    @objc private func plusTapped()   { applyPercent(percentField.integerValue + sizeStep) }
     @objc private func fieldChanged(_ sender: NSTextField) { applyPercent(sender.integerValue) }
 
     private func applyPercent(_ raw: Int) {
