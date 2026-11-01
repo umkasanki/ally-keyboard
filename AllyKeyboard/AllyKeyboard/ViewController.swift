@@ -822,7 +822,12 @@ class ViewController: NSViewController {
     /// everything else went to 0.72, the right-hand column read as untouched and
     /// simply dark. The rule is the gap, not the number — keep one.
     static let coloredDimAlpha: CGFloat = 0.78
-    static func restAlpha(forText text: String) -> CGFloat {
+    /// The backtick key rests dim even while it carries the Russian yo, at the user's request
+    /// 2026-11-01: it sits in the number row and reads as part of it. Decided
+    /// by keycode, since by text it would be a letter like any other.
+    static let dimKeyCodes: Set<CGKeyCode> = [50]
+    static func restAlpha(forText text: String, keyCode: CGKeyCode? = nil) -> CGFloat {
+        if let keyCode, dimKeyCodes.contains(keyCode) { return dimAlpha }
         // **One** letter, not letters. A label of several characters is always
         // the name of a service key — Esc, Tab, Caps, Home, Up, Down, End, Del
         // — and the first version of this rule left every one of them bright,
@@ -1009,10 +1014,15 @@ class ViewController: NSViewController {
                     // 2026-10-24: the whole scale stepped one weight lighter at the user's
                     // request — letters `.light`, digits and symbols `.regular` — and the
                     // service words one step lighter still, `.thin`, so they recede most.
+                    //
+                    // 2026-11-01: digits went to `.light` with the letters. At `.regular` their
+                    // heavier stroke made up for the dimming — measured at 210 of 255 against a
+                    // letter's 255, yet read as just as bright — so the dim did not show.
                     let isLetter = key.id.count == 1 && (key.id.first?.isLetter ?? false)
+                    let isDigit = key.id.count == 1 && (key.id.first?.isNumber ?? false)
                     let isWord = key.title.count > 1
                     let font = NSFont.systemFont(ofSize: keyFontSizePrimary * key.fontScale * 1.1,
-                                                 weight: isWord ? .thin : (isLetter ? .light : .regular))
+                                                 weight: isWord ? .thin : (isLetter || isDigit ? .light : .regular))
                     // Every text key is a glyph key, not only the dimmed ones:
                     // the brightness has to be able to change when the layout
                     // does, and only a glyph's can.
@@ -1020,7 +1030,9 @@ class ViewController: NSViewController {
                     label.font = font
                     label.textColor = .white
                     label.alignment = .center
-                    btn.installGlyph(label, restAlpha: Self.restAlpha(forText: key.title))
+                    btn.installGlyph(label, restAlpha: Self.restAlpha(
+                        forText: key.title,
+                        keyCode: key.fixed ? nil : KeySender.keyCode(for: key.id)))
                 }
 
                 // Secondary symbol drawn in top-right corner via KeyButton.draw()
@@ -1603,7 +1615,7 @@ class ViewController: NSViewController {
                 shown = (isLetter && (isShifted != isCapsLockOn)) ? base.uppercased() : base
             }
             button.setKeyText(shown)
-            button.setRestAlpha(Self.restAlpha(forText: shown))
+            button.setRestAlpha(Self.restAlpha(forText: shown, keyCode: code))
             // The small corner symbol only when it is not already the face.
             button.secondaryText = isShifted ? nil : symbol
             button.needsDisplay = true
