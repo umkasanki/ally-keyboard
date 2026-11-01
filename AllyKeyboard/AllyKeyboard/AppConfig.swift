@@ -78,7 +78,7 @@ enum AppConfig {
         var keyBg: NSColor {
             switch self {
             case .darkCustom: return NSColor(white: 0.22, alpha: 1)
-            case .darkSystem: return NSColor(white: 0.20, alpha: 1)
+            case .darkSystem: return NSColor(white: 0.23, alpha: 1)   // 2026-11-01: was 0.20, a touch lighter at the user's request
             }
         }
 
