@@ -114,6 +114,13 @@ public struct Settings: Codable, Equatable {
     /// Launch with the keyboard collapsed (hidden; only the floating launcher shown).
     public var startCollapsed: Bool
 
+    /// Show and hide the keyboard with a slide up from below. With neither this
+    /// nor `showHideFade`, it appears and hides at once.
+    public var showHideSlide: Bool
+
+    /// Show and hide the keyboard with a fade in and out.
+    public var showHideFade: Bool
+
     /// Background theme identifier (e.g. "darkCustom" / "darkSystem"); interpreted by the app.
     public var theme: String
 
@@ -164,6 +171,8 @@ public struct Settings: Codable, Equatable {
                 dragToMove: Bool = true,
                 dragCooldownMs: Int = 400,
                 startCollapsed: Bool = false,
+                showHideSlide: Bool = true,
+                showHideFade: Bool = true,
                 theme: String = "darkSystem",
                 appPanelIconSize: Int = 64,
                 appPanelOpacityPercent: Int = 92,
@@ -177,6 +186,8 @@ public struct Settings: Codable, Equatable {
         self.sizePercent = Settings.clampPercent(sizePercent)   // didSet does not run in init
         self.showSuggestions = showSuggestions
         self.startCollapsed = startCollapsed
+        self.showHideSlide = showHideSlide
+        self.showHideFade = showHideFade
         self.theme = theme
         self.savedPhrases = savedPhrases
         self.launcherWidth = Settings.clampLauncherWidth(launcherWidth)
@@ -254,7 +265,7 @@ public struct Settings: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case sizePercent, showSuggestions, savedPhrases, launcherWidth, launcherOpacityPercent,
              topBarShow, topBarHeight, bottomBarShow, bottomBarHeight,
-             dragToMove, dragCooldownMs, startCollapsed, theme,
+             dragToMove, dragCooldownMs, startCollapsed, showHideSlide, showHideFade, theme,
              appPanelIconSize, appPanelOpacityPercent, appPanelHiddenApps, appPanelAutoHideSeconds,
              appPanelHoverZoom, appPanelOutlineWidth, appPanelOutlineGap,
              appPanelIconSpacing, appPanelEdgeSpacing
@@ -274,6 +285,8 @@ public struct Settings: Codable, Equatable {
         self.dragToMove = try c.decodeIfPresent(Bool.self, forKey: .dragToMove) ?? true
         self.dragCooldownMs = Settings.clampDragCooldown(try c.decodeIfPresent(Int.self, forKey: .dragCooldownMs) ?? 400)
         self.startCollapsed = try c.decodeIfPresent(Bool.self, forKey: .startCollapsed) ?? false
+        self.showHideSlide = try c.decodeIfPresent(Bool.self, forKey: .showHideSlide) ?? true
+        self.showHideFade = try c.decodeIfPresent(Bool.self, forKey: .showHideFade) ?? true
         self.theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "darkSystem"
         self.appPanelIconSize = Settings.clampAppPanelIcon(
             try c.decodeIfPresent(Int.self, forKey: .appPanelIconSize) ?? 64)

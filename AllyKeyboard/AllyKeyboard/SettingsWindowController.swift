@@ -28,6 +28,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private var cooldownRows: [NSGridRow] = []   // shown only when drag-to-move is on
     private let onBottomBarHeightChange: (Int) -> Void
     private let onStartCollapsedChange: (Bool) -> Void
+    private let onShowHideSlideChange: (Bool) -> Void
+    private let onShowHideFadeChange: (Bool) -> Void
     private let onThemeChange: (String) -> Void
     private let onAppPanelIconChange: (Int) -> Void
     private let onAppPanelOpacityChange: (Int) -> Void
@@ -75,6 +77,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          currentDragToMove: Bool,
          currentDragCooldownMs: Int,
          currentStartCollapsed: Bool,
+         currentShowHideSlide: Bool,
+         currentShowHideFade: Bool,
          currentTheme: String,
          currentAppPanelIcon: Int,
          currentAppPanelOpacity: Int,
@@ -97,6 +101,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          onDragCooldownChange: @escaping (Int) -> Void,
          onBottomBarHeightChange: @escaping (Int) -> Void,
          onStartCollapsedChange: @escaping (Bool) -> Void,
+         onShowHideSlideChange: @escaping (Bool) -> Void,
+         onShowHideFadeChange: @escaping (Bool) -> Void,
          onThemeChange: @escaping (String) -> Void,
          onAppPanelIconChange: @escaping (Int) -> Void,
          onAppPanelOpacityChange: @escaping (Int) -> Void,
@@ -119,6 +125,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         self.onDragCooldownChange = onDragCooldownChange
         self.onBottomBarHeightChange = onBottomBarHeightChange
         self.onStartCollapsedChange = onStartCollapsedChange
+        self.onShowHideSlideChange = onShowHideSlideChange
+        self.onShowHideFadeChange = onShowHideFadeChange
         self.onThemeChange = onThemeChange
         self.onAppPanelIconChange = onAppPanelIconChange
         self.onAppPanelOpacityChange = onAppPanelOpacityChange
@@ -152,6 +160,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                 currentDragCooldownMs: currentDragCooldownMs,
                 currentStartCollapsed: currentStartCollapsed,
                 currentTheme: currentTheme,
+                currentShowHideSlide: currentShowHideSlide,
+                currentShowHideFade: currentShowHideFade,
                 currentAppPanelIcon: currentAppPanelIcon,
                 currentAppPanelOpacity: currentAppPanelOpacity,
                 currentAppPanelHidden: currentAppPanelHidden,
@@ -171,6 +181,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                          currentBottomBarShow: Bool, currentBottomBarHeight: Int,
                          currentDragToMove: Bool, currentDragCooldownMs: Int,
                          currentStartCollapsed: Bool, currentTheme: String,
+                         currentShowHideSlide: Bool, currentShowHideFade: Bool,
                          currentAppPanelIcon: Int, currentAppPanelOpacity: Int,
                          currentAppPanelHidden: [String], currentAppPanelAutoHide: Int,
                          currentAppPanelHoverZoom: Bool,
@@ -220,6 +231,10 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                                  iconSpacing: currentAppPanelIconSpacing,
                                  edgeSpacing: currentAppPanelEdgeSpacing)
 
+        let animation = NSTabViewItem(identifier: "animation")
+        animation.label = "Animation"
+        animation.view = makeAnimationView(slide: currentShowHideSlide, fade: currentShowHideFade)
+
         let about = NSTabViewItem(identifier: "about")
         about.label = "About"
         about.view = makeAboutView()
@@ -230,7 +245,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         // not fix it: the pane is stretched once, before any mask is set, and
         // never resized again. Lifting the content here is not subject to that
         // order of events.
-        [general, bars, suggestions, launcher, apps, about].forEach { tabView.addTabViewItem($0) }
+        [general, bars, suggestions, launcher, apps, animation, about].forEach { tabView.addTabViewItem($0) }
         content.addSubview(tabView)
     }
 
@@ -733,6 +748,35 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         return field
     }
 
+    /// Show/hide animation: a word on what it is, then the effects as a
+    /// checklist — one, the other, both, or none for no animation at all.
+    private func makeAnimationView(slide: Bool, fade: Bool) -> NSView {
+        let intro = NSTextField(wrappingLabelWithString:
+            "Animates the keyboard as it appears and hides: when you open it from "
+            + "the launcher or the menu bar, and when you collapse it. "
+            + "Choose one effect or combine both.")
+        intro.preferredMaxLayoutWidth = 380
+
+        let slideCheck = NSButton(checkboxWithTitle: "Slide up from the bottom",
+                                  target: self, action: #selector(showHideSlideToggled(_:)))
+        slideCheck.state = slide ? .on : .off
+        let fadeCheck = NSButton(checkboxWithTitle: "Fade in and out",
+                                 target: self, action: #selector(showHideFadeToggled(_:)))
+        fadeCheck.state = fade ? .on : .off
+        let effects = NSStackView(views: [slideCheck, fadeCheck])
+        effects.orientation = .vertical
+        effects.alignment = .leading
+        effects.spacing = 8
+
+        return pane([
+            .wide(intro),
+            .gap,
+            .tall("Effects", effects),
+            .note("With none checked, the keyboard appears and hides at once. "
+                  + "With Reduce Motion on in macOS, the slide is left out."),
+        ])
+    }
+
     private func makeSuggestionsView(current: Bool, savedPhrases: [String]) -> NSView {
         let check = NSButton(checkboxWithTitle: "Show suggestions while typing",
                              target: self, action: #selector(suggestionsToggled(_:)))
@@ -869,6 +913,14 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
 
     @objc private func startCollapsedToggled(_ sender: NSButton) {
         onStartCollapsedChange(sender.state == .on)
+    }
+
+    @objc private func showHideSlideToggled(_ sender: NSButton) {
+        onShowHideSlideChange(sender.state == .on)
+    }
+
+    @objc private func showHideFadeToggled(_ sender: NSButton) {
+        onShowHideFadeChange(sender.state == .on)
     }
 
     @objc private func themeChanged(_ sender: NSPopUpButton) {

@@ -188,6 +188,24 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(s.startCollapsed)
     }
 
+    func testShowHideEffectsDefaultAndRoundTrip() {
+        XCTAssertTrue(Settings().showHideSlide)
+        XCTAssertTrue(Settings().showHideFade)
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        for (slide, fade) in [(true, false), (false, true), (false, false)] {
+            let settings = Settings(showHideSlide: slide, showHideFade: fade)
+            store.save(settings)
+            XCTAssertEqual(store.load(), settings)
+        }
+    }
+
+    func testDecodesLegacyWithoutShowHideEffects() throws {
+        let json = Data(#"{"sizePercent":100}"#.utf8)
+        let s = try JSONDecoder().decode(Settings.self, from: json)
+        XCTAssertTrue(s.showHideSlide)
+        XCTAssertTrue(s.showHideFade)
+    }
+
     func testThemeDefaultAndRoundTrip() {
         XCTAssertEqual(Settings().theme, "darkSystem")
         let store = SettingsStore(defaults: freshDefaults(), key: "s")

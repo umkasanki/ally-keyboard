@@ -555,6 +555,19 @@ class ViewController: NSViewController {
         settingsStore.save(settings)
     }
 
+    var currentShowHideSlide: Bool { settings.showHideSlide }
+    var currentShowHideFade: Bool { settings.showHideFade }
+
+    func applyShowHideSlide(_ on: Bool) {
+        settings.showHideSlide = on
+        settingsStore.save(settings)
+    }
+
+    func applyShowHideFade(_ on: Bool) {
+        settings.showHideFade = on
+        settingsStore.save(settings)
+    }
+
     var currentTheme: String { settings.theme }
 
     /// Apply and persist a background theme; repaints the window, panels and keys live.
