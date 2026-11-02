@@ -7,6 +7,10 @@
 //  that posted it. Listen-only — it never changes or swallows an event.
 //
 //  Run:   swift tools/key-monitor.swift      (Ctrl-C to stop)
+//
+//  --modifiers-only keeps just modifier changes and chords (⌘, ⌃ or ⌥ held),
+//  dated, for leaving it running for days to catch a modifier left stuck
+//  down — without writing down what is typed.
 //  Needs: the terminal app allowed in Privacy & Security → Input Monitoring
 //         (or Accessibility), otherwise the tap cannot be created.
 //
@@ -37,9 +41,11 @@ func processName(_ pid: Int64) -> String {
     return NSRunningApplication(processIdentifier: pid_t(pid))?.localizedName ?? "pid \(pid)"
 }
 
+let modifiersOnly = CommandLine.arguments.contains("--modifiers-only")
+
 let timeFormat: DateFormatter = {
     let f = DateFormatter()
-    f.dateFormat = "HH:mm:ss.SSS"
+    f.dateFormat = modifiersOnly ? "yyyy-MM-dd HH:mm:ss.SSS" : "HH:mm:ss.SSS"
     return f
 }()
 
@@ -50,6 +56,10 @@ let mask = (1 << CGEventType.keyDown.rawValue)
 let callback: CGEventTapCallBack = { _, type, event, _ in
     if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
         print("!! tap disabled (\(type.rawValue)), events may have been missed")
+        return Unmanaged.passUnretained(event)
+    }
+    if modifiersOnly, type != .flagsChanged,
+       event.flags.intersection([.maskCommand, .maskControl, .maskAlternate]).isEmpty {
         return Unmanaged.passUnretained(event)
     }
     let code = event.getIntegerValueField(.keyboardEventKeycode)
@@ -89,5 +99,6 @@ guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap,
 let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
 CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
 CGEvent.tapEnable(tap: tap, enable: true)
-print("Listening for keyboard events. Ctrl-C to stop.")
+print("Listening for keyboard events\(modifiersOnly ? " (modifiers only)" : ""). Ctrl-C to stop.")
+fflush(stdout)
 CFRunLoopRun()
