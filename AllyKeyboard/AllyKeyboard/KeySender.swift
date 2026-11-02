@@ -213,6 +213,48 @@ enum KeySender {
         }
     }
 
+    // MARK: - Stuck-modifier guard
+
+    /// Every modifier key, left and right, by keycode.
+    private static let allModifierCodes: [CGKeyCode] = [55, 54, 59, 62, 58, 61, 56, 60]
+    /// How long a modifier may sit "held" with no finger on it before it is let go.
+    private static let stuckAfter: TimeInterval = 2
+    private static var heldSince: [CGKeyCode: Date] = [:]
+    private static var stuckGuard: Timer?
+
+    /// Releases a modifier the session still counts as held after everyone has
+    /// let go of it. Seen on 2026-11-02, again: ⌘ stuck down in the session while
+    /// the hardware had it up, so every click became a ⌘-click — whichever of
+    /// this keyboard, AllyClicker or SmartNav left it there. A release posted from
+    /// this keyboard's own source clears it (⌘ then Esc did, by hand), so the
+    /// guard sends just that.
+    ///
+    /// A finger on a real keyboard shows in the hardware state and is left
+    /// alone; a chord of ours runs on the main thread and is over before the
+    /// timer can fire. What it cannot tell apart is another program holding a
+    /// modifier on purpose for longer than `stuckAfter`.
+    static func startStuckModifierGuard() {
+        guard stuckGuard == nil else { return }
+        let timer = Timer(timeInterval: 1, repeats: true) { _ in releaseStuckModifiers() }
+        RunLoop.main.add(timer, forMode: .common)
+        stuckGuard = timer
+    }
+
+    private static func releaseStuckModifiers() {
+        let now = Date()
+        for code in allModifierCodes {
+            let held = CGEventSource.keyState(.combinedSessionState, key: code)
+            let pressed = CGEventSource.keyState(.hidSystemState, key: code)
+            guard held, !pressed else { heldSince[code] = nil; continue }
+            guard let since = heldSince[code] else { heldSince[code] = now; continue }
+            guard now.timeIntervalSince(since) >= stuckAfter else { continue }
+            NSLog("AllyKeyboard: modifier keycode %d held with no key down for %.0fs, releasing",
+                  Int(code), now.timeIntervalSince(since))
+            deliver(modifierEvent(code, down: false, flags: []))
+            heldSince[code] = nil
+        }
+    }
+
     /// A short pause between the steps of a chord, so they are taken in order,
     /// the way the hardware spaces them, instead of arriving in one burst.
     private static func settle() {

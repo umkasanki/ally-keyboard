@@ -48,6 +48,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Request Accessibility permission needed for CGEvent key simulation.
         KeySender.requestAccessibilityIfNeeded()
+        // Let go of a modifier left held down by anyone — see the guard itself.
+        KeySender.startStuckModifierGuard()
 
         // Menu-bar entry: left click toggles the keyboard, right click opens the menu.
         statusBar = StatusBarController(
