@@ -97,16 +97,43 @@ final class UserVocabularyTests: XCTestCase {
 
     // MARK: Settings list, merge, store
 
-    func testEditingTheListPinsAndForgets() {
+    func testListEditForgetsRemovedAndPinsOnlyNewWords() {
         var v = UserVocabulary()
-        for w in ["typoo", "typoo", "keepme", "keepme"] { v.record(w, isOwnWord: true, at: t0) }
+        for _ in 0..<3 { v.record("staging", isOwnWord: false, at: t0) }
+        for _ in 0..<2 { v.record("typoo", isOwnWord: true, at: t0) }
         v.record("pending", isOwnWord: true, at: t0)
-        v.setLearnedWords(["keepme", "Added"], at: t0)
-        XCTAssertEqual(Set(v.learnedWords(at: t0)), ["keepme", "Added"])
-        XCTAssertTrue(v.contains("pending"))
+        v.applyListEdit(added: ["Added", "pending"], removed: ["typoo"], at: t0)
         XCTAssertFalse(v.contains("typoo"))
-        // Pinned words do not fade.
-        XCTAssertEqual(Set(v.learnedWords(at: t0 + 365 * day)), ["keepme", "Added"])
+        XCTAssertEqual(Set(v.learnedWords(at: t0)), ["staging", "Added", "pending"])
+        // Hand-added words are pinned; a word already offered is not, and fades.
+        XCTAssertEqual(Set(v.learnedWords(at: t0 + 365 * day)), ["Added", "pending"])
+    }
+
+    func testListEditLeavesWordsItDidNotMention() {
+        var v = UserVocabulary()
+        for _ in 0..<3 { v.record("kubectl", isOwnWord: false, at: t0) }   // learned while Settings was open
+        v.applyListEdit(added: [], removed: ["other"], at: t0)
+        XCTAssertEqual(v.learnedWords(at: t0), ["kubectl"])
+    }
+
+    func testACapitalTypedFirstIsKept() {
+        var v = UserVocabulary()
+        for _ in 0..<3 { v.record("staging", isOwnWord: false, at: t0) }
+        for _ in 0..<3 { v.record(naprimer, isOwnWord: false, at: t0) }
+        XCTAssertEqual(v.suggestions(for: "S", limit: 5, at: t0), ["Staging"])
+        XCTAssertEqual(v.suggestions(for: "s", limit: 5, at: t0), ["staging"])
+        XCTAssertEqual(v.suggestions(for: "\u{041D}", limit: 5, at: t0), [Naprimer])
+        // A word learned capitalised is not lowered for a lowercase start.
+        for _ in 0..<2 { v.record(Tishkin, isOwnWord: true, at: t0) }
+        XCTAssertEqual(v.suggestions(for: tish, limit: 5, at: t0), [Tishkin])
+    }
+
+    func testOnlyOfferedWordsAreWrittenToDisk() {
+        var v = UserVocabulary()
+        v.record("onceonly", isOwnWord: true, at: t0)
+        for _ in 0..<2 { v.record("kubeadm", isOwnWord: true, at: t0) }
+        v.applyListEdit(added: ["pinnedword"], removed: [], at: t0)
+        XCTAssertEqual(Set(v.persisted(at: t0).entries.keys), ["kubeadm", "pinnedword"])
     }
 
     func testMergePutsUserWordsFirstWithoutRepeats() {

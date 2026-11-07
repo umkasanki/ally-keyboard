@@ -18,7 +18,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private let onShowSuggestionsChange: (Bool) -> Void
     private let onSavedPhrasesChange: ([String]) -> Void
     private let onLearnWordsChange: (Bool) -> Void
-    private let onLearnedWordsChange: ([String]) -> Void
+    private let onLearnedWordsChange: (_ added: [String], _ removed: [String]) -> Void
     private let onLauncherWidthChange: (Int) -> Void
     private let onLauncherOpacityChange: (Int) -> Void
     private let onTopBarHeightChange: (Int) -> Void
@@ -58,6 +58,9 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private var appAutoHideValue: NSTextField!
     private var appHiddenView: NSTextView!
     private var learnedWordsView: NSTextView!
+    /// The learned words as last applied, to send an edit as what changed.
+    private var appliedLearnedWords: [String] = []
+    private var learnedWordsEdit: Timer?
     private let step = 5
     private let sizeStep = 1   // keyboard size, finer than the rest at the user's request
     private var percentField: NSTextField!
@@ -98,7 +101,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          onShowSuggestionsChange: @escaping (Bool) -> Void,
          onSavedPhrasesChange: @escaping ([String]) -> Void,
          onLearnWordsChange: @escaping (Bool) -> Void,
-         onLearnedWordsChange: @escaping ([String]) -> Void,
+         onLearnedWordsChange: @escaping (_ added: [String], _ removed: [String]) -> Void,
          onLauncherWidthChange: @escaping (Int) -> Void,
          onLauncherOpacityChange: @escaping (Int) -> Void,
          onTopBarHeightChange: @escaping (Int) -> Void,
@@ -801,6 +804,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         learnCheck.state = learnWords ? .on : .off
         let (wordsView, wordsScroll) = textArea(learnedWords, height: 110)
         learnedWordsView = wordsView
+        appliedLearnedWords = learnedWords
         let (_, scroll) = textArea(savedPhrases, height: 110)
         return pane([
             .wide(check),
@@ -976,10 +980,35 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         if textView === appHiddenView {
             onAppPanelHiddenChange(lines)
         } else if textView === learnedWordsView {
-            onLearnedWordsChange(lines)
+            // Applied once typing pauses, not per keystroke: half-typed words
+            // would be pinned and unpinned one letter at a time, and a word
+            // being corrected forgotten along with its history.
+            learnedWordsEdit?.invalidate()
+            learnedWordsEdit = Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
+                self?.applyLearnedWordsEdit()
+            }
         } else {
             onSavedPhrasesChange(lines)
         }
+    }
+
+    func textDidEndEditing(_ notification: Notification) {
+        if (notification.object as? NSTextView) === learnedWordsView { applyLearnedWordsEdit() }
+    }
+
+    private func applyLearnedWordsEdit() {
+        learnedWordsEdit?.invalidate()
+        learnedWordsEdit = nil
+        let lines = learnedWordsView.string
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        let now = Set(lines.map { $0.lowercased() })
+        let before = Set(appliedLearnedWords.map { $0.lowercased() })
+        let added = lines.filter { !before.contains($0.lowercased()) }
+        let removed = appliedLearnedWords.filter { !now.contains($0.lowercased()) }
+        appliedLearnedWords = lines
+        if !added.isEmpty || !removed.isEmpty { onLearnedWordsChange(added, removed) }
     }
 
     func present() {

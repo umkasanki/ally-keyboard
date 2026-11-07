@@ -4,6 +4,7 @@
 //
 
 import Cocoa
+import Carbon   // IsSecureEventInputEnabled
 
 /// Sends synthetic keyboard events to the frontmost application.
 /// Requires Accessibility permission — call `requestAccessibilityIfNeeded()` at launch.
@@ -215,10 +216,25 @@ enum KeySender {
 
     // MARK: - Focus
 
-    /// Whether the focused element of the frontmost application is a password
-    /// field, as Accessibility reports it.
-    static func isTypingIntoSecureField() -> Bool {
+    /// Whether what is typed now is a secret: some application has secure
+    /// input on — Cocoa password fields do, and so does a terminal at a
+    /// password prompt (sudo, ssh) when it detects one or has Secure Keyboard
+    /// Entry on — or the focused element is a password field as Accessibility
+    /// reports it, for the fields that do not turn secure input on.
+    static func isSecretInput() -> Bool {
+        isSecureInputOn() || isFocusOnPasswordField()
+    }
+
+    /// Cheap enough for every keystroke.
+    static func isSecureInputOn() -> Bool {
+        IsSecureEventInputEnabled()
+    }
+
+    private static func isFocusOnPasswordField() -> Bool {
         let system = AXUIElementCreateSystemWide()
+        // On the main thread: a busy application must not hold the keyboard up
+        // for the default six seconds. AppSwitcherPanel does the same.
+        AXUIElementSetMessagingTimeout(system, 0.25)
         var focused: CFTypeRef?
         guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString,
                                             &focused) == .success,

@@ -597,9 +597,27 @@ class ViewController: NSViewController {
 
     var currentLearnedWords: [String] { vocabulary.learnedWords() }
 
-    func applyLearnedWords(_ words: [String]) {
-        vocabulary.setLearnedWords(words)
-        vocabularyStore.save(vocabulary)
+    func applyLearnedWordsEdit(added: [String], removed: [String]) {
+        vocabulary.applyListEdit(added: added, removed: removed)
+        scheduleVocabularySave()
+    }
+
+    /// Writes are gathered up rather than made on every word: the whole file
+    /// is rewritten each time.
+    private func scheduleVocabularySave() {
+        vocabularySave?.invalidate()
+        vocabularySave = Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
+            self?.saveVocabularyNow()
+        }
+    }
+
+    /// Write the vocabulary — the words offered now, nothing typed only once
+    /// or twice — and drop what has faded away. Also called at quit.
+    func saveVocabularyNow() {
+        vocabularySave?.invalidate()
+        vocabularySave = nil
+        vocabulary.forgetFaded()
+        vocabularyStore.save(vocabulary.persisted())
     }
 
     var currentSavedPhrases: [String] { settings.savedPhrases }
@@ -897,6 +915,11 @@ class ViewController: NSViewController {
         .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("AllyKeyboard/vocabulary.json"))
     private var vocabulary = UserVocabulary()
+    private var vocabularySave: Timer?
+    /// Whether the word being typed was begun, or went on, in a password
+    /// field or under secure input. Checked as it is typed, not only when it
+    /// ends: the Enter that ends a password may already have moved the focus.
+    private var currentWordIsSecret = false
     private let speller = SpellCheckerPredictionEngine()
 
     // MARK: - Window state
@@ -1227,7 +1250,7 @@ class ViewController: NSViewController {
         // Fixed keys (top-row punctuation) type their literal, independent of layout.
         if activeModifiers.isEmpty, let literal = (sender as? KeyButton)?.literalChar {
             KeySender.sendText(literal)
-            if let c = literal.first { textTracker.handle(.character(c)) }
+            if let c = literal.first { track(c) }
             if isShifted { isShifted = false }
             refreshSuggestions()
             return
@@ -1417,7 +1440,7 @@ class ViewController: NSViewController {
                !Self.nonCharacterKeys.contains(key),
                let ch = InputSourceSwitcher.character(forKeyCode: code, shift: shifted, from: InputSourceSwitcher.currentSource()),
                let c = ch.first {
-                textTracker.handle(.character(c))
+                track(c)
             } else {
                 textTracker.reset()   // navigation / non-text key ends the word
             }
@@ -1581,13 +1604,26 @@ class ViewController: NSViewController {
         if balloonIsGreetings { showGreetings() } else { showSuggestions(currentSuggestions) }
     }
 
+    /// Feed one typed character to the word buffer, noting whether the word
+    /// is being typed somewhere secret.
+    private func track(_ c: Character) {
+        if !textTracker.hasPartialWord {
+            currentWordIsSecret = KeySender.isSecretInput()
+        } else if !currentWordIsSecret {
+            currentWordIsSecret = KeySender.isSecureInputOn()
+        }
+        textTracker.handle(.character(c))
+    }
+
     /// Count a finished word towards the user's vocabulary — every word, so
     /// the ones used most come first — unless it was typed into a password
     /// field: a password must never be kept, let alone suggested.
     private func learn(_ word: String) {
-        guard settings.learnWords, !KeySender.isTypingIntoSecureField() else { return }
+        guard settings.learnWords, !currentWordIsSecret, !KeySender.isSecretInput() else { return }
+        // Set here too: with suggestions off nothing else keeps it current.
+        speller.language = InputSourceSwitcher.currentLanguageCode()
         vocabulary.record(word, isOwnWord: UserVocabulary.isOwnWord(word, knownToSystem: speller.knows(word)))
-        vocabularyStore.save(vocabulary)
+        scheduleVocabularySave()
     }
 
     /// Replace the partial word with the chosen suggestion, then a space.

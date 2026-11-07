@@ -148,34 +148,62 @@ public struct UserVocabulary: Codable, Equatable {
     }
 
     /// Offered words starting with `partialWord` that save at least
-    /// `minimumSaving` letters, most used lately first.
+    /// `minimumSaving` letters, most used lately first, in the case the user
+    /// is typing: a capital typed first stays a capital.
+    ///
+    /// Called on every keystroke, so the prefix narrows the entries before
+    /// anything is scored or sorted.
     public func suggestions(for partialWord: String, limit: Int, at now: Date = Date()) -> [String] {
         guard !partialWord.isEmpty, limit > 0 else { return [] }
         let prefix = partialWord.lowercased()
-        return Array(offered(at: now)
-            .map(\.word)
-            .filter { $0.lowercased().hasPrefix(prefix) && $0.count - prefix.count >= Self.minimumSaving }
-            .prefix(limit))
+        let matches = entries.filter { key, entry in
+            key.hasPrefix(prefix) && entry.word.count - prefix.count >= Self.minimumSaving
+                && Self.isOffered(entry, at: now)
+        }
+        return matches.values
+            .map { ($0.word, $0.score(at: now)) }
+            .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : $0.0 < $1.0 }
+            .prefix(limit)
+            .map { Self.matchingCase(of: partialWord, $0.0) }
     }
 
-    /// Replace the offered words with `words`, as edited by hand in Settings.
-    /// A listed word is pinned, so it stays offered however rarely it is
-    /// typed; an offered word left out is forgotten. Words not yet offered
-    /// are kept counting.
-    public mutating func setLearnedWords(_ words: [String], at now: Date = Date()) {
-        let listed = Set(words.map { Self.trimmed($0).lowercased() })
-        for (key, entry) in entries where Self.isOffered(entry, at: now) && !listed.contains(key) {
-            entries[key] = nil
+    /// `word` with its first letter raised when the typed part starts with a
+    /// capital: a sentence begun with one keeps it, whatever case the word
+    /// was learned in.
+    static func matchingCase(of typed: String, _ word: String) -> String {
+        guard let first = typed.first, first.isUppercase,
+              let wordFirst = word.first, !wordFirst.isUppercase else { return word }
+        return wordFirst.uppercased() + word.dropFirst()
+    }
+
+    /// Apply an edit of the word list in Settings, as what was added and what
+    /// was removed — not as the whole list, which may be older than words
+    /// learned while Settings stayed open. A removed word is forgotten. An
+    /// added word is pinned so it stays offered however rarely it is typed,
+    /// unless it is offered already: then it keeps fading like any other.
+    public mutating func applyListEdit(added: [String], removed: [String], at now: Date = Date()) {
+        for word in removed {
+            entries[Self.trimmed(word).lowercased()] = nil
         }
-        for word in words.map(Self.trimmed) where Self.isLearnable(word) {
+        for word in added.map(Self.trimmed) where Self.isLearnable(word) {
             let key = word.lowercased()
             if var entry = entries[key] {
+                guard !Self.isOffered(entry, at: now) else { continue }
                 entry.isPinned = true
                 entries[key] = entry
             } else {
                 entries[key] = Entry(word: word, score: 0, lastUsed: now, isOwnWord: true, isPinned: true)
             }
         }
+    }
+
+    /// What is written to disk: only the words offered now. A word typed once
+    /// or twice — which may be anything at all — lives in memory only, until
+    /// it is used enough to be suggested.
+    public func persisted(at now: Date = Date()) -> UserVocabulary {
+        var copy = self
+        copy.entries = entries.filter { Self.isOffered($0.value, at: now) }
+        return copy
     }
 
     /// Drop words whose score has all but run out.

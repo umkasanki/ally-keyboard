@@ -199,9 +199,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quitApp() { NSApp.terminate(nil) }
 
-    // Never leave ⇧ held in the system behind us.
+    // Never leave ⇧ held in the system behind us, nor a word unsaved.
     func applicationWillTerminate(_ notification: Notification) {
         KeySender.holdShift(false)
+        keyboardViewController()?.saveVocabularyNow()
     }
 
     // Left click on the Dock icon toggles the keyboard (show if hidden, hide if shown).
@@ -255,7 +256,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onShowSuggestionsChange: { [weak vc] on in vc?.applyShowSuggestions(on) },
             onSavedPhrasesChange: { [weak vc] phrases in vc?.applySavedPhrases(phrases) },
             onLearnWordsChange: { [weak vc] on in vc?.applyLearnWords(on) },
-            onLearnedWordsChange: { [weak vc] words in vc?.applyLearnedWords(words) },
+            onLearnedWordsChange: { [weak vc] added, removed in vc?.applyLearnedWordsEdit(added: added, removed: removed) },
             onLauncherWidthChange: { [weak vc] width in vc?.applyLauncherWidth(width) },
             onLauncherOpacityChange: { [weak vc] percent in vc?.applyLauncherOpacity(percent) },
             onTopBarHeightChange: { [weak vc] pt in vc?.applyTopBarHeight(pt) },
