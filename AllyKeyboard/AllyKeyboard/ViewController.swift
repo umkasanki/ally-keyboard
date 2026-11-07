@@ -1516,6 +1516,9 @@ class ViewController: NSViewController {
     private func installClickDismissMonitors() {
         let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             self?.hideSuggestions()
+            // The cursor has moved somewhere else: what is typed next is a new
+            // word, not the rest of this one. Dropped unsaved, as navigation is.
+            self?.textTracker.reset()
         }
         let local = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             // A click on the keyboard lets go of the system ⇧; the Shift key's
