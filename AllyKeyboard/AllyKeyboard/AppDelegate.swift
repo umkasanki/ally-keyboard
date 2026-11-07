@@ -199,6 +199,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func quitApp() { NSApp.terminate(nil) }
 
+    // Never leave ⇧ held in the system behind us.
+    func applicationWillTerminate(_ notification: Notification) {
+        KeySender.holdShift(false)
+    }
+
     // Left click on the Dock icon toggles the keyboard (show if hidden, hide if shown).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         togglePanel()

@@ -809,6 +809,11 @@ class ViewController: NSViewController {
             // stayed lowercase while Shift was held and the next keystroke
             // arrived uppercase anyway — the keyboard disagreeing with itself.
             relabelForCurrentLayout()
+            // ⇧ is held in the system too, for a ⇧-click selection. Any click
+            // on the keyboard lets that go (see `installClickDismissMonitors`)
+            // while ⇧ still applies to the next key here; a click elsewhere
+            // uses it and turns ⇧ off.
+            KeySender.holdShift(isShifted)
         }
     }
     private var shiftButtons: [KeyButton] = []
@@ -1486,10 +1491,18 @@ class ViewController: NSViewController {
             self?.hideSuggestions()
         }
         let local = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            // A click on the keyboard lets go of the system ⇧; the Shift key's
+            // own action takes it again if it is turning ⇧ on.
+            KeySender.holdShift(false)
             self?.handleLocalClick(event)
             return event
         }
-        clickMonitors = [global, local].compactMap { $0 }
+        // A click elsewhere went down as a ⇧-click; once it is up, ⇧ is spent.
+        let shiftClick = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseUp, .rightMouseUp]) { [weak self] _ in
+            guard let self, KeySender.isHoldingShift else { return }
+            self.isShifted = false
+        }
+        clickMonitors = [global, local, shiftClick].compactMap { $0 }
     }
 
     private func handleLocalClick(_ event: NSEvent) {

@@ -213,6 +213,28 @@ enum KeySender {
         }
     }
 
+    // MARK: - Shift held for a click
+
+    private static let leftShift: CGKeyCode = 56
+    /// Modifiers this keyboard is holding down on purpose; the guard leaves them be.
+    private static var heldByKeyboard: Set<CGKeyCode> = []
+
+    static var isHoldingShift: Bool { heldByKeyboard.contains(leftShift) }
+
+    /// Holds ⇧ down in the system itself, not only for this keyboard's next key,
+    /// so that a click from the head mouse arrives as a ⇧-click and extends the
+    /// selection to where it lands — the macOS way to select between two points.
+    static func holdShift(_ on: Bool) {
+        guard on != isHoldingShift else { return }
+        if on {
+            heldByKeyboard.insert(leftShift)
+            deliver(modifierEvent(leftShift, down: true, flags: .maskShift))
+        } else {
+            heldByKeyboard.remove(leftShift)
+            deliver(modifierEvent(leftShift, down: false, flags: []))
+        }
+    }
+
     // MARK: - Stuck-modifier guard
 
     /// Every modifier key, left and right, by keycode.
@@ -245,7 +267,7 @@ enum KeySender {
         for code in allModifierCodes {
             let held = CGEventSource.keyState(.combinedSessionState, key: code)
             let pressed = CGEventSource.keyState(.hidSystemState, key: code)
-            guard held, !pressed else { heldSince[code] = nil; continue }
+            guard held, !pressed, !heldByKeyboard.contains(code) else { heldSince[code] = nil; continue }
             guard let since = heldSince[code] else { heldSince[code] = now; continue }
             guard now.timeIntervalSince(since) >= stuckAfter else { continue }
             NSLog("AllyKeyboard: modifier keycode %d held with no key down for %.0fs, releasing",
