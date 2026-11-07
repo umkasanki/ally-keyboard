@@ -87,8 +87,6 @@ public struct UserVocabulary: Codable, Equatable {
     static let forgetBelow = 0.1
     /// Shorter words are not worth a suggestion and are mostly noise.
     public static let minimumLength = 3
-    /// A suggestion that saves fewer letters than this only takes up a slot.
-    public static let minimumSaving = 2
 
     /// Keyed by the lowercased word.
     public private(set) var entries: [String: Entry] = [:]
@@ -151,8 +149,8 @@ public struct UserVocabulary: Codable, Equatable {
             .map(\.0)
     }
 
-    /// Offered words starting with `partialWord` that save at least
-    /// `minimumSaving` letters, most used lately first, in the case the user
+    /// Offered words starting with `partialWord`, other than the word exactly
+    /// as typed, most used lately first, in the case the user
     /// is typing: a capital typed first stays a capital.
     ///
     /// Called on every keystroke, so the prefix narrows the entries before
@@ -161,7 +159,10 @@ public struct UserVocabulary: Codable, Equatable {
         guard !partialWord.isEmpty, limit > 0 else { return [] }
         let prefix = partialWord.lowercased()
         let matches = entries.filter { key, entry in
-            key.hasPrefix(prefix) && entry.word.count - prefix.count >= Self.minimumSaving
+            // Even one letter left is worth offering: picking it also types the
+            // space, so it saves a click. A rule against it was tried and
+            // dropped at the user's request, 2026-11-07.
+            key.hasPrefix(prefix) && key != prefix
                 && Self.isOffered(entry, at: now)
         }
         return matches.values

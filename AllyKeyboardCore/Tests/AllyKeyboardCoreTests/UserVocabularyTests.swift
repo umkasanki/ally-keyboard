@@ -49,11 +49,11 @@ final class UserVocabularyTests: XCTestCase {
         XCTAssertEqual(v.suggestions(for: "de", limit: 5, at: t0 + 60 * day), ["debug"])
     }
 
-    func testOnlySuggestionsThatSaveTwoLettersOrMore() {
+    func testAWordOneLetterAwayIsOfferedButNotTheWordAsTyped() {
         var v = UserVocabulary()
         for _ in 0..<3 { v.record("kit", isOwnWord: true, at: t0) }
-        XCTAssertEqual(v.suggestions(for: "k", limit: 5, at: t0), ["kit"])
-        XCTAssertEqual(v.suggestions(for: "ki", limit: 5, at: t0), [])
+        XCTAssertEqual(v.suggestions(for: "ki", limit: 5, at: t0), ["kit"])
+        XCTAssertEqual(v.suggestions(for: "kit", limit: 5, at: t0), [])
     }
 
     func testShortAndLetterlessWordsAreNotLearned() {
