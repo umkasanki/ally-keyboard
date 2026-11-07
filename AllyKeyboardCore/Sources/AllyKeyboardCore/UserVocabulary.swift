@@ -25,8 +25,10 @@ import Foundation
 /// - any other word the system already offers; it is moved to the front only
 ///   once it is frequent: about three recent uses.
 ///
-/// Words are matched without regard to case and kept in the spelling they
-/// were first typed in.
+/// Words are matched without regard to case. A word is kept in the spelling it
+/// was first typed in until it is typed with a lowercase first letter: one
+/// first met at the start of a sentence, or with Caps Lock on, is not a
+/// capitalised word. A name, always typed with its capital, keeps it.
 public struct UserVocabulary: Codable, Equatable {
 
     public struct Entry: Codable, Equatable {
@@ -123,6 +125,8 @@ public struct UserVocabulary: Codable, Equatable {
             entry.score = entry.score(at: now) + 1
             entry.lastUsed = now
             entry.isOwnWord = entry.isOwnWord || isOwnWord
+            // A spelling set by hand in Settings stays as written.
+            if word.first?.isLowercase == true, entry.word != word, !entry.isPinned { entry.word = word }
             entries[key] = entry
         } else {
             entries[key] = Entry(word: word, score: 1, lastUsed: now, isOwnWord: isOwnWord)
@@ -177,10 +181,13 @@ public struct UserVocabulary: Codable, Equatable {
     }
 
     /// Apply an edit of the word list in Settings, as what was added and what
-    /// was removed — not as the whole list, which may be older than words
-    /// learned while Settings stayed open. A removed word is forgotten. An
-    /// added word is pinned so it stays offered however rarely it is typed,
-    /// unless it is offered already: then it keeps fading like any other.
+    /// was removed (see `listEdit`) — not as the whole list, which may be
+    /// older than words learned while Settings stayed open.
+    ///
+    /// A removed word is forgotten. An added word takes the spelling it was
+    /// written in; one not offered yet is pinned, so it stays offered however
+    /// rarely it is typed, and one offered already — including one only
+    /// respelled — keeps its history and keeps fading like any other.
     public mutating func applyListEdit(added: [String], removed: [String], at now: Date = Date()) {
         for word in removed {
             entries[Self.trimmed(word).lowercased()] = nil
@@ -188,13 +195,24 @@ public struct UserVocabulary: Codable, Equatable {
         for word in added.map(Self.trimmed) where Self.isLearnable(word) {
             let key = word.lowercased()
             if var entry = entries[key] {
-                guard !Self.isOffered(entry, at: now) else { continue }
-                entry.isPinned = true
+                entry.word = word
+                if !Self.isOffered(entry, at: now) { entry.isPinned = true }
                 entries[key] = entry
             } else {
                 entries[key] = Entry(word: word, score: 0, lastUsed: now, isOwnWord: true, isPinned: true)
             }
         }
+    }
+
+    /// How the Settings list changed. Added: every line not in the list before
+    /// exactly as written, so a change of case alone counts. Removed: only a
+    /// word no line has any more, in any case — a word still listed in
+    /// another spelling is not gone.
+    public static func listEdit(from before: [String], to after: [String]) -> (added: [String], removed: [String]) {
+        let old = Set(before)
+        let newKeys = Set(after.map { trimmed($0).lowercased() })
+        return (after.filter { !old.contains($0) },
+                before.filter { !newKeys.contains(trimmed($0).lowercased()) })
     }
 
     /// What is written to disk: only the words offered now. A word typed once
@@ -233,13 +251,18 @@ public final class UserVocabularyStore {
         self.fileURL = fileURL
     }
 
-    /// The saved vocabulary, or an empty one if there is none or it is unreadable.
+    /// The saved vocabulary, or an empty one if there is none. A file that
+    /// cannot be read is moved aside, not left to be overwritten by the next
+    /// save: the words in it may still be recovered by hand.
     public func load() -> UserVocabulary {
-        guard let data = try? Data(contentsOf: fileURL),
-              let vocabulary = try? JSONDecoder().decode(UserVocabulary.self, from: data) else {
-            return UserVocabulary()
+        guard let data = try? Data(contentsOf: fileURL) else { return UserVocabulary() }
+        if let vocabulary = try? JSONDecoder().decode(UserVocabulary.self, from: data) {
+            return vocabulary
         }
-        return vocabulary
+        let aside = fileURL.deletingPathExtension().appendingPathExtension("unreadable.json")
+        try? FileManager.default.removeItem(at: aside)
+        try? FileManager.default.moveItem(at: fileURL, to: aside)
+        return UserVocabulary()
     }
 
     public func save(_ vocabulary: UserVocabulary) {

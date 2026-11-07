@@ -6,17 +6,55 @@ final class TextTrackerTests: XCTestCase {
     func testFinishedWordsAreReported() {
         let t = TextTracker()
         var completed: [String] = []
-        t.onWordCompleted = { completed.append($0) }
+        t.onWordCompleted = { word, _ in completed.append(word) }
         "hi there, you".forEach { t.handle($0 == " " ? .wordBoundary : .character($0)) }
         t.handle(.wordBoundary)
         t.handle(.wordBoundary)          // a second space finishes nothing
         XCTAssertEqual(completed, ["hi", "there", "you"])
     }
 
+    func testASecretWordStaysSecretToItsEndAndTheNextIsNot() {
+        let t = TextTracker()
+        var completed: [(String, Bool)] = []
+        t.onWordCompleted = { completed.append(($0, $1)) }
+        "pa".forEach { t.handle(.character($0)) }
+        t.markSecret()                        // focus was on a password field
+        "ss".forEach { t.handle(.character($0)) }
+        t.handle(.wordBoundary)               // Return: focus may have moved by now
+        "next".forEach { t.handle(.character($0)) }
+        t.handle(.wordBoundary)
+        XCTAssertEqual(completed.map(\.0), ["pass", "next"])
+        XCTAssertEqual(completed.map(\.1), [true, false])
+    }
+
+    func testTheSecretFlagIsNotLeftStandingBetweenWords() {
+        let t = TextTracker()
+        "pw".forEach { t.handle(.character($0)) }
+        t.markSecret()
+        t.handle(.wordBoundary)
+        XCTAssertFalse(t.currentWordIsSecret)      // read by a suggestion picked next
+        t.markSecret()                             // no word: nothing to mark
+        XCTAssertFalse(t.currentWordIsSecret)
+        "pw".forEach { t.handle(.character($0)) }
+        t.markSecret()
+        t.reset()                                  // a click or an arrow drops it
+        XCTAssertFalse(t.currentWordIsSecret)
+    }
+
+    func testMarkingSecretBetweenWordsDoesNotLeakIntoTheNext() {
+        let t = TextTracker()
+        var secret: [Bool] = []
+        t.onWordCompleted = { secret.append($1) }
+        t.markSecret()                        // no word yet
+        "word".forEach { t.handle(.character($0)) }
+        t.handle(.wordBoundary)
+        XCTAssertEqual(secret, [false])
+    }
+
     func testResetDoesNotReportTheWord() {
         let t = TextTracker()
         var completed: [String] = []
-        t.onWordCompleted = { completed.append($0) }
+        t.onWordCompleted = { word, _ in completed.append(word) }
         "unfin".forEach { t.handle(.character($0)) }
         t.reset()
         XCTAssertEqual(completed, [])

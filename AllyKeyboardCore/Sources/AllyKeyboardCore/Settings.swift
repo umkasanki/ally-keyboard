@@ -102,7 +102,8 @@ public struct Settings: Codable, Equatable {
     /// Whether the word-prediction panel appears while typing.
     public var showSuggestions: Bool
 
-    /// Learn words the system dictionary lacks from what is typed, and suggest them.
+    /// Count the words typed, to suggest the ones used most. Off, nothing more is
+    /// learned; words learned already are still suggested.
     public var learnWords: Bool
 
     /// Move the whole keyboard by pressing-and-dragging a key (a plain click still types).

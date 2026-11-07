@@ -602,13 +602,18 @@ class ViewController: NSViewController {
         scheduleVocabularySave()
     }
 
-    /// Writes are gathered up rather than made on every word: the whole file
-    /// is rewritten each time.
+    /// Writes are gathered up: the whole file is rewritten each time, and at
+    /// head-mouse speed a word takes longer than any short delay, so a delay
+    /// restarted per word would still write per word. The first change starts
+    /// the clock and later ones ride along: at most one write a minute, and
+    /// one at quit.
     private func scheduleVocabularySave() {
-        vocabularySave?.invalidate()
-        vocabularySave = Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
+        guard vocabularySave == nil else { return }
+        let timer = Timer(timeInterval: 60, repeats: false) { [weak self] _ in
             self?.saveVocabularyNow()
         }
+        RunLoop.main.add(timer, forMode: .common)
+        vocabularySave = timer
     }
 
     /// Write the vocabulary — the words offered now, nothing typed only once
@@ -616,6 +621,7 @@ class ViewController: NSViewController {
     func saveVocabularyNow() {
         vocabularySave?.invalidate()
         vocabularySave = nil
+        guard vocabularyLoaded else { return }
         vocabulary.forgetFaded()
         vocabularyStore.save(vocabulary.persisted())
     }
@@ -916,10 +922,9 @@ class ViewController: NSViewController {
         .appendingPathComponent("AllyKeyboard/vocabulary.json"))
     private var vocabulary = UserVocabulary()
     private var vocabularySave: Timer?
-    /// Whether the word being typed was begun, or went on, in a password
-    /// field or under secure input. Checked as it is typed, not only when it
-    /// ends: the Enter that ends a password may already have moved the focus.
-    private var currentWordIsSecret = false
+    /// Not saved before it is loaded: a save then would overwrite the file
+    /// with nothing.
+    private var vocabularyLoaded = false
     private let speller = SpellCheckerPredictionEngine()
 
     // MARK: - Window state
@@ -942,7 +947,10 @@ class ViewController: NSViewController {
         settings = settingsStore.load()
         vocabulary = vocabularyStore.load()
         vocabulary.forgetFaded()
-        textTracker.onWordCompleted = { [weak self] word in self?.learn(word) }
+        vocabularyLoaded = true
+        textTracker.onWordCompleted = { [weak self] word, wasSecret in
+            self?.learn(word, wasSecret: wasSecret)
+        }
         AppConfig.Colors.theme = AppConfig.Theme(rawValue: settings.theme) ?? .darkSystem
         view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.darkCGColor   // theme now known
         scale = CGFloat(settings.scale)   // windowConfigured still false -> just stores
@@ -1605,21 +1613,24 @@ class ViewController: NSViewController {
     }
 
     /// Feed one typed character to the word buffer, noting whether the word
-    /// is being typed somewhere secret.
+    /// is being typed somewhere secret. Checked as it is typed, not only when
+    /// it ends: the Enter that ends a password may already have moved the focus.
+    /// The full check, with its Accessibility query, on a word's first letter;
+    /// the cheap one on every letter after; none for punctuation between words.
     private func track(_ c: Character) {
-        if !textTracker.hasPartialWord {
-            currentWordIsSecret = KeySender.isSecretInput()
-        } else if !currentWordIsSecret {
-            currentWordIsSecret = KeySender.isSecureInputOn()
-        }
+        let startsWord = !textTracker.hasPartialWord
         textTracker.handle(.character(c))
+        guard textTracker.hasPartialWord else { return }
+        if startsWord ? KeySender.isSecretInput() : KeySender.isSecureInputOn() {
+            textTracker.markSecret()
+        }
     }
 
     /// Count a finished word towards the user's vocabulary — every word, so
     /// the ones used most come first — unless it was typed into a password
     /// field: a password must never be kept, let alone suggested.
-    private func learn(_ word: String) {
-        guard settings.learnWords, !currentWordIsSecret, !KeySender.isSecretInput() else { return }
+    private func learn(_ word: String, wasSecret: Bool) {
+        guard settings.learnWords, !wasSecret, !KeySender.isSecretInput() else { return }
         // Set here too: with suggestions off nothing else keeps it current.
         speller.language = InputSourceSwitcher.currentLanguageCode()
         vocabulary.record(word, isOwnWord: UserVocabulary.isOwnWord(word, knownToSystem: speller.knows(word)))
@@ -1629,7 +1640,7 @@ class ViewController: NSViewController {
     /// Replace the partial word with the chosen suggestion, then a space.
     private func applySuggestion(_ word: String) {
         // Picking a suggestion is a use of the word, like typing it.
-        learn(word)
+        learn(word, wasSecret: textTracker.currentWordIsSecret)
         let plan = SuggestionApplier.plan(currentWord: textTracker.currentWord, suggestion: word)
         for _ in 0..<plan.backspaces { KeySender.send("Backspace") }
         KeySender.sendText(plan.textToInsert)

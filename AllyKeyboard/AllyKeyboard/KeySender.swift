@@ -231,12 +231,15 @@ enum KeySender {
     }
 
     private static func isFocusOnPasswordField() -> Bool {
-        let system = AXUIElementCreateSystemWide()
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return false }
+        let app = AXUIElementCreateApplication(pid)
         // On the main thread: a busy application must not hold the keyboard up
-        // for the default six seconds. AppSwitcherPanel does the same.
-        AXUIElementSetMessagingTimeout(system, 0.25)
+        // for the default six seconds. Set on this application's element only,
+        // as AppSwitcherPanel does — on the system-wide element it would cut
+        // the timeout of every Accessibility call this process makes.
+        AXUIElementSetMessagingTimeout(app, 0.25)
         var focused: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString,
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString,
                                             &focused) == .success,
               let element = focused else { return false }
         var subrole: CFTypeRef?

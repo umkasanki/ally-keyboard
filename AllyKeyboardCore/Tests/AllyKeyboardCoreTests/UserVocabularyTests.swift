@@ -77,8 +77,8 @@ final class UserVocabularyTests: XCTestCase {
         var v = UserVocabulary()
         v.record(Naprimer, isOwnWord: false, at: t0)
         for _ in 0..<2 { v.record(naprimer, isOwnWord: false, at: t0) }
-        XCTAssertEqual(v.suggestions(for: n, limit: 5, at: t0), [Naprimer])    // first spelling kept
-        XCTAssertEqual(v.suggestions(for: na, limit: 5, at: t0), [Naprimer])
+        XCTAssertEqual(v.suggestions(for: n, limit: 5, at: t0), [naprimer])    // lowercase use wins
+        XCTAssertEqual(v.suggestions(for: na, limit: 5, at: t0), [naprimer])
         XCTAssertEqual(v.suggestions(for: "\u{041D}", limit: 5, at: t0), [Naprimer])   // capital typed
     }
 
@@ -126,6 +126,81 @@ final class UserVocabularyTests: XCTestCase {
         // A word learned capitalised is not lowered for a lowercase start.
         for _ in 0..<2 { v.record(Tishkin, isOwnWord: true, at: t0) }
         XCTAssertEqual(v.suggestions(for: tish, limit: 5, at: t0), [Tishkin])
+    }
+
+    func testRecordDecaysTheOldScoreBeforeAdding() {
+        var v = UserVocabulary()
+        for _ in 0..<2 { v.record("staging", isOwnWord: false, at: t0) }
+        v.record("staging", isOwnWord: false, at: t0 + 60 * day)   // 2 -> 0.5, +1
+        XCTAssertEqual(v.entries["staging"]!.score, 1.5, accuracy: 1e-9)
+        XCTAssertEqual(v.suggestions(for: "s", limit: 5, at: t0 + 60 * day), [])
+    }
+
+    func testASentenceStartCapitalIsNotKept() {
+        var v = UserVocabulary()
+        v.record(Naprimer, isOwnWord: false, at: t0)
+        for _ in 0..<2 { v.record(naprimer, isOwnWord: false, at: t0) }
+        XCTAssertEqual(v.suggestions(for: na, limit: 5, at: t0), [naprimer])
+        XCTAssertEqual(v.suggestions(for: "\u{041D}", limit: 5, at: t0), [Naprimer])
+        v.record("STAGING", isOwnWord: false, at: t0)              // Caps Lock
+        for _ in 0..<2 { v.record("staging", isOwnWord: false, at: t0) }
+        XCTAssertEqual(v.suggestions(for: "st", limit: 5, at: t0), ["staging"])
+    }
+
+    func testRespellingInTheListKeepsHistoryAndDoesNotPin() {
+        var v = UserVocabulary()
+        for _ in 0..<3 { v.record("Staging", isOwnWord: false, at: t0) }
+        let edit = UserVocabulary.listEdit(from: ["Staging"], to: ["staging"])
+        XCTAssertEqual(edit.added, ["staging"])
+        XCTAssertEqual(edit.removed, [])               // still listed, in another case
+        v.applyListEdit(added: edit.added, removed: edit.removed, at: t0)
+        XCTAssertEqual(v.entries["staging"]?.word, "staging")
+        XCTAssertEqual(v.entries["staging"]?.isPinned, false)
+        XCTAssertEqual(v.entries["staging"]!.score, 3, accuracy: 1e-9)
+    }
+
+    func testAWordStillListedInAnotherCaseIsNotForgotten() {
+        var v = UserVocabulary()
+        for _ in 0..<3 { v.record("staging", isOwnWord: false, at: t0) }
+        // A duplicate line in another case deleted: the word is still there.
+        let edit = UserVocabulary.listEdit(from: ["Staging", "staging"], to: ["Staging"])
+        XCTAssertEqual(edit.removed, [])
+        v.applyListEdit(added: edit.added, removed: edit.removed, at: t0)
+        XCTAssertTrue(v.contains("staging"))
+    }
+
+    func testAddingByHandAWordKnownInAnotherCasePinsIt() {
+        var v = UserVocabulary()
+        v.record("Ansible", isOwnWord: true, at: t0)        // once, at a sentence start
+        let edit = UserVocabulary.listEdit(from: [], to: ["ansible"])
+        v.applyListEdit(added: edit.added, removed: edit.removed, at: t0)
+        XCTAssertEqual(v.entries["ansible"]?.isPinned, true)
+        XCTAssertEqual(v.learnedWords(at: t0), ["ansible"])    // written as added
+    }
+
+    func testASpellingWrittenInTheListSurvivesTyping() {
+        var v = UserVocabulary()
+        v.applyListEdit(added: ["GitLab"], removed: [], at: t0)
+        v.record("gitlab", isOwnWord: true, at: t0)
+        XCTAssertEqual(v.suggestions(for: "gi", limit: 5, at: t0), ["GitLab"])
+    }
+
+    func testListEditDiff() {
+        let edit = UserVocabulary.listEdit(from: ["a1x", "keep", "gone"], to: ["keep", "new", "a1x"])
+        XCTAssertEqual(edit.added, ["new"])
+        XCTAssertEqual(edit.removed, ["gone"])
+    }
+
+    func testAnUnreadableFileIsMovedAsideNotOverwritten() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("vocabulary.json")
+        try Data("not json".utf8).write(to: url)
+        let store = UserVocabularyStore(fileURL: url)
+        XCTAssertEqual(store.load(), UserVocabulary())
+        let aside = dir.appendingPathComponent("vocabulary.unreadable.json")
+        XCTAssertEqual(try String(contentsOf: aside, encoding: .utf8), "not json")
+        try? FileManager.default.removeItem(at: dir)
     }
 
     func testOnlyOfferedWordsAreWrittenToDisk() {

@@ -202,6 +202,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Never leave ⇧ held in the system behind us, nor a word unsaved.
     func applicationWillTerminate(_ notification: Notification) {
         KeySender.holdShift(false)
+        settingsWindow?.applyLearnedWordsEdit()
         keyboardViewController()?.saveVocabularyNow()
     }
 
@@ -225,6 +226,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func openSettings() {
         guard let vc = keyboardViewController() else { return }
+        settingsWindow?.applyLearnedWordsEdit()   // a pending edit, before its window goes
         let win = SettingsWindowController(
             currentPercent: vc.currentSizePercent,
             currentShowSuggestions: vc.currentShowSuggestions,

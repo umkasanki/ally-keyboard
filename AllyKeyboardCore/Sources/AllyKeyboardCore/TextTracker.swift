@@ -21,9 +21,20 @@ public final class TextTracker {
     private let isWordCharacter: (Character) -> Bool
 
     /// Called with a word the moment it is finished — by a space, Return, Tab
-    /// or punctuation — so it can be learned. Not called on `reset()`: a word
-    /// cut short by navigation or a shortcut may not be the word that was meant.
-    public var onWordCompleted: ((String) -> Void)?
+    /// or punctuation — so it can be learned, and whether it was marked secret
+    /// while typed. Not called on `reset()`: a word cut short by navigation or
+    /// a shortcut may not be the word that was meant.
+    public var onWordCompleted: ((_ word: String, _ wasSecret: Bool) -> Void)?
+
+    /// Whether any part of the current word was typed somewhere secret.
+    /// Cleared when the word ends, is dropped by `reset()`, or a new one starts.
+    public private(set) var currentWordIsSecret = false
+
+    /// Mark the word being typed as secret — typed into a password field or
+    /// under secure input. It stays so until it ends, however the focus moves.
+    public func markSecret() {
+        if hasPartialWord { currentWordIsSecret = true }
+    }
 
     /// - Parameter isWordCharacter: decides which characters extend the word.
     ///   Defaults to letters, digits, the apostrophe (for contractions) and the
@@ -55,6 +66,7 @@ public final class TextTracker {
         switch input {
         case .character(let char):
             if isWordCharacter(char) {
+                if currentWord.isEmpty { currentWordIsSecret = false }
                 currentWord.append(char)
             } else {
                 // Punctuation/symbol terminates the current word.
@@ -79,12 +91,14 @@ public final class TextTracker {
     private func completeWord() {
         let word = currentWord
         currentWord = ""
-        if !word.isEmpty { onWordCompleted?(word) }
+        if !word.isEmpty { onWordCompleted?(word, currentWordIsSecret) }
+        currentWordIsSecret = false
     }
 
     /// Clear the buffer (e.g. when focus changes or the keyboard is hidden).
     public func reset() {
         currentWord = ""
+        currentWordIsSecret = false
     }
 
     /// Whether there is a partial word to offer suggestions for.

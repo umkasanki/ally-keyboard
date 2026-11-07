@@ -60,7 +60,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private var learnedWordsView: NSTextView!
     /// The learned words as last applied, to send an edit as what changed.
     private var appliedLearnedWords: [String] = []
-    private var learnedWordsEdit: Timer?
+    private var windowObservers: [NSObjectProtocol] = []
     private let step = 5
     private let sizeStep = 1   // keyboard size, finer than the rest at the user's request
     private var percentField: NSTextField!
@@ -159,6 +159,15 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         window.isReleasedWhenClosed = false
         window.level = AppConfig.Levels.settings   // genuinely above the keyboard
         super.init(window: window)
+        // Applied when the window closes, and when it stops being the key
+        // window — the user went back to typing elsewhere — so that a word
+        // deleted from the list stops being suggested then, not at quit.
+        // Clicks on the keyboard leave Settings key, so this never fires mid-typing.
+        windowObservers = [NSWindow.willCloseNotification, NSWindow.didResignKeyNotification].map {
+            NotificationCenter.default.addObserver(forName: $0, object: window, queue: .main) { [weak self] _ in
+                self?.applyLearnedWordsEdit()
+            }
+        }
         buildUI(currentPercent: currentPercent,
                 currentShowSuggestions: currentShowSuggestions,
                 currentSavedPhrases: currentSavedPhrases,
@@ -188,6 +197,10 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    deinit {
+        windowObservers.forEach { NotificationCenter.default.removeObserver($0) }
+    }
 
     private func buildUI(currentPercent: Int, currentShowSuggestions: Bool, currentSavedPhrases: [String],
                          currentLearnWords: Bool, currentLearnedWords: [String],
@@ -815,7 +828,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                   + "New words and words with a hyphen appear after two uses, dictionary "
                   + "words after three; ones you stop using fade out. Nothing typed into "
                   + "a password field is kept. One per line: delete a word to forget it, "
-                  + "add one to keep it."),
+                  + "add one to keep it; changes apply when you leave the list."),
             .gap,
             .tall("Saved phrases", scroll),
             .note("One per line. The list key on the keyboard opens them."),
@@ -980,13 +993,11 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         if textView === appHiddenView {
             onAppPanelHiddenChange(lines)
         } else if textView === learnedWordsView {
-            // Applied once typing pauses, not per keystroke: half-typed words
-            // would be pinned and unpinned one letter at a time, and a word
-            // being corrected forgotten along with its history.
-            learnedWordsEdit?.invalidate()
-            learnedWordsEdit = Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
-                self?.applyLearnedWordsEdit()
-            }
+            // Nothing here: the list is applied when editing is over — focus
+            // leaves it, the window closes or stops being key, Settings is
+            // reopened, or the app quits — never in the middle. At head-mouse speed any pause can
+            // fall inside a word, and a half-typed line would be taken for a
+            // word added, and the word being edited for one removed.
         } else {
             onSavedPhrasesChange(lines)
         }
@@ -996,19 +1007,18 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         if (notification.object as? NSTextView) === learnedWordsView { applyLearnedWordsEdit() }
     }
 
-    private func applyLearnedWordsEdit() {
-        learnedWordsEdit?.invalidate()
-        learnedWordsEdit = nil
-        let lines = learnedWordsView.string
+    /// Apply the edits made to the learned words since last applied: when the
+    /// list loses focus, when the window closes, before it is replaced by a
+    /// new one, and at quit.
+    func applyLearnedWordsEdit() {
+        guard let view = learnedWordsView else { return }
+        let lines = view.string
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-        let now = Set(lines.map { $0.lowercased() })
-        let before = Set(appliedLearnedWords.map { $0.lowercased() })
-        let added = lines.filter { !before.contains($0.lowercased()) }
-        let removed = appliedLearnedWords.filter { !now.contains($0.lowercased()) }
+        let edit = UserVocabulary.listEdit(from: appliedLearnedWords, to: lines)
         appliedLearnedWords = lines
-        if !added.isEmpty || !removed.isEmpty { onLearnedWordsChange(added, removed) }
+        if !edit.added.isEmpty || !edit.removed.isEmpty { onLearnedWordsChange(edit.added, edit.removed) }
     }
 
     func present() {
