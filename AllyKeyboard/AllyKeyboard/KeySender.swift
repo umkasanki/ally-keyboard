@@ -213,6 +213,21 @@ enum KeySender {
         }
     }
 
+    // MARK: - Focus
+
+    /// Whether the focused element of the frontmost application is a password
+    /// field, as Accessibility reports it.
+    static func isTypingIntoSecureField() -> Bool {
+        let system = AXUIElementCreateSystemWide()
+        var focused: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString,
+                                            &focused) == .success,
+              let element = focused else { return false }
+        var subrole: CFTypeRef?
+        AXUIElementCopyAttributeValue(element as! AXUIElement, kAXSubroleAttribute as CFString, &subrole)
+        return (subrole as? String) == (kAXSecureTextFieldSubrole as String)
+    }
+
     // MARK: - Shift held for a click
 
     private static let leftShift: CGKeyCode = 56

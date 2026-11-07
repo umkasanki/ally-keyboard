@@ -796,7 +796,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         let check = NSButton(checkboxWithTitle: "Show suggestions while typing",
                              target: self, action: #selector(suggestionsToggled(_:)))
         check.state = current ? .on : .off
-        let learnCheck = NSButton(checkboxWithTitle: "Learn new words as you type",
+        let learnCheck = NSButton(checkboxWithTitle: "Learn the words you type",
                                   target: self, action: #selector(learnWordsToggled(_:)))
         learnCheck.state = learnWords ? .on : .off
         let (wordsView, wordsScroll) = textArea(learnedWords, height: 110)
@@ -807,8 +807,11 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
             .wide(learnCheck),
             .gap,
             .tall("Learned words", wordsScroll),
-            .note("Words the dictionary lacks, and any word with a hyphen, are suggested "
-                  + "once typed twice. One per line: delete a word to forget it, add one to teach it."),
+            .note("Words you use often come first in suggestions, from the first letter. "
+                  + "New words and words with a hyphen appear after two uses, dictionary "
+                  + "words after three; ones you stop using fade out. Nothing typed into "
+                  + "a password field is kept. One per line: delete a word to forget it, "
+                  + "add one to keep it."),
             .gap,
             .tall("Saved phrases", scroll),
             .note("One per line. The list key on the keyboard opens them."),

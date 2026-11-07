@@ -595,7 +595,7 @@ class ViewController: NSViewController {
         settingsStore.save(settings)
     }
 
-    var currentLearnedWords: [String] { vocabulary.learnedWords }
+    var currentLearnedWords: [String] { vocabulary.learnedWords() }
 
     func applyLearnedWords(_ words: [String]) {
         vocabulary.setLearnedWords(words)
@@ -918,6 +918,7 @@ class ViewController: NSViewController {
         guard let window = view.window, !windowConfigured else { return }
         settings = settingsStore.load()
         vocabulary = vocabularyStore.load()
+        vocabulary.forgetFaded()
         textTracker.onWordCompleted = { [weak self] word in self?.learn(word) }
         AppConfig.Colors.theme = AppConfig.Theme(rawValue: settings.theme) ?? .darkSystem
         view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.darkCGColor   // theme now known
@@ -1577,20 +1578,19 @@ class ViewController: NSViewController {
         if balloonIsGreetings { showGreetings() } else { showSuggestions(currentSuggestions) }
     }
 
-    /// Count a finished word towards the user's vocabulary, if it is one the
-    /// system dictionary lacks (or has a hyphen) — or is learned already.
+    /// Count a finished word towards the user's vocabulary — every word, so
+    /// the ones used most come first — unless it was typed into a password
+    /// field: a password must never be kept, let alone suggested.
     private func learn(_ word: String) {
-        guard settings.learnWords else { return }
-        guard vocabulary.contains(word)
-              || UserVocabulary.shouldLearn(word, knownToSystem: speller.knows(word)) else { return }
-        vocabulary.record(word)
+        guard settings.learnWords, !KeySender.isTypingIntoSecureField() else { return }
+        vocabulary.record(word, isOwnWord: UserVocabulary.isOwnWord(word, knownToSystem: speller.knows(word)))
         vocabularyStore.save(vocabulary)
     }
 
     /// Replace the partial word with the chosen suggestion, then a space.
     private func applySuggestion(_ word: String) {
-        // Picking one of the user's own words is a use of it, like typing it.
-        if vocabulary.contains(word) { learn(word) }
+        // Picking a suggestion is a use of the word, like typing it.
+        learn(word)
         let plan = SuggestionApplier.plan(currentWord: textTracker.currentWord, suggestion: word)
         for _ in 0..<plan.backspaces { KeySender.send("Backspace") }
         KeySender.sendText(plan.textToInsert)
