@@ -17,6 +17,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private let onPercentChange: (Int) -> Void
     private let onShowSuggestionsChange: (Bool) -> Void
     private let onSavedPhrasesChange: ([String]) -> Void
+    private let onLearnWordsChange: (Bool) -> Void
+    private let onLearnedWordsChange: ([String]) -> Void
     private let onLauncherWidthChange: (Int) -> Void
     private let onLauncherOpacityChange: (Int) -> Void
     private let onTopBarHeightChange: (Int) -> Void
@@ -55,6 +57,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private var appOpacityValue: NSTextField!
     private var appAutoHideValue: NSTextField!
     private var appHiddenView: NSTextView!
+    private var learnedWordsView: NSTextView!
     private let step = 5
     private let sizeStep = 1   // keyboard size, finer than the rest at the user's request
     private var percentField: NSTextField!
@@ -68,6 +71,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     init(currentPercent: Int,
          currentShowSuggestions: Bool,
          currentSavedPhrases: [String],
+         currentLearnWords: Bool,
+         currentLearnedWords: [String],
          currentLauncherWidth: Int,
          currentLauncherOpacity: Int,
          currentTopBarShow: Bool,
@@ -92,6 +97,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          onPercentChange: @escaping (Int) -> Void,
          onShowSuggestionsChange: @escaping (Bool) -> Void,
          onSavedPhrasesChange: @escaping ([String]) -> Void,
+         onLearnWordsChange: @escaping (Bool) -> Void,
+         onLearnedWordsChange: @escaping ([String]) -> Void,
          onLauncherWidthChange: @escaping (Int) -> Void,
          onLauncherOpacityChange: @escaping (Int) -> Void,
          onTopBarHeightChange: @escaping (Int) -> Void,
@@ -116,6 +123,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         self.onPercentChange = onPercentChange
         self.onShowSuggestionsChange = onShowSuggestionsChange
         self.onSavedPhrasesChange = onSavedPhrasesChange
+        self.onLearnWordsChange = onLearnWordsChange
+        self.onLearnedWordsChange = onLearnedWordsChange
         self.onLauncherWidthChange = onLauncherWidthChange
         self.onLauncherOpacityChange = onLauncherOpacityChange
         self.onTopBarHeightChange = onTopBarHeightChange
@@ -150,6 +159,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         buildUI(currentPercent: currentPercent,
                 currentShowSuggestions: currentShowSuggestions,
                 currentSavedPhrases: currentSavedPhrases,
+                currentLearnWords: currentLearnWords,
+                currentLearnedWords: currentLearnedWords,
                 currentLauncherWidth: currentLauncherWidth,
                 currentLauncherOpacity: currentLauncherOpacity,
                 currentTopBarShow: currentTopBarShow,
@@ -176,6 +187,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     private func buildUI(currentPercent: Int, currentShowSuggestions: Bool, currentSavedPhrases: [String],
+                         currentLearnWords: Bool, currentLearnedWords: [String],
                          currentLauncherWidth: Int, currentLauncherOpacity: Int,
                          currentTopBarShow: Bool, currentTopBarHeight: Int,
                          currentBottomBarShow: Bool, currentBottomBarHeight: Int,
@@ -209,7 +221,9 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         let suggestions = NSTabViewItem(identifier: "suggestions")
         suggestions.label = "Suggestions"
         suggestions.view = makeSuggestionsView(current: currentShowSuggestions,
-                                               savedPhrases: currentSavedPhrases)
+                                               savedPhrases: currentSavedPhrases,
+                                               learnWords: currentLearnWords,
+                                               learnedWords: currentLearnedWords)
 
         let launcher = NSTabViewItem(identifier: "launcher")
         launcher.label = "Launcher"
@@ -777,13 +791,24 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         ])
     }
 
-    private func makeSuggestionsView(current: Bool, savedPhrases: [String]) -> NSView {
+    private func makeSuggestionsView(current: Bool, savedPhrases: [String],
+                                     learnWords: Bool, learnedWords: [String]) -> NSView {
         let check = NSButton(checkboxWithTitle: "Show suggestions while typing",
                              target: self, action: #selector(suggestionsToggled(_:)))
         check.state = current ? .on : .off
-        let (_, scroll) = textArea(savedPhrases, height: 150)
+        let learnCheck = NSButton(checkboxWithTitle: "Learn new words as you type",
+                                  target: self, action: #selector(learnWordsToggled(_:)))
+        learnCheck.state = learnWords ? .on : .off
+        let (wordsView, wordsScroll) = textArea(learnedWords, height: 110)
+        learnedWordsView = wordsView
+        let (_, scroll) = textArea(savedPhrases, height: 110)
         return pane([
             .wide(check),
+            .wide(learnCheck),
+            .gap,
+            .tall("Learned words", wordsScroll),
+            .note("Words the dictionary lacks, and any word with a hyphen, are suggested "
+                  + "once typed twice. One per line: delete a word to forget it, add one to teach it."),
             .gap,
             .tall("Saved phrases", scroll),
             .note("One per line. The list key on the keyboard opens them."),
@@ -931,8 +956,13 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         onShowSuggestionsChange(sender.state == .on)
     }
 
-    /// Two text views now share this delegate — the saved phrases and the list
-    /// of applications to leave out — so it must ask which one changed. Without
+    @objc private func learnWordsToggled(_ sender: NSButton) {
+        onLearnWordsChange(sender.state == .on)
+    }
+
+    /// Three text views share this delegate — the saved phrases, the learned
+    /// words and the list of applications to leave out — so it must ask which
+    /// one changed. Without
     /// that, typing an application name would overwrite the phrases.
     func textDidChange(_ notification: Notification) {
         guard let textView = notification.object as? NSTextView else { return }
@@ -942,6 +972,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
             .filter { !$0.isEmpty }
         if textView === appHiddenView {
             onAppPanelHiddenChange(lines)
+        } else if textView === learnedWordsView {
+            onLearnedWordsChange(lines)
         } else {
             onSavedPhrasesChange(lines)
         }

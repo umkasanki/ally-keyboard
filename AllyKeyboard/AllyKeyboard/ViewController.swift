@@ -588,6 +588,20 @@ class ViewController: NSViewController {
         if !on { hideSuggestions() }
     }
 
+    var currentLearnWords: Bool { settings.learnWords }
+
+    func applyLearnWords(_ on: Bool) {
+        settings.learnWords = on
+        settingsStore.save(settings)
+    }
+
+    var currentLearnedWords: [String] { vocabulary.learnedWords }
+
+    func applyLearnedWords(_ words: [String]) {
+        vocabulary.setLearnedWords(words)
+        vocabularyStore.save(vocabulary)
+    }
+
     var currentSavedPhrases: [String] { settings.savedPhrases }
 
     func applySavedPhrases(_ phrases: [String]) {
@@ -877,6 +891,12 @@ class ViewController: NSViewController {
     private var balloonIsGreetings = false
     private var currentSuggestions: [String] = []
     private let textTracker = TextTracker()
+
+    /// The user's own words, learned from what is typed and suggested first.
+    private let vocabularyStore = UserVocabularyStore(fileURL: FileManager.default
+        .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("AllyKeyboard/vocabulary.json"))
+    private var vocabulary = UserVocabulary()
     private let speller = SpellCheckerPredictionEngine()
 
     // MARK: - Window state
@@ -897,6 +917,8 @@ class ViewController: NSViewController {
         super.viewWillAppear()
         guard let window = view.window, !windowConfigured else { return }
         settings = settingsStore.load()
+        vocabulary = vocabularyStore.load()
+        textTracker.onWordCompleted = { [weak self] word in self?.learn(word) }
         AppConfig.Colors.theme = AppConfig.Theme(rawValue: settings.theme) ?? .darkSystem
         view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.darkCGColor   // theme now known
         scale = CGFloat(settings.scale)   // windowConfigured still false -> just stores
@@ -1404,7 +1426,11 @@ class ViewController: NSViewController {
     private func refreshSuggestions() {
         guard settings.showSuggestions, textTracker.hasPartialWord else { hideSuggestions(); return }
         speller.language = InputSourceSwitcher.currentLanguageCode()
-        let words = speller.suggestions(for: textTracker.currentWord, limit: suggestionBarSlots)
+        let partial = textTracker.currentWord
+        let words = UserVocabulary.merge(
+            user: vocabulary.suggestions(for: partial, limit: suggestionBarSlots),
+            system: speller.suggestions(for: partial, limit: suggestionBarSlots),
+            limit: suggestionBarSlots)
         showSuggestions(words)
     }
 
@@ -1551,8 +1577,20 @@ class ViewController: NSViewController {
         if balloonIsGreetings { showGreetings() } else { showSuggestions(currentSuggestions) }
     }
 
+    /// Count a finished word towards the user's vocabulary, if it is one the
+    /// system dictionary lacks (or has a hyphen) — or is learned already.
+    private func learn(_ word: String) {
+        guard settings.learnWords else { return }
+        guard vocabulary.contains(word)
+              || UserVocabulary.shouldLearn(word, knownToSystem: speller.knows(word)) else { return }
+        vocabulary.record(word)
+        vocabularyStore.save(vocabulary)
+    }
+
     /// Replace the partial word with the chosen suggestion, then a space.
     private func applySuggestion(_ word: String) {
+        // Picking one of the user's own words is a use of it, like typing it.
+        if vocabulary.contains(word) { learn(word) }
         let plan = SuggestionApplier.plan(currentWord: textTracker.currentWord, suggestion: word)
         for _ in 0..<plan.backspaces { KeySender.send("Backspace") }
         KeySender.sendText(plan.textToInsert)

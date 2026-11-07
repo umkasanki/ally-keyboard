@@ -220,6 +220,15 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(s.theme, "darkSystem")
     }
 
+    func testLearnWordsDefaultsOnAndDecodesLegacy() throws {
+        XCTAssertTrue(Settings().learnWords)
+        let json = Data(#"{"sizePercent":100}"#.utf8)
+        XCTAssertTrue(try JSONDecoder().decode(Settings.self, from: json).learnWords)
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        store.save(Settings(learnWords: false))
+        XCTAssertFalse(store.load().learnWords)
+    }
+
     private func freshDefaults() -> UserDefaults {
         let name = "test.allykeyboard.\(UUID().uuidString)"
         let d = UserDefaults(suiteName: name)!

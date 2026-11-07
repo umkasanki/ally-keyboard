@@ -102,6 +102,9 @@ public struct Settings: Codable, Equatable {
     /// Whether the word-prediction panel appears while typing.
     public var showSuggestions: Bool
 
+    /// Learn words the system dictionary lacks from what is typed, and suggest them.
+    public var learnWords: Bool
+
     /// Move the whole keyboard by pressing-and-dragging a key (a plain click still types).
     public var dragToMove: Bool
 
@@ -161,6 +164,7 @@ public struct Settings: Codable, Equatable {
 
     public init(sizePercent: Int = 100,
                 showSuggestions: Bool = true,
+                learnWords: Bool = true,
                 savedPhrases: [String] = Settings.defaultGreetings,
                 launcherWidth: Int = 50,
                 launcherOpacityPercent: Int = 100,
@@ -185,6 +189,7 @@ public struct Settings: Codable, Equatable {
                 appPanelEdgeSpacing: Int = 10) {
         self.sizePercent = Settings.clampPercent(sizePercent)   // didSet does not run in init
         self.showSuggestions = showSuggestions
+        self.learnWords = learnWords
         self.startCollapsed = startCollapsed
         self.showHideSlide = showHideSlide
         self.showHideFade = showHideFade
@@ -263,7 +268,7 @@ public struct Settings: Codable, Equatable {
 
     // Decode leniently so older saved settings (missing new keys) still load.
     private enum CodingKeys: String, CodingKey {
-        case sizePercent, showSuggestions, savedPhrases, launcherWidth, launcherOpacityPercent,
+        case sizePercent, showSuggestions, learnWords, savedPhrases, launcherWidth, launcherOpacityPercent,
              topBarShow, topBarHeight, bottomBarShow, bottomBarHeight,
              dragToMove, dragCooldownMs, startCollapsed, showHideSlide, showHideFade, theme,
              appPanelIconSize, appPanelOpacityPercent, appPanelHiddenApps, appPanelAutoHideSeconds,
@@ -275,6 +280,7 @@ public struct Settings: Codable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.sizePercent = Settings.clampPercent(try c.decodeIfPresent(Int.self, forKey: .sizePercent) ?? 100)
         self.showSuggestions = try c.decodeIfPresent(Bool.self, forKey: .showSuggestions) ?? true
+        self.learnWords = try c.decodeIfPresent(Bool.self, forKey: .learnWords) ?? true
         self.savedPhrases = try c.decodeIfPresent([String].self, forKey: .savedPhrases) ?? Settings.defaultGreetings
         self.launcherWidth = Settings.clampLauncherWidth(try c.decodeIfPresent(Int.self, forKey: .launcherWidth) ?? 50)
         self.launcherOpacityPercent = Settings.clampLauncherOpacity(try c.decodeIfPresent(Int.self, forKey: .launcherOpacityPercent) ?? 100)

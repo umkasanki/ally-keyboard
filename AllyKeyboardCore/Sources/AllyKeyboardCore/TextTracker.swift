@@ -20,6 +20,11 @@ public final class TextTracker {
 
     private let isWordCharacter: (Character) -> Bool
 
+    /// Called with a word the moment it is finished — by a space, Return, Tab
+    /// or punctuation — so it can be learned. Not called on `reset()`: a word
+    /// cut short by navigation or a shortcut may not be the word that was meant.
+    public var onWordCompleted: ((String) -> Void)?
+
     /// - Parameter isWordCharacter: decides which characters extend the word.
     ///   Defaults to letters, digits, the apostrophe (for contractions) and the
     ///   hyphen (for compounds).
@@ -53,14 +58,14 @@ public final class TextTracker {
                 currentWord.append(char)
             } else {
                 // Punctuation/symbol terminates the current word.
-                currentWord = ""
+                completeWord()
             }
         case .backspace:
             if !currentWord.isEmpty {
                 currentWord.removeLast()
             }
         case .wordBoundary:
-            currentWord = ""
+            completeWord()
         case .ignored:
             break
         }
@@ -69,6 +74,12 @@ public final class TextTracker {
     /// Convenience: classify an app `keyID` and update in one call.
     public func handle(keyID: String, shifted: Bool = false) {
         handle(KeyInput.from(keyID: keyID, shifted: shifted))
+    }
+
+    private func completeWord() {
+        let word = currentWord
+        currentWord = ""
+        if !word.isEmpty { onWordCompleted?(word) }
     }
 
     /// Clear the buffer (e.g. when focus changes or the keyboard is hidden).

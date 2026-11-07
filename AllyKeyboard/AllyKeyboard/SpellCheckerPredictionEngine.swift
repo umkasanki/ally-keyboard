@@ -26,4 +26,14 @@ final class SpellCheckerPredictionEngine: PredictionEngine {
             inSpellDocumentWithTag: 0) ?? []
         return Array(completions.prefix(limit))
     }
+
+    /// Whether the spell checker accepts `word` in the current language.
+    func knows(_ word: String) -> Bool {
+        let checker = NSSpellChecker.shared
+        let misspelled = checker.checkSpelling(of: word, startingAt: 0,
+                                               language: language ?? checker.language(),
+                                               wrap: false, inSpellDocumentWithTag: 0,
+                                               wordCount: nil)
+        return misspelled.location == NSNotFound
+    }
 }

@@ -3,6 +3,25 @@ import XCTest
 
 final class TextTrackerTests: XCTestCase {
 
+    func testFinishedWordsAreReported() {
+        let t = TextTracker()
+        var completed: [String] = []
+        t.onWordCompleted = { completed.append($0) }
+        "hi there, you".forEach { t.handle($0 == " " ? .wordBoundary : .character($0)) }
+        t.handle(.wordBoundary)
+        t.handle(.wordBoundary)          // a second space finishes nothing
+        XCTAssertEqual(completed, ["hi", "there", "you"])
+    }
+
+    func testResetDoesNotReportTheWord() {
+        let t = TextTracker()
+        var completed: [String] = []
+        t.onWordCompleted = { completed.append($0) }
+        "unfin".forEach { t.handle(.character($0)) }
+        t.reset()
+        XCTAssertEqual(completed, [])
+    }
+
     func testTypingLettersBuildsWord() {
         let t = TextTracker()
         t.handle(.character("h"))
