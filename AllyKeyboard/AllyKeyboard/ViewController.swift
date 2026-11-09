@@ -1234,10 +1234,15 @@ class ViewController: NSViewController {
             // what is being photographed is almost never the keyboard. Then
             // the system's own capture panel, which offers the whole screen, a
             // window or a region — all of them a click, none of them a drag.
-            (NSApp.delegate as? AppDelegate)?.hideKeyboard()
+            // Hidden from capture or not, the keyboard steps aside: it sits
+            // above the capture screen and would cover its bar and the windows
+            // to pick. It comes back when the capture is over.
+            let app = NSApp.delegate as? AppDelegate
+            app?.hideKeyboard()
             // After the window has actually gone, or it is in the picture.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 KeySender.send("Screenshot")
+                app?.restoreKeyboardAfterScreenshot()
             }
             return
         }

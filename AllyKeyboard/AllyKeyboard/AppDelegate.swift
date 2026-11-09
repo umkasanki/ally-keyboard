@@ -111,6 +111,38 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return max(0, screen.frame.height - panel.frame.height)
     }
 
+    // MARK: - Back after a screenshot
+
+    private static let captureUI = "com.apple.screencaptureui"
+    private var screenshotWatch: Timer?
+
+    /// Bring the keyboard back once the screenshot it stepped aside for is
+    /// over — taken or cancelled. The system's capture screen (⌘⇧5) is its own
+    /// process, which starts for each capture and quits after it (watched on
+    /// the device 2026-11-09: up on each one, gone after both a shot and a
+    /// cancel, a few seconds later when the corner thumbnail is on). So: wait
+    /// for it to appear, then to go. If it never appears, nothing happens; if
+    /// the user brought the keyboard back by hand meanwhile, nothing either.
+    func restoreKeyboardAfterScreenshot() {
+        screenshotWatch?.invalidate()
+        let started = Date()
+        var seen = false
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            let running = NSWorkspace.shared.runningApplications
+                .contains { $0.bundleIdentifier == Self.captureUI }
+            let elapsed = Date().timeIntervalSince(started)
+            if running { seen = true; return }
+            // Not yet up: give it a few seconds to start; up and gone: done.
+            guard seen || elapsed > 5 else { return }
+            timer.invalidate()
+            self.screenshotWatch = nil
+            if seen, self.keyboardWanted == false { self.showKeyboard() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        screenshotWatch = timer
+    }
+
     /// Show the keyboard and hide the floating launcher.
     func showKeyboard() {
         launcher?.hide()
