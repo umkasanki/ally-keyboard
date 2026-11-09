@@ -32,6 +32,27 @@ enum AppConfig {
     /// it also sits above the screen saver itself (the keyboard joins all spaces
     /// and is stationary, so it stays drawn there). For a user whose only way to
     /// answer an alert is this keyboard, that is the right side of the trade.
+    /// Whether the keyboard's windows show up in screenshots and screen
+    /// recordings. Hidden, a window is skipped by every capture — ⌘⇧3/4/5,
+    /// QuickTime, screen sharing — and stays on screen as before (checked on
+    /// the device 2026-11-09 with screencapture: the window's place shows
+    /// what is under it). Settings is left out of this: it is the window most
+    /// likely to be wanted in a picture.
+    enum Capture {
+        /// Set from Settings before the first window is made.
+        static var hidden = true
+        static var sharingType: NSWindow.SharingType { hidden ? .none : .readOnly }
+
+        /// Apply `hidden` to the windows already on screen. They are all
+        /// panels — keyboard, suggestions, launcher, App Switcher — and
+        /// Settings is not.
+        static func applyToOpenWindows() {
+            for window in NSApp.windows where window is NSPanel {
+                window.sharingType = sharingType
+            }
+        }
+    }
+
     enum Levels {
         /// The level macOS reserves for assistive technology, which is exactly
         /// what this keyboard is — Apple's own on-screen keyboard sits here.

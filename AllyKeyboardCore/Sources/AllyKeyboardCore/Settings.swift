@@ -122,6 +122,10 @@ public struct Settings: Codable, Equatable {
     /// Launch with the keyboard collapsed (hidden; only the floating launcher shown).
     public var startCollapsed: Bool
 
+    /// Leave the keyboard's own windows out of screenshots and screen
+    /// recordings; they stay on screen. Off, they can be photographed.
+    public var hideFromCapture: Bool
+
     /// Show and hide the keyboard with a slide up from below. With neither this
     /// nor `showHideFade`, it appears and hides at once.
     public var showHideSlide: Bool
@@ -181,6 +185,7 @@ public struct Settings: Codable, Equatable {
                 dragToMove: Bool = true,
                 dragCooldownMs: Int = 400,
                 startCollapsed: Bool = false,
+                hideFromCapture: Bool = true,
                 showHideSlide: Bool = true,
                 showHideFade: Bool = true,
                 theme: String = "darkSystem",
@@ -198,6 +203,7 @@ public struct Settings: Codable, Equatable {
         self.learnWords = learnWords
         self.spaceAfterSuggestion = spaceAfterSuggestion
         self.startCollapsed = startCollapsed
+        self.hideFromCapture = hideFromCapture
         self.showHideSlide = showHideSlide
         self.showHideFade = showHideFade
         self.theme = theme
@@ -277,7 +283,7 @@ public struct Settings: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case sizePercent, showSuggestions, learnWords, spaceAfterSuggestion, savedPhrases, launcherWidth, launcherOpacityPercent,
              topBarShow, topBarHeight, bottomBarShow, bottomBarHeight,
-             dragToMove, dragCooldownMs, startCollapsed, showHideSlide, showHideFade, theme,
+             dragToMove, dragCooldownMs, startCollapsed, hideFromCapture, showHideSlide, showHideFade, theme,
              appPanelIconSize, appPanelOpacityPercent, appPanelHiddenApps, appPanelAutoHideSeconds,
              appPanelHoverZoom, appPanelOutlineWidth, appPanelOutlineGap,
              appPanelIconSpacing, appPanelEdgeSpacing
@@ -299,6 +305,7 @@ public struct Settings: Codable, Equatable {
         self.dragToMove = try c.decodeIfPresent(Bool.self, forKey: .dragToMove) ?? true
         self.dragCooldownMs = Settings.clampDragCooldown(try c.decodeIfPresent(Int.self, forKey: .dragCooldownMs) ?? 400)
         self.startCollapsed = try c.decodeIfPresent(Bool.self, forKey: .startCollapsed) ?? false
+        self.hideFromCapture = try c.decodeIfPresent(Bool.self, forKey: .hideFromCapture) ?? true
         self.showHideSlide = try c.decodeIfPresent(Bool.self, forKey: .showHideSlide) ?? true
         self.showHideFade = try c.decodeIfPresent(Bool.self, forKey: .showHideFade) ?? true
         self.theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "darkSystem"

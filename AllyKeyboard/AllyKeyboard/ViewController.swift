@@ -548,6 +548,15 @@ class ViewController: NSViewController {
         appSwitcher.hide()
     }
 
+    var currentHideFromCapture: Bool { settings.hideFromCapture }
+
+    func applyHideFromCapture(_ on: Bool) {
+        settings.hideFromCapture = on
+        settingsStore.save(settings)
+        AppConfig.Capture.hidden = on
+        AppConfig.Capture.applyToOpenWindows()
+    }
+
     var currentStartCollapsed: Bool { settings.startCollapsed }
 
     func applyStartCollapsed(_ on: Bool) {
@@ -964,6 +973,8 @@ class ViewController: NSViewController {
         super.viewWillAppear()
         guard let window = view.window, !windowConfigured else { return }
         settings = settingsStore.load()
+        AppConfig.Capture.hidden = settings.hideFromCapture
+        window.sharingType = AppConfig.Capture.sharingType
         vocabulary = vocabularyStore.load()
         vocabulary.forgetFaded()
         vocabularyLoaded = true
@@ -1514,6 +1525,7 @@ class ViewController: NSViewController {
         panel.isFloatingPanel = true
         // The level goes last: `isFloatingPanel` resets it to `.floating`.
         panel.level = AppConfig.Levels.keyboard
+        panel.sharingType = AppConfig.Capture.sharingType
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.backgroundColor = .clear

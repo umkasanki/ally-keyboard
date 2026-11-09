@@ -58,6 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Floating launcher shown while the keyboard is hidden; click brings it back.
         let s = SettingsStore().load()
+        AppConfig.Capture.hidden = s.hideFromCapture   // before the launcher is made
         launcher = LauncherWindowController(width: CGFloat(s.launcherWidth),
                                             alpha: CGFloat(s.launcherAlpha)) { [weak self] in
             self?.showKeyboard()
@@ -243,6 +244,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             currentDragToMove: vc.currentDragToMove,
             currentDragCooldownMs: vc.currentDragCooldownMs,
             currentStartCollapsed: vc.currentStartCollapsed,
+            currentHideFromCapture: vc.currentHideFromCapture,
             currentShowHideSlide: vc.currentShowHideSlide,
             currentShowHideFade: vc.currentShowHideFade,
             currentTheme: vc.currentTheme,
@@ -270,6 +272,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onDragCooldownChange: { [weak vc] ms in vc?.applyDragCooldownMs(ms) },
             onBottomBarHeightChange: { [weak vc] pt in vc?.applyBottomBarHeight(pt) },
             onStartCollapsedChange: { [weak vc] on in vc?.applyStartCollapsed(on) },
+            onHideFromCaptureChange: { [weak vc] on in vc?.applyHideFromCapture(on) },
             onShowHideSlideChange: { [weak vc] on in vc?.applyShowHideSlide(on) },
             onShowHideFadeChange: { [weak vc] on in vc?.applyShowHideFade(on) },
             onThemeChange: { [weak vc] raw in vc?.applyTheme(raw) },

@@ -28,6 +28,7 @@ final class LauncherWindowController {
         window.isFloatingPanel = true
         // The level goes last: `isFloatingPanel` resets it to `.floating`.
         window.level = AppConfig.Levels.keyboard
+        window.sharingType = AppConfig.Capture.sharingType
         window.hidesOnDeactivate = false
         window.isReleasedWhenClosed = false
         window.backgroundColor = .clear

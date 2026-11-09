@@ -238,6 +238,15 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(store.load().spaceAfterSuggestion)
     }
 
+    func testHideFromCaptureDefaultsOnAndDecodesLegacy() throws {
+        XCTAssertTrue(Settings().hideFromCapture)
+        let json = Data(#"{"sizePercent":100}"#.utf8)
+        XCTAssertTrue(try JSONDecoder().decode(Settings.self, from: json).hideFromCapture)
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        store.save(Settings(hideFromCapture: false))
+        XCTAssertFalse(store.load().hideFromCapture)
+    }
+
     private func freshDefaults() -> UserDefaults {
         let name = "test.allykeyboard.\(UUID().uuidString)"
         let d = UserDefaults(suiteName: name)!

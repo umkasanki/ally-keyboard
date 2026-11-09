@@ -31,6 +31,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private var cooldownRows: [NSGridRow] = []   // shown only when drag-to-move is on
     private let onBottomBarHeightChange: (Int) -> Void
     private let onStartCollapsedChange: (Bool) -> Void
+    private let onHideFromCaptureChange: (Bool) -> Void
     private let onShowHideSlideChange: (Bool) -> Void
     private let onShowHideFadeChange: (Bool) -> Void
     private let onThemeChange: (String) -> Void
@@ -87,6 +88,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          currentDragToMove: Bool,
          currentDragCooldownMs: Int,
          currentStartCollapsed: Bool,
+         currentHideFromCapture: Bool,
          currentShowHideSlide: Bool,
          currentShowHideFade: Bool,
          currentTheme: String,
@@ -114,6 +116,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          onDragCooldownChange: @escaping (Int) -> Void,
          onBottomBarHeightChange: @escaping (Int) -> Void,
          onStartCollapsedChange: @escaping (Bool) -> Void,
+         onHideFromCaptureChange: @escaping (Bool) -> Void,
          onShowHideSlideChange: @escaping (Bool) -> Void,
          onShowHideFadeChange: @escaping (Bool) -> Void,
          onThemeChange: @escaping (String) -> Void,
@@ -141,6 +144,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         self.onDragCooldownChange = onDragCooldownChange
         self.onBottomBarHeightChange = onBottomBarHeightChange
         self.onStartCollapsedChange = onStartCollapsedChange
+        self.onHideFromCaptureChange = onHideFromCaptureChange
         self.onShowHideSlideChange = onShowHideSlideChange
         self.onShowHideFadeChange = onShowHideFadeChange
         self.onThemeChange = onThemeChange
@@ -187,6 +191,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                 currentDragToMove: currentDragToMove,
                 currentDragCooldownMs: currentDragCooldownMs,
                 currentStartCollapsed: currentStartCollapsed,
+                currentHideFromCapture: currentHideFromCapture,
                 currentTheme: currentTheme,
                 currentShowHideSlide: currentShowHideSlide,
                 currentShowHideFade: currentShowHideFade,
@@ -214,7 +219,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                          currentTopBarShow: Bool, currentTopBarHeight: Int,
                          currentBottomBarShow: Bool, currentBottomBarHeight: Int,
                          currentDragToMove: Bool, currentDragCooldownMs: Int,
-                         currentStartCollapsed: Bool, currentTheme: String,
+                         currentStartCollapsed: Bool, currentHideFromCapture: Bool,
+                         currentTheme: String,
                          currentShowHideSlide: Bool, currentShowHideFade: Bool,
                          currentAppPanelIcon: Int, currentAppPanelOpacity: Int,
                          currentAppPanelHidden: [String], currentAppPanelAutoHide: Int,
@@ -229,6 +235,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         general.label = "General"
         general.view = makeGeneralView(currentPercent: currentPercent,
                                        currentStartCollapsed: currentStartCollapsed,
+                                       currentHideFromCapture: currentHideFromCapture,
                                        currentTheme: currentTheme)
 
         let bars = NSTabViewItem(identifier: "bars")
@@ -662,7 +669,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         }
     }
 
-    private func makeGeneralView(currentPercent: Int, currentStartCollapsed: Bool, currentTheme: String) -> NSView {
+    private func makeGeneralView(currentPercent: Int, currentStartCollapsed: Bool,
+                                 currentHideFromCapture: Bool, currentTheme: String) -> NSView {
         let loginCheck = NSButton(checkboxWithTitle: "Launch at login (starts hidden)",
                                   target: self, action: #selector(loginToggled(_:)))
         loginCheck.state = LoginItem.isEnabled ? .on : .off
@@ -670,6 +678,10 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         let collapsedCheck = NSButton(checkboxWithTitle: "Launch collapsed (keyboard hidden)",
                                       target: self, action: #selector(startCollapsedToggled(_:)))
         collapsedCheck.state = currentStartCollapsed ? .on : .off
+
+        let captureCheck = NSButton(checkboxWithTitle: "Hide from screenshots and screen recordings",
+                                    target: self, action: #selector(hideFromCaptureToggled(_:)))
+        captureCheck.state = currentHideFromCapture ? .on : .off
 
         let fmt = NumberFormatter()
         fmt.numberStyle = .none
@@ -697,6 +709,9 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         return pane([
             .wide(loginCheck),
             .wide(collapsedCheck),
+            .wide(captureCheck),
+            .note("The keyboard stays on screen but is left out of every capture, "
+                  + "screen sharing included. Turn it off to photograph the keyboard."),
             .gap,
             .setting("Keyboard size", stepperRow(field: percentField, unit: "%",
                                                  minus: #selector(minusTapped),
@@ -968,6 +983,10 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
 
     @objc private func loginToggled(_ sender: NSButton) {
         LoginItem.setEnabled(sender.state == .on)
+    }
+
+    @objc private func hideFromCaptureToggled(_ sender: NSButton) {
+        onHideFromCaptureChange(sender.state == .on)
     }
 
     @objc private func startCollapsedToggled(_ sender: NSButton) {

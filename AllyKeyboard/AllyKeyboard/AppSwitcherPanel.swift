@@ -117,6 +117,7 @@ final class AppSwitcherPanel {
         p.isFloatingPanel = true
         // The level goes last: `isFloatingPanel` resets it to `.floating`.
         p.level = AppConfig.Levels.keyboard
+        p.sharingType = AppConfig.Capture.sharingType
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
         p.backgroundColor = .clear
