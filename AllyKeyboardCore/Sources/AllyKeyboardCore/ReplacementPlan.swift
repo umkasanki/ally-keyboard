@@ -58,3 +58,28 @@ public enum SuggestionApplier {
         return count
     }
 }
+
+/// What to do with the space typed after a picked suggestion when the next
+/// key wants it gone — the way phones do it. Picking "word" types "word ";
+/// a comma next would leave "word ," and an Enter a trailing space on the line.
+public enum SmartSpace {
+
+    public enum Action: Equatable {
+        /// Type the key as it is.
+        case none
+        /// Erase the space first: Return, Tab.
+        case removeSpace
+        /// Erase the space, type the mark, then a space after it: . , ! ? : ;
+        case moveSpaceAfter
+    }
+
+    /// The action for `character`, typed right after a suggestion was picked
+    /// with its space. Return is "\r", Tab "\t".
+    public static func afterSuggestion(typing character: Character) -> Action {
+        switch character {
+        case ".", ",", "!", "?", ":", ";": return .moveSpaceAfter
+        case "\r", "\n", "\t": return .removeSpace
+        default: return .none
+        }
+    }
+}

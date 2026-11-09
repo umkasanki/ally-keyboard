@@ -229,6 +229,15 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(store.load().learnWords)
     }
 
+    func testSpaceAfterSuggestionDefaultsOnAndDecodesLegacy() throws {
+        XCTAssertTrue(Settings().spaceAfterSuggestion)
+        let json = Data(#"{"sizePercent":100}"#.utf8)
+        XCTAssertTrue(try JSONDecoder().decode(Settings.self, from: json).spaceAfterSuggestion)
+        let store = SettingsStore(defaults: freshDefaults(), key: "s")
+        store.save(Settings(spaceAfterSuggestion: false))
+        XCTAssertFalse(store.load().spaceAfterSuggestion)
+    }
+
     private func freshDefaults() -> UserDefaults {
         let name = "test.allykeyboard.\(UUID().uuidString)"
         let d = UserDefaults(suiteName: name)!

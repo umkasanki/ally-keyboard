@@ -22,13 +22,35 @@ public final class TextTracker {
 
     /// Called with a word the moment it is finished — by a space, Return, Tab
     /// or punctuation — so it can be learned, and whether it was marked secret
-    /// while typed. Not called on `reset()`: a word cut short by navigation or
-    /// a shortcut may not be the word that was meant.
+    /// while typed. A word left by `reset()` (navigation, a click, another
+    /// application, a shortcut that cannot delete it) is not reported, as it
+    /// may not be the word that was meant — except a picked suggestion left
+    /// open (see `adopt(_:)`). `discard()` reports nothing at all.
     public var onWordCompleted: ((_ word: String, _ wasSecret: Bool) -> Void)?
 
     /// Whether any part of the current word was typed somewhere secret.
-    /// Cleared when the word ends, is dropped by `reset()`, or a new one starts.
+    /// Cleared when the word ends, by `reset()` and `discard()`, and when a new
+    /// one starts.
     public private(set) var currentWordIsSecret = false
+
+    /// The suggestion picked into the buffer, while the word it began is still
+    /// being typed — set by `adopt(_:)`; cleared when the word ends, when a
+    /// Backspace cuts into it, and by `reset()` and `discard()`.
+    public private(set) var adoptedWord: String?
+
+    /// Take a picked suggestion as the word being typed. It is counted once,
+    /// when it ends, like a typed one: at once if the caller ends it with
+    /// `.wordBoundary` (a space typed after it), or later — the user may type
+    /// on ("staging" → "stagings"). Left before it ends — `reset()`: a click,
+    /// an arrow, another application, a shortcut — the picked word still
+    /// counts: it was chosen, not cut short. Not once a Backspace has cut into
+    /// it (then it is a word being retyped), nor after a shortcut that may
+    /// have deleted it (`discard()`; see `shortcutMayDeleteWord`).
+    /// A word picked over an open one replaces it; the first is not counted.
+    public func adopt(_ word: String) {
+        currentWord = word
+        adoptedWord = word.isEmpty ? nil : word
+    }
 
     /// Mark the word being typed as secret — typed into a password field or
     /// under secure input. It stays so until it ends, however the focus moves.
@@ -66,7 +88,7 @@ public final class TextTracker {
         switch input {
         case .character(let char):
             if isWordCharacter(char) {
-                if currentWord.isEmpty { currentWordIsSecret = false }
+                if currentWord.isEmpty { currentWordIsSecret = false; adoptedWord = nil }
                 currentWord.append(char)
             } else {
                 // Punctuation/symbol terminates the current word.
@@ -76,6 +98,7 @@ public final class TextTracker {
             if !currentWord.isEmpty {
                 currentWord.removeLast()
             }
+            if let picked = adoptedWord, currentWord.count < picked.count { adoptedWord = nil }
         case .wordBoundary:
             completeWord()
         case .ignored:
@@ -93,10 +116,54 @@ public final class TextTracker {
         currentWord = ""
         if !word.isEmpty { onWordCompleted?(word, currentWordIsSecret) }
         currentWordIsSecret = false
+        adoptedWord = nil
     }
 
-    /// Clear the buffer (e.g. when focus changes or the keyboard is hidden).
+    /// Whether a key may delete the word before the caret, as a shortcut —
+    /// which drops even a picked word uncounted, since what it did to it
+    /// cannot be known. `modifiers` are the keyboard's own modifier keys held
+    /// for it: "Cmd", "Alt", "Ctrl".
+    ///
+    /// - ⌫ or forward delete with any modifier (⌥⌫ a word, ⌘⌫ a line);
+    /// - ⌘Z, undo — the chord, or the keyboard's own Undo key ("Cmd+Z");
+    /// - ⌃H, delete backward (text fields and shells); ⌃T, transpose the two
+    ///   letters at the caret (text fields); ⌃W and ⌃U, delete a word and the
+    ///   line (shells, Emacs).
+    ///
+    /// Not cut: while a picked word is open nothing is selected (selecting
+    /// takes Shift-arrows, ⌘A or a click, each of which ends the word), so ⌘X
+    /// leaves it in place in a standard text field. Nor ⌘W, ⌘H, ⌥ letters:
+    /// they leave the word as it is.
+    ///
+    /// `keyID` is the keyboard's own key identifier, the same in every layout.
+    /// The shortcut a letter key sends follows the US positions: right for US
+    /// and Russian, not for QWERTZ or AZERTY, where Z and Y or W move.
+    public static func shortcutMayDeleteWord(keyID: String, modifiers: Set<String>) -> Bool {
+        let id = keyID.lowercased()
+        if id == "cmd+z" { return true }
+        guard !modifiers.isEmpty else { return false }
+        if id == "backspace" || id == "delete" { return true }
+        if modifiers.contains("Cmd"), id == "z" { return true }
+        if modifiers.contains("Ctrl"), ["h", "t", "w", "u"].contains(id) { return true }
+        return false
+    }
+
+    /// Drop the word without counting it, even a picked one: for a shortcut
+    /// that may have deleted it (see `shortcutMayDeleteWord`).
+    public func discard() {
+        adoptedWord = nil
+        currentWord = ""
+        currentWordIsSecret = false
+    }
+
+    /// End the word without counting it — a click elsewhere, an arrow, another
+    /// application — except a picked word left open, which counts (see
+    /// `adopt(_:)`).
     public func reset() {
+        if let picked = adoptedWord {
+            onWordCompleted?(picked, currentWordIsSecret)
+        }
+        adoptedWord = nil
         currentWord = ""
         currentWordIsSecret = false
     }

@@ -588,6 +588,13 @@ class ViewController: NSViewController {
         if !on { hideSuggestions() }
     }
 
+    var currentSpaceAfterSuggestion: Bool { settings.spaceAfterSuggestion }
+
+    func applySpaceAfterSuggestion(_ on: Bool) {
+        settings.spaceAfterSuggestion = on
+        settingsStore.save(settings)
+    }
+
     var currentLearnWords: Bool { settings.learnWords }
 
     func applyLearnWords(_ on: Bool) {
@@ -911,6 +918,7 @@ class ViewController: NSViewController {
     private let suggestionSpacing: CGFloat = 0
     private var suggestionPanel: NSPanel?
     private var clickMonitors: [Any] = []
+    private var appActivation: NSObjectProtocol?
     /// The balloon currently shows saved phrases (from the list key) rather than word predictions.
     private var balloonIsGreetings = false
     private var currentSuggestions: [String] = []
@@ -922,6 +930,17 @@ class ViewController: NSViewController {
         .appendingPathComponent("AllyKeyboard/vocabulary.json"))
     private var vocabulary = UserVocabulary()
     private var vocabularySave: Timer?
+    /// A suggestion was just picked with its space, and nothing that may move
+    /// the caret has happened since — no key but Shift, Caps Lock, a modifier
+    /// or the layout key, no click outside the keyboard window. The space is
+    /// still right before the caret, so the next key may take it back
+    /// (see `SmartSpace`).
+    private var autoSpacePending = false
+    /// Keys that leave the auto space pending: they do not touch the text.
+    private static let keysKeepingAutoSpace = Set(["Shift", "CapsLock", "LangSwitch"]).union(modifierIDs)
+    /// The input language the word being typed was begun in. A word ended by
+    /// the layout key would otherwise be checked against the new language.
+    private var wordLanguage: String?
     /// Not saved before it is loaded: a save then would overwrite the file
     /// with nothing.
     private var vocabularyLoaded = false
@@ -1170,6 +1189,12 @@ class ViewController: NSViewController {
             return
         }
 
+        // Taken here, before any key returns early: AppSwitcher, Hi, Translate
+        // and the rest may move the caret or the focus, and then the space is
+        // no longer the character before it.
+        let autoSpaceWasPending = autoSpacePending
+        if !Self.keysKeepingAutoSpace.contains(key) { autoSpacePending = false }
+
         if key == "Shift" {
             isShifted = sender.state == .on
             return
@@ -1254,6 +1279,10 @@ class ViewController: NSViewController {
             translateSelection()
             return
         }
+
+        let smartSpace = autoSpaceWasPending
+            ? takeBackAutoSpace(for: key, literal: (sender as? KeyButton)?.literalChar) : .none
+        defer { if smartSpace == .moveSpaceAfter { KeySender.sendText(" ") } }
 
         // Fixed keys (top-row punctuation) type their literal, independent of layout.
         if activeModifiers.isEmpty, let literal = (sender as? KeyButton)?.literalChar {
@@ -1437,6 +1466,14 @@ class ViewController: NSViewController {
 
     /// Feed the buffer the actual character produced under the current layout.
     private func updateTextTracker(key: String, shifted: Bool, hasModifiers: Bool) {
+        // A shortcut ends the word. One that may have deleted it — ⌥⌫, ⌘Z, the
+        // keyboard's own Undo key — drops it uncounted, even a picked one; any
+        // other (⌘→, ⌘⏎, ⌘W) leaves it. Still held here: the one-shot
+        // modifiers are cleared after this.
+        if TextTracker.shortcutMayDeleteWord(keyID: key, modifiers: activeModifiers) {
+            textTracker.discard()
+            return
+        }
         if hasModifiers { textTracker.reset(); return }
         switch key {
         case "Space", "Return", "Tab":
@@ -1548,13 +1585,21 @@ class ViewController: NSViewController {
         let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             self?.hideSuggestions()
             // The cursor has moved somewhere else: what is typed next is a new
-            // word, not the rest of this one. Dropped unsaved, as navigation is.
+            // word, not the rest of this one. Dropped unsaved, as navigation is
+            // (a picked word still counts, see `TextTracker.adopt`), and the
+            // space after a picked word is no longer before the caret.
             self?.textTracker.reset()
+            self?.autoSpacePending = false
         }
         let local = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             // A click on the keyboard lets go of the system ⇧; the Shift key's
             // own action takes it again if it is turning ⇧ on.
             KeySender.holdShift(false)
+            // A click in another of our windows — the App Switcher, a phrase
+            // in the balloon, Settings — may move the caret: the auto space is
+            // no longer known to be before it. Keys on the keyboard decide for
+            // themselves in `keyPressed`, and a suggestion picked sets it anew.
+            if let self, event.window !== self.view.window { self.autoSpacePending = false }
             self?.handleLocalClick(event)
             return event
         }
@@ -1564,6 +1609,15 @@ class ViewController: NSViewController {
             self.isShifted = false
         }
         clickMonitors = [global, local, shiftClick].compactMap { $0 }
+        // Another application came to the front — the App Switcher, Translate
+        // opening the browser, ⌘Tab, the Dock: what is typed next goes
+        // elsewhere, so the word is left, as by a click.
+        appActivation = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.textTracker.reset()
+            self?.autoSpacePending = false
+        }
     }
 
     private func handleLocalClick(_ event: NSEvent) {
@@ -1612,6 +1666,29 @@ class ViewController: NSViewController {
         if balloonIsGreetings { showGreetings() } else { showSuggestions(currentSuggestions) }
     }
 
+    /// The key typed right after a suggestion was picked with its space: if it
+    /// is punctuation, Return or Tab, erase that space first (and, for
+    /// punctuation, the caller types it again after the mark). Called only
+    /// while the space is still pending; the key itself has already ended it.
+    private func takeBackAutoSpace(for key: String, literal: String?) -> SmartSpace.Action {
+        guard activeModifiers.isEmpty else { return .none }
+        let typed: Character?
+        switch key {
+        case "Return": typed = "\r"
+        case "Tab":    typed = "\t"
+        default:
+            if let literal { typed = literal.first }
+            else if let code = KeySender.keyCode(for: key), !Self.nonCharacterKeys.contains(key) {
+                typed = InputSourceSwitcher.character(forKeyCode: code, shift: isShifted,
+                                                      from: InputSourceSwitcher.currentSource())?.first
+            } else { typed = nil }
+        }
+        guard let typed else { return .none }
+        let action = SmartSpace.afterSuggestion(typing: typed)
+        if action != .none { KeySender.send("Backspace") }
+        return action
+    }
+
     /// Feed one typed character to the word buffer, noting whether the word
     /// is being typed somewhere secret. Checked as it is typed, not only when
     /// it ends: the Enter that ends a password may already have moved the focus.
@@ -1619,6 +1696,7 @@ class ViewController: NSViewController {
     /// the cheap one on every letter after; none for punctuation between words.
     private func track(_ c: Character) {
         let startsWord = !textTracker.hasPartialWord
+        if startsWord { wordLanguage = InputSourceSwitcher.currentLanguageCode() }
         textTracker.handle(.character(c))
         guard textTracker.hasPartialWord else { return }
         if startsWord ? KeySender.isSecretInput() : KeySender.isSecureInputOn() {
@@ -1631,21 +1709,32 @@ class ViewController: NSViewController {
     /// field: a password must never be kept, let alone suggested.
     private func learn(_ word: String, wasSecret: Bool) {
         guard settings.learnWords, !wasSecret, !KeySender.isSecretInput() else { return }
-        // Set here too: with suggestions off nothing else keeps it current.
-        speller.language = InputSourceSwitcher.currentLanguageCode()
+        // The language the word was typed in — not the current one, which the
+        // layout key may just have changed. Set here, too, because with
+        // suggestions off nothing else keeps it current.
+        speller.language = wordLanguage ?? InputSourceSwitcher.currentLanguageCode()
         vocabulary.record(word, isOwnWord: UserVocabulary.isOwnWord(word, knownToSystem: speller.knows(word)))
         scheduleVocabularySave()
     }
 
-    /// Replace the partial word with the chosen suggestion, then a space.
+    /// Replace the partial word with the chosen suggestion — then a space, or,
+    /// with that off in Settings, nothing: the word stays open to be typed on.
     private func applySuggestion(_ word: String) {
-        // Picking a suggestion is a use of the word, like typing it.
-        learn(word, wasSecret: textTracker.currentWordIsSecret)
-        let plan = SuggestionApplier.plan(currentWord: textTracker.currentWord, suggestion: word)
+        let withSpace = settings.spaceAfterSuggestion
+        let plan = SuggestionApplier.plan(currentWord: textTracker.currentWord, suggestion: word,
+                                          appendSpace: withSpace)
         for _ in 0..<plan.backspaces { KeySender.send("Backspace") }
         KeySender.sendText(plan.textToInsert)
-        textTracker.reset()
         hideSuggestions()
+        // The tracker counts it, once — the word picked over, if one was open,
+        // is replaced, not counted; see `TextTracker.adopt`.
+        textTracker.adopt(word)
+        if withSpace {
+            textTracker.handle(.wordBoundary)       // the space just typed ends it
+            autoSpacePending = true
+        } else {
+            refreshSuggestions()                    // open: type on, or end it
+        }
     }
 
     // MARK: - Language switch
@@ -1740,6 +1829,7 @@ class ViewController: NSViewController {
         DistributedNotificationCenter.default().removeObserver(self)
         NotificationCenter.default.removeObserver(self)
         clickMonitors.forEach { NSEvent.removeMonitor($0) }
+        if let appActivation { NSWorkspace.shared.notificationCenter.removeObserver(appActivation) }
     }
 
     private func observeInputSourceChanges() {

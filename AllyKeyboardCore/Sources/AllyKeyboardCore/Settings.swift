@@ -102,6 +102,10 @@ public struct Settings: Codable, Equatable {
     /// Whether the word-prediction panel appears while typing.
     public var showSuggestions: Bool
 
+    /// Type a space after a picked suggestion. Off, the word stays open to be
+    /// typed on, and is counted once it ends.
+    public var spaceAfterSuggestion: Bool
+
     /// Count the words typed, to suggest the ones used most. Off, nothing more is
     /// learned; words learned already are still suggested.
     public var learnWords: Bool
@@ -166,6 +170,7 @@ public struct Settings: Codable, Equatable {
     public init(sizePercent: Int = 100,
                 showSuggestions: Bool = true,
                 learnWords: Bool = true,
+                spaceAfterSuggestion: Bool = true,
                 savedPhrases: [String] = Settings.defaultGreetings,
                 launcherWidth: Int = 50,
                 launcherOpacityPercent: Int = 100,
@@ -191,6 +196,7 @@ public struct Settings: Codable, Equatable {
         self.sizePercent = Settings.clampPercent(sizePercent)   // didSet does not run in init
         self.showSuggestions = showSuggestions
         self.learnWords = learnWords
+        self.spaceAfterSuggestion = spaceAfterSuggestion
         self.startCollapsed = startCollapsed
         self.showHideSlide = showHideSlide
         self.showHideFade = showHideFade
@@ -269,7 +275,7 @@ public struct Settings: Codable, Equatable {
 
     // Decode leniently so older saved settings (missing new keys) still load.
     private enum CodingKeys: String, CodingKey {
-        case sizePercent, showSuggestions, learnWords, savedPhrases, launcherWidth, launcherOpacityPercent,
+        case sizePercent, showSuggestions, learnWords, spaceAfterSuggestion, savedPhrases, launcherWidth, launcherOpacityPercent,
              topBarShow, topBarHeight, bottomBarShow, bottomBarHeight,
              dragToMove, dragCooldownMs, startCollapsed, showHideSlide, showHideFade, theme,
              appPanelIconSize, appPanelOpacityPercent, appPanelHiddenApps, appPanelAutoHideSeconds,
@@ -282,6 +288,7 @@ public struct Settings: Codable, Equatable {
         self.sizePercent = Settings.clampPercent(try c.decodeIfPresent(Int.self, forKey: .sizePercent) ?? 100)
         self.showSuggestions = try c.decodeIfPresent(Bool.self, forKey: .showSuggestions) ?? true
         self.learnWords = try c.decodeIfPresent(Bool.self, forKey: .learnWords) ?? true
+        self.spaceAfterSuggestion = try c.decodeIfPresent(Bool.self, forKey: .spaceAfterSuggestion) ?? true
         self.savedPhrases = try c.decodeIfPresent([String].self, forKey: .savedPhrases) ?? Settings.defaultGreetings
         self.launcherWidth = Settings.clampLauncherWidth(try c.decodeIfPresent(Int.self, forKey: .launcherWidth) ?? 50)
         self.launcherOpacityPercent = Settings.clampLauncherOpacity(try c.decodeIfPresent(Int.self, forKey: .launcherOpacityPercent) ?? 100)

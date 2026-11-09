@@ -18,6 +18,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     private let onShowSuggestionsChange: (Bool) -> Void
     private let onSavedPhrasesChange: ([String]) -> Void
     private let onLearnWordsChange: (Bool) -> Void
+    private let onSpaceAfterSuggestionChange: (Bool) -> Void
     private let onLearnedWordsChange: (_ added: [String], _ removed: [String]) -> Void
     private let onLauncherWidthChange: (Int) -> Void
     private let onLauncherOpacityChange: (Int) -> Void
@@ -75,6 +76,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          currentShowSuggestions: Bool,
          currentSavedPhrases: [String],
          currentLearnWords: Bool,
+         currentSpaceAfterSuggestion: Bool,
          currentLearnedWords: [String],
          currentLauncherWidth: Int,
          currentLauncherOpacity: Int,
@@ -101,6 +103,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
          onShowSuggestionsChange: @escaping (Bool) -> Void,
          onSavedPhrasesChange: @escaping ([String]) -> Void,
          onLearnWordsChange: @escaping (Bool) -> Void,
+         onSpaceAfterSuggestionChange: @escaping (Bool) -> Void,
          onLearnedWordsChange: @escaping (_ added: [String], _ removed: [String]) -> Void,
          onLauncherWidthChange: @escaping (Int) -> Void,
          onLauncherOpacityChange: @escaping (Int) -> Void,
@@ -127,6 +130,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         self.onShowSuggestionsChange = onShowSuggestionsChange
         self.onSavedPhrasesChange = onSavedPhrasesChange
         self.onLearnWordsChange = onLearnWordsChange
+        self.onSpaceAfterSuggestionChange = onSpaceAfterSuggestionChange
         self.onLearnedWordsChange = onLearnedWordsChange
         self.onLauncherWidthChange = onLauncherWidthChange
         self.onLauncherOpacityChange = onLauncherOpacityChange
@@ -172,6 +176,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                 currentShowSuggestions: currentShowSuggestions,
                 currentSavedPhrases: currentSavedPhrases,
                 currentLearnWords: currentLearnWords,
+                currentSpaceAfterSuggestion: currentSpaceAfterSuggestion,
                 currentLearnedWords: currentLearnedWords,
                 currentLauncherWidth: currentLauncherWidth,
                 currentLauncherOpacity: currentLauncherOpacity,
@@ -203,7 +208,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     }
 
     private func buildUI(currentPercent: Int, currentShowSuggestions: Bool, currentSavedPhrases: [String],
-                         currentLearnWords: Bool, currentLearnedWords: [String],
+                         currentLearnWords: Bool, currentSpaceAfterSuggestion: Bool,
+                         currentLearnedWords: [String],
                          currentLauncherWidth: Int, currentLauncherOpacity: Int,
                          currentTopBarShow: Bool, currentTopBarHeight: Int,
                          currentBottomBarShow: Bool, currentBottomBarHeight: Int,
@@ -239,6 +245,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         suggestions.view = makeSuggestionsView(current: currentShowSuggestions,
                                                savedPhrases: currentSavedPhrases,
                                                learnWords: currentLearnWords,
+                                               spaceAfter: currentSpaceAfterSuggestion,
                                                learnedWords: currentLearnedWords)
 
         let launcher = NSTabViewItem(identifier: "launcher")
@@ -808,10 +815,14 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
     }
 
     private func makeSuggestionsView(current: Bool, savedPhrases: [String],
-                                     learnWords: Bool, learnedWords: [String]) -> NSView {
+                                     learnWords: Bool, spaceAfter: Bool,
+                                     learnedWords: [String]) -> NSView {
         let check = NSButton(checkboxWithTitle: "Show suggestions while typing",
                              target: self, action: #selector(suggestionsToggled(_:)))
         check.state = current ? .on : .off
+        let spaceCheck = NSButton(checkboxWithTitle: "Add a space after a picked suggestion",
+                                  target: self, action: #selector(spaceAfterToggled(_:)))
+        spaceCheck.state = spaceAfter ? .on : .off
         let learnCheck = NSButton(checkboxWithTitle: "Learn the words you type",
                                   target: self, action: #selector(learnWordsToggled(_:)))
         learnCheck.state = learnWords ? .on : .off
@@ -821,6 +832,9 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         let (_, scroll) = textArea(savedPhrases, height: 110)
         return pane([
             .wide(check),
+            .wide(spaceCheck),
+            .note("With it on, punctuation ( . , ! ? : ; ), Enter or Tab typed next takes "
+                  + "the space back. Off, the word stays open: type on, or end it yourself."),
             .wide(learnCheck),
             .gap,
             .tall("Learned words", wordsScroll),
@@ -974,6 +988,10 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
 
     @objc private func suggestionsToggled(_ sender: NSButton) {
         onShowSuggestionsChange(sender.state == .on)
+    }
+
+    @objc private func spaceAfterToggled(_ sender: NSButton) {
+        onSpaceAfterSuggestionChange(sender.state == .on)
     }
 
     @objc private func learnWordsToggled(_ sender: NSButton) {
