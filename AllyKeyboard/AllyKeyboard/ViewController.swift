@@ -1745,11 +1745,13 @@ class ViewController: NSViewController {
         hideSuggestions()
         // The tracker counts it, once — the word picked over, if one was open,
         // is replaced, not counted; see `TextTracker.adopt`.
-        textTracker.adopt(word)
         if withSpace {
-            textTracker.handle(.wordBoundary)       // the space just typed ends it
+            // Counted when the next key is not a Backspace: a Backspace takes
+            // the space back and reopens the word to be typed on.
+            textTracker.pickWithSpace(word)
             autoSpacePending = true
         } else {
+            textTracker.adopt(word)
             refreshSuggestions()                    // open: type on, or end it
         }
     }

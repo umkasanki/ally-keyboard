@@ -195,6 +195,74 @@ final class TextTrackerTests: XCTestCase {
         XCTAssertEqual(secret, [true, true])
     }
 
+    // MARK: A picked suggestion with its space after it
+
+    private func counting(_ t: TextTracker) -> () -> [String] {
+        var completed: [String] = []
+        t.onWordCompleted = { word, _ in completed.append(word) }
+        return { completed }
+    }
+
+    func testBackspaceAfterAPickReopensItToBeTypedOn() {
+        let t = TextTracker(); let completed = counting(t)
+        t.handle(.character("s")); t.pickWithSpace("staging")
+        XCTAssertFalse(t.hasPartialWord)                   // no suggestions behind the space
+        t.handle(.backspace)                               // the space, not the "g"
+        XCTAssertEqual(t.currentWord, "staging")
+        XCTAssertTrue(t.hasPartialWord)
+        t.handle(.character("s"))
+        t.handle(.wordBoundary)
+        XCTAssertEqual(completed(), ["stagings"])          // once, the longer word only
+    }
+
+    func testARussianCompoundFromAPick() {
+        let t = TextTracker(); let completed = counting(t)
+        let kogda = "\u{043A}\u{043E}\u{0433}\u{0434}\u{0430}"
+        let to = "\u{0442}\u{043E}"
+        t.handle(.character("\u{043A}")); t.pickWithSpace(kogda)
+        t.handle(.backspace)
+        t.handle(.character("-")); to.forEach { t.handle(.character($0)) }
+        t.handle(.wordBoundary)
+        XCTAssertEqual(completed(), [kogda + "-" + to])
+    }
+
+    func testAnyOtherKeyAfterAPickCountsItThenGoesOn() {
+        let t = TextTracker(); let completed = counting(t)
+        t.handle(.character("s")); t.pickWithSpace("staging")
+        "is".forEach { t.handle(.character($0)) }          // the next word, typed after the space
+        t.handle(.wordBoundary)
+        XCTAssertEqual(completed(), ["staging", "is"])
+    }
+
+    func testPunctuationOrReturnAfterAPickCountsItOnce() {
+        let t = TextTracker(); let completed = counting(t)
+        t.handle(.character("s")); t.pickWithSpace("staging")
+        t.handle(.character(","))                          // smart space moved it after the comma
+        t.handle(.character("d")); t.pickWithSpace("deploy")
+        t.handle(.wordBoundary)                            // Return
+        XCTAssertEqual(completed(), ["staging", "deploy"])
+    }
+
+    func testAPickLeftBehindItsSpaceCountsOnAClickAndNotAfterUndo() {
+        let t = TextTracker(); let completed = counting(t)
+        t.handle(.character("s")); t.pickWithSpace("staging")
+        t.reset()                                          // a click elsewhere
+        t.handle(.character("d")); t.pickWithSpace("deploy")
+        t.discard()                                        // the Undo key
+        t.handle(.backspace)                               // nothing left to reopen
+        t.handle(.wordBoundary)
+        XCTAssertEqual(completed(), ["staging"])
+    }
+
+    func testBackspacingPastTheReopenedWordMakesItATypedWord() {
+        let t = TextTracker(); let completed = counting(t)
+        t.handle(.character("s")); t.pickWithSpace("staging")
+        t.handle(.backspace)                               // reopen
+        t.handle(.backspace)                               // the "g": no longer the pick
+        t.reset()                                          // a typed word cut short
+        XCTAssertEqual(completed(), [])
+    }
+
     func testSmartSpace() {
         XCTAssertEqual(SmartSpace.afterSuggestion(typing: ","), .moveSpaceAfter)
         XCTAssertEqual(SmartSpace.afterSuggestion(typing: "."), .moveSpaceAfter)

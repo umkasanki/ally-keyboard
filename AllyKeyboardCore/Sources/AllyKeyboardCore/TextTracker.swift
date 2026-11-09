@@ -52,6 +52,22 @@ public final class TextTracker {
         adoptedWord = word.isEmpty ? nil : word
     }
 
+    /// A suggestion picked with a space typed after it: `pickWithSpace(_:)`.
+    /// The word is finished as far as the text goes, but not yet counted — the
+    /// next key decides. A Backspace takes the space back and reopens the word,
+    /// to be typed on ("staging" → "stagings", or a Russian compound with a
+    /// hyphenated ending); anything else
+    /// counts the picked word first, then goes on as usual.
+    public private(set) var pickAwaitsNextKey = false
+
+    /// Take a suggestion picked with its space typed after it (see
+    /// `pickAwaitsNextKey`). Counted once: when the next key is not a Backspace,
+    /// on `reset()`, or as the longer word once a reopened word ends.
+    public func pickWithSpace(_ word: String) {
+        adopt(word)
+        pickAwaitsNextKey = !word.isEmpty
+    }
+
     /// Mark the word being typed as secret — typed into a password field or
     /// under secure input. It stays so until it ends, however the focus moves.
     public func markSecret() {
@@ -85,6 +101,13 @@ public final class TextTracker {
 
     /// Update the buffer for one keystroke.
     public func handle(_ input: KeyInput) {
+        if pickAwaitsNextKey {
+            pickAwaitsNextKey = false
+            // The Backspace erased the space after the picked word, not a letter
+            // of it: the word is open again, as if picked without the space.
+            if case .backspace = input { return }
+            completeWord()
+        }
         switch input {
         case .character(let char):
             if isWordCharacter(char) {
@@ -151,6 +174,7 @@ public final class TextTracker {
     /// Drop the word without counting it, even a picked one: for a shortcut
     /// that may have deleted it (see `shortcutMayDeleteWord`).
     public func discard() {
+        pickAwaitsNextKey = false
         adoptedWord = nil
         currentWord = ""
         currentWordIsSecret = false
@@ -160,6 +184,7 @@ public final class TextTracker {
     /// application — except a picked word left open, which counts (see
     /// `adopt(_:)`).
     public func reset() {
+        pickAwaitsNextKey = false
         if let picked = adoptedWord {
             onWordCompleted?(picked, currentWordIsSecret)
         }
@@ -168,8 +193,10 @@ public final class TextTracker {
         currentWordIsSecret = false
     }
 
-    /// Whether there is a partial word to offer suggestions for.
-    public var hasPartialWord: Bool { !currentWord.isEmpty }
+    /// Whether there is a partial word to offer suggestions for. Not while a
+    /// picked word waits behind its space: the caret is past it, and a
+    /// suggestion applied there would erase the wrong letters.
+    public var hasPartialWord: Bool { !currentWord.isEmpty && !pickAwaitsNextKey }
 
     /// Number of Backspaces needed to erase the current partial word when a
     /// suggestion is accepted.
