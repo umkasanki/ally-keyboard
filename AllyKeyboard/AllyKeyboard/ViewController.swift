@@ -451,6 +451,17 @@ class ViewController: NSViewController {
         /// An empty, non-interactive gap used to keep rows aligned.
         static func spacer(_ w: CGFloat) -> Key { Key("__spacer__", title: "", w: w) }
         var isSpacer: Bool { id == "__spacer__" }
+
+        /// A key of a layout, under the id the rest of the keyboard reads
+        /// (`KeyAction.legacyID`). Text typed as is — the top row's
+        /// punctuation — is what `fixed` has always meant.
+        init(_ spec: KeySpec) {
+            let isLiteral: Bool
+            if case .literal = spec.action { isLiteral = true } else { isLiteral = false }
+            self.init(spec.action.legacyID, title: spec.title, secondary: spec.secondary,
+                      image: spec.icon, w: CGFloat(spec.width), fontScale: CGFloat(spec.fontScale),
+                      fixed: isLiteral, colored: spec.colored)
+        }
     }
 
 
@@ -744,100 +755,13 @@ class ViewController: NSViewController {
 
     // MARK: - Keyboard rows
 
-    private let functionRow: [Key] = [
-        Key("Escape", title: "Esc", w: 1.5, fontScale: 0.7),
-        Key("Hi",     image: "list.bullet"),
-        // Blanked on the user's request 2026-09-26: window width/height cycling
-        // went unused. The keys stay in place rather than being removed, so the
-        // row does not shift and nothing else has to be re-learned. Their
-        // handlers are still in `handleKey` — the feature is one line away if it
-        // is ever wanted back.
-        Key("AppSwitcher", image: "square.grid.2x2"),
-        Key("Screenshot", image: "camera"),
-        Key("@",  title: "@", fixed: true),
-        Key("!",  title: "!", fixed: true),
-        Key("?",  title: "?", fixed: true),
-        Key(".",  title: ".", fixed: true),
-        Key(",",  title: ",", fixed: true),
-        Key("-",  title: "-", fixed: true),
-        Key("+",  title: "+", fixed: true),
-        Key("=",  title: "=", fixed: true),
-        Key("Mute",       image: "volume-off-icon",  fontScale: 0.95, colored: true),
-        Key("VolumeDown", image: "volume-down-icon", fontScale: 1.08, colored: true),
-        Key("VolumeUp",   image: "volume-up-icon",   fontScale: 0.95, colored: true),
-        Key("LangSwitch", title: "🇺🇸", fontScale: 1.5),        // right column
-    ]
+    /// The layout the keyboard is built from. The rows used to be written out
+    /// here; they are data now (`KeyboardLayout.standard` in Core, pinned key
+    /// for key against what was here), so that layouts can be edited and
+    /// switched. Everything below still works in `Key`s and their ids.
+    private var layout: KeyboardLayout = .standard
 
-    private let numberRow: [Key] = [
-        Key("`",   title: "~", secondary: "`"),
-        Key("1",   secondary: "!"),
-        Key("2",   secondary: "@"),
-        Key("3",   secondary: "#"),
-        Key("4",   secondary: "$"),
-        Key("5",   secondary: "%"),
-        Key("6",   secondary: "^"),
-        Key("7",   secondary: "&"),
-        Key("8",   secondary: "*"),
-        Key("9",   secondary: "("),
-        Key("0",   secondary: ")"),
-        Key("-",   secondary: "_"),
-        Key("=",   secondary: "+"),
-        Key("Backspace", image: "delete.backward", w: 1.5, fontScale: 1.25),
-        Key("Home",      title: "Home", fontScale: 0.7),
-        Key("Cmd+C",     image: "copy-icon", fontScale: 0.85, colored: true),    // right column
-    ]
-
-    private let letterRows: [[Key]] = [
-        // QWERTY row
-        [Key("Tab",     title: "Tab", w: 1.5, fontScale: 0.7),
-         Key("Q", title: "q"), Key("W", title: "w"), Key("E", title: "e"),
-         Key("R", title: "r"), Key("T", title: "t"), Key("Y", title: "y"),
-         Key("U", title: "u"), Key("I", title: "i"), Key("O", title: "o"),
-         Key("P", title: "p"),
-         Key("[",        secondary: "{"),
-         Key("]",        secondary: "}"),
-         Key("\\",       secondary: "|"),
-         Key("PageUp",   title: "Up",   fontScale: 0.7),
-         Key("Cmd+X",    image: "cut-icon", fontScale: 0.85, colored: true)],   // right column
-        // ASDF row
-        [Key("CapsLock", title: "Caps", w: 1.75, fontScale: 0.7),
-         Key("A", title: "a"), Key("S", title: "s"), Key("D", title: "d"),
-         Key("F", title: "f"), Key("G", title: "g"), Key("H", title: "h"),
-         Key("J", title: "j"), Key("K", title: "k"), Key("L", title: "l"),
-         Key(";", secondary: ":"),
-         Key("'", secondary: "\""),
-         Key("Return", image: "return", w: 1.75),
-         Key("PageDown", title: "Down", fontScale: 0.7),
-         Key("Cmd+V",    image: "paste-icon", fontScale: 0.85, colored: true)],  // right column
-        // ZXCV row
-        [Key("Shift",      image: "shift", w: 2.25),
-         Key("Z", title: "z"), Key("X", title: "x"), Key("C", title: "c"),
-         Key("V", title: "v"), Key("B", title: "b"), Key("N", title: "n"),
-         Key("M", title: "m"),
-         Key(",", secondary: "<"),
-         Key(".", secondary: ">"),
-         Key("/", secondary: "?"),
-         Key("Shift",      image: "shift", w: 1.25),
-         Key("ArrowUp",    image: "arrow.up"),
-         Key("End",        title: "End",  fontScale: 0.7),
-         Key("Cmd+Z",      image: "undo-icon", fontScale: 0.85, colored: true)], // right column
-        // Bottom row
-        [Key("Ctrl",       title: "^",  w: 1.5),
-         Key("Alt",        title: "⌥", w: 1.5),
-         Key("Cmd",        title: "⌘", w: 1.5),
-         Key("Space",      title: "",  w: 5.0),
-         // A second ⌘ in place of Del: the user found it the more useful of the
-         // two, since on macOS ⌫ covers nearly everything Del was there for.
-         // Same id as the left one, so both light up together, as Shift does.
-         Key("Cmd",        title: "⌘", w: 1.5),
-         Key("HideKeyboard", image: "keyboard-glyph", w: 1.5),
-         Key("ArrowLeft",  image: "arrow.left"),
-         Key("ArrowDown",  image: "arrow.down"),
-         Key("ArrowRight", image: "arrow.right"),
-         Key("Translate",  image: "translate-icon", fontScale: 0.85, colored: true)], // right column
-    ]
-
-    private var allRows: [[Key]] { [functionRow, numberRow] + letterRows }
+    private var allRows: [[Key]] { layout.rows.map { $0.map(Key.init) } }
 
     private func rowPixelWidth(_ row: [Key]) -> CGFloat {
         row.reduce(0) { $0 + keyW($1) } + CGFloat(row.count - 1) * keySpacing
