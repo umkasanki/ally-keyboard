@@ -285,7 +285,9 @@ public final class LayoutEditor {
         // A key's cell is the key and the gap after it: its middle is where
         // one key gives way to the next.
         let gap = layout.geometry.keySpacing
-        for (i, place) in layout.placements(inRow: targetRow).enumerated() where place.x + (place.width + gap) / 2 >= x {
+        // Within a millionth of a point counts as a tie: widths like 1.1 add up
+        // with rounding error, and a tie goes to the left.
+        for (i, place) in layout.placements(inRow: targetRow).enumerated() where place.x + (place.width + gap) / 2 >= x - 1e-6 {
             index = i
             break
         }

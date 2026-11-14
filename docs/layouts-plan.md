@@ -286,3 +286,15 @@ behaviour). Not testable without an app test target, so checked on the device:
 the Type Text dispatch, suggestions after a shortcut, the key dialog's labels,
 the quit prompt, typing into the editor's dialogs.
 
+## Review to zero, second round (2026-11-14)
+
+The six commits after the first review (the key panel inside the editor,
+window levels, shortcut names, row alignment, scrolling). Passes found
+16, 6 and 3; the last two rounds' grade 1 items were New Key… and Add Row
+left dimmed after the key panel closed. Centre alignment was checked
+against the old arithmetic on the built-ins and 3,000 random layouts.
+While a key is edited, Delete Key, Rows ± , Swap, Undo, Redo and Revert are
+dimmed (the user's call), and closing or quitting asks whether to put the
+key in. Deferred: a menu Reset or Reload during a key edit keeps the
+editor's copy, as it does for unsaved edits.
+

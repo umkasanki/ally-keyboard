@@ -389,4 +389,54 @@ final class LayoutGeometryTests: XCTestCase {
         e.setRowAlignment(.left)
         XCTAssertTrue(e.problems.contains { if case .unevenRows = $0 { return true }; return false })
     }
+
+    func testAKeyNeverComesOutNegative() {
+        var l = KeyboardLayout(name: "T", rows: [[KeySpec(.character("a"), width: 0.5), KeySpec(.character("b"))],
+                                                 [KeySpec(.character("c"), width: 6)]])
+        l.geometry.keyWidth = 20
+        l.geometry.keySpacing = 24                              // a half key spans 0.5 * 44 - 24 < 0
+        for alignment in KeyboardLayout.RowAlignment.allCases {
+            l.geometry.rowAlignment = alignment
+            XCTAssertTrue(l.placements(inRow: 0).allSatisfy { $0.width >= 0 }, "\(alignment)")
+        }
+    }
+
+    func testATieIsATieDespiteRoundingError() {
+        // [6] over [3.3, 6]: the key's left edge meets the middle of 3.3's cell
+        // only up to rounding error; on a tie it goes to the left key.
+        let e = LayoutEditor(layout: KeyboardLayout(name: "T", rows: [
+            [KeySpec(.character("a"), width: 6)],
+            [KeySpec(.character("b"), width: 3.3), KeySpec(.character("c"), width: 6)],
+        ]))
+        e.select(KeyPosition(row: 0, index: 0))
+        e.moveToRow(by: 1)
+        XCTAssertEqual(e.selection, KeyPosition(row: 0, index: 0))
+        XCTAssertEqual(e.layout.rows[0].map(\.title), ["a", "b", "c"])
+    }
+
+    func testNoRowRunsPastTheWidestEvenWithHalfKeysWiderGaps() {
+        // Key 20, gap 24: a half key clamps to nothing. Neither centring nor
+        // stretching may push a row past the widest, or make a key negative.
+        let half = KeySpec(.character("h"), width: 0.5)
+        for rows in [[[KeySpec(.character("w"), width: 10)], Array(repeating: half, count: 18)],
+                     [[KeySpec(.character("w"))] + Array(repeating: half, count: 20), [KeySpec(.character("x"), width: 2)]]] {
+            var l = KeyboardLayout(name: "T", rows: rows)
+            l.geometry.keyWidth = 20
+            l.geometry.keySpacing = 24
+            for alignment in KeyboardLayout.RowAlignment.allCases {
+                l.geometry.rowAlignment = alignment
+                // The widest row, worked out here: each key max(0, w * 44 - 24),
+                // and a 24 gap between neighbours.
+                let widest = l.rows.map { row in
+                    row.reduce(0) { $0 + max(0, $1.width * 44 - 24) } + Double(row.count - 1) * 24
+                }.max()!
+                for r in l.rows.indices {
+                    let places = l.placements(inRow: r)
+                    XCTAssertGreaterThanOrEqual(places.first!.x, -1e-9, "\(alignment)")
+                    XCTAssertLessThanOrEqual(places.last!.x + places.last!.width, widest + 1e-9, "\(alignment) row \(r)")
+                    XCTAssertTrue(places.allSatisfy { $0.width >= 0 }, "\(alignment)")
+                }
+            }
+        }
+    }
 }

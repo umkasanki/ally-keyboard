@@ -120,6 +120,7 @@ final class AppSwitcherPanel {
         p.sharingType = AppConfig.Capture.sharingType
         p.hidesOnDeactivate = false
         p.isReleasedWhenClosed = false
+        p.worksWhenModal = true          // part of the keyboard: usable over the app's dialogs too
         p.backgroundColor = .clear
         p.isOpaque = false
         // Without this the window is told about the pointer only now and then,

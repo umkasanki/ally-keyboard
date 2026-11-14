@@ -102,14 +102,21 @@ public struct KeyboardLayout: Codable, Equatable, Identifiable {
         let g = geometry, unit = g.keyWidth + g.keySpacing
         let keys = rows[row]
         guard !keys.isEmpty else { return [] }
-        func span(_ units: Double) -> Double { units * unit - g.keySpacing }
+        // Never below nothing: a half-width key whose gap is wider than the
+        // key itself would otherwise come out negative. A row's span is made
+        // of the same clamped keys and the gaps between them — the keyboard's
+        // own sum (`rowPixelWidth`) — so no row runs past the widest.
+        func span(_ units: Double) -> Double { max(0, units * unit - g.keySpacing) }
+        func rowSpan(_ keys: [KeySpec]) -> Double {
+            keys.reduce(0) { $0 + span($1.width) } + Double(max(keys.count - 1, 0)) * g.keySpacing
+        }
         var widths = keys.map { span($0.width) }
-        let rowSpan = span(keys.reduce(0) { $0 + $1.width })
-        let full = span(rowWidths.max() ?? 0)
+        let ownSpan = rowSpan(keys)
+        let full = rows.map(rowSpan).max() ?? 0
         var x = 0.0
         switch g.rowAlignment {
         case .left: break
-        case .center: x = (full - rowSpan) / 2
+        case .center: x = (full - ownSpan) / 2
         case .stretch:
             let gaps = Double(keys.count - 1) * g.keySpacing
             let keysOnly = widths.reduce(0, +)
@@ -282,8 +289,9 @@ public struct Shortcut: Hashable {
 
     /// What macOS shows for the keys that type no character — in its menus
     /// and keyboard settings — by virtual key code. A recorded chord's event
-    /// gives these keys as invisible function-key characters (U+F700…), so
-    /// their names come from here.
+    /// gives these keys as invisible characters — function-key ones (U+F700…)
+    /// for the arrows, Home, End, the page keys and F-keys, control characters
+    /// for Return, Tab, Escape and Delete — so their names come from here.
     public static let keyNames: [Int: String] = [
         123: "\u{2190}", 124: "\u{2192}", 125: "\u{2193}", 126: "\u{2191}",   // ← → ↓ ↑
         36: "\u{21A9}", 76: "\u{2324}", 48: "\u{21E5}", 49: "Space",          // ↩ ⌤ ⇥
@@ -291,6 +299,8 @@ public struct Shortcut: Hashable {
         115: "\u{2196}", 119: "\u{2198}", 116: "\u{21DE}", 121: "\u{21DF}",  // ↖ ↘ ⇞ ⇟
         122: "F1", 120: "F2", 99: "F3", 118: "F4", 96: "F5", 97: "F6",
         98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12",
+        105: "F13", 107: "F14", 113: "F15", 106: "F16", 64: "F17", 79: "F18", 80: "F19", 90: "F20",
+        114: "Help", 71: "\u{2327}",                                             // ⌧ Clear
     ]
 
     /// A named chord's name; any other is spelled out.

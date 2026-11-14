@@ -754,10 +754,12 @@ class ViewController: NSViewController {
     }
     private var keyFontSizePrimary:   CGFloat { AppConfig.Layout.fontSizePrimary   * scale * labelScale }
     private var keyFontSizeSecondary: CGFloat { AppConfig.Layout.fontSizeSecondary * scale * labelScale }
+    /// Never below nothing, as `placements(inRow:)` has it: a half key with a
+    /// gap wider than the key would come out negative.
     private func keyW(_ key: Key) -> CGFloat {
         key.widthMultiplier == 1.0
             ? keyWidth
-            : keyWidth * key.widthMultiplier + keySpacing * (key.widthMultiplier - 1)
+            : max(0, keyWidth * key.widthMultiplier + keySpacing * (key.widthMultiplier - 1))
     }
 
     /// Top minimize strip — a fixed height in points (from Settings).

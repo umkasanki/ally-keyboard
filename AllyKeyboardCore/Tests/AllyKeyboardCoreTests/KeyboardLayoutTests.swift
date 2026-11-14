@@ -161,6 +161,10 @@ final class KeyboardLayoutTests: XCTestCase {
         XCTAssertEqual(Shortcut.keyNames[0x7A], "F1")
         XCTAssertEqual(Shortcut.keyNames[0x35], "\u{238B}")
         XCTAssertEqual(Shortcut.keyNames[0x73], "\u{2196}")
+        XCTAssertEqual(Shortcut.keyNames[0x69], "F13")          // kVK_F13
+        XCTAssertEqual(Shortcut.keyNames[0x5A], "F20")          // kVK_F20
+        XCTAssertEqual(Shortcut.keyNames[0x72], "Help")         // kVK_Help
+        XCTAssertEqual(Shortcut.keyNames[0x47], "\u{2327}")     // kVK_ANSI_KeypadClear
         XCTAssertNil(Shortcut.keyNames[1])                     // S types a character
     }
 }
