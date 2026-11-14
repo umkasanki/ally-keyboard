@@ -1086,7 +1086,6 @@ class ViewController: NSViewController {
         actionsByID = [:]
 
         let size       = keyboardSize  // compute once
-        let contentW   = size.width - padding * 2
         let symbolSize = keyFontSizePrimary * 0.85
 
         if settings.bottomBarShow {
@@ -1108,12 +1107,14 @@ class ViewController: NSViewController {
             let flippedRow = allRows.count - 1 - rowIndex
             let y = dragBarHeight + padding + CGFloat(flippedRow) * (keyHeight + rowSpacing)
 
-            let rowWidth = rowPixelWidth(row)
-            var x = padding + (contentW - rowWidth) / 2
+            // Where each key stands — at the left, centred or stretched, as
+            // the layout says (`placements(inRow:)`, shared with the editor).
+            let places = layout.placements(inRow: rowIndex)
 
-            for key in row {
-                let w = keyW(key)
-                if key.isSpacer { x += w + keySpacing; continue }   // empty gap, no button
+            for (keyIndex, key) in row.enumerated() {
+                let x = padding + CGFloat(places[keyIndex].x) * scale
+                let w = CGFloat(places[keyIndex].width) * scale
+                if key.isSpacer { continue }   // empty gap, no button
                 let btn = KeyButton(frame: NSRect(x: x, y: y, width: w, height: keyHeight))
                 btn.identifier = NSUserInterfaceItemIdentifier(key.id)
                 if let action = key.action { actionsByID[key.id] = action }
@@ -1214,7 +1215,6 @@ class ViewController: NSViewController {
                 }
 
                 view.addSubview(btn)
-                x += w + keySpacing
             }
         }
     }

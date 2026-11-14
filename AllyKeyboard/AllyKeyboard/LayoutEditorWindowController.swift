@@ -43,12 +43,15 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     /// Everything above the status bar, in a scroll view: the window grows
     /// with it up to the screen's visible height (above the Dock), and
     /// scrolls past that (the user's call, 2026-11-14).
-    private var contentStack: NSStackView!, statusBarView: NSView!
+    private var contentStack: NSStackView!, statusBarView: NSView!, scrollView: NSScrollView!
     private static let previewSize = NSSize(width: 820, height: 330)
     private let preview = LayoutPreviewView()
     /// The status bar's lines: the hint first, then a line per warning.
     private let statusLines = NSStackView()
     private let rowsValue = NSTextField(labelWithString: "")
+    private let alignPicker = NSSegmentedControl()
+    private static let alignments: [(alignment: KeyboardLayout.RowAlignment, title: String)] =
+        [(.left, "Left"), (.center, "Centre"), (.stretch, "Stretch")]
 
     private var undoButton: NSButton!, redoButton: NSButton!, saveButton: NSButton!, revertButton: NSButton!
     private var deleteButton: NSButton!, swapButton: NSButton!, deleteRowButton: NSButton!
@@ -192,7 +195,10 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         let scroll = NSScrollView()
         scroll.documentView = document
         scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = false
+        scroll.horizontalScrollElasticity = .none   // up and down only; the window widens instead
         scroll.autohidesScrollers = true
+        scrollView = scroll
         scroll.drawsBackground = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(scroll)
@@ -201,6 +207,11 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         contentStack = stack
         statusBarView = statusBar
         let clip = scroll.contentView
+        // Fills the visible width when the content is narrower — weaker than
+        // any control's resistance to being squeezed.
+        let fill = document.widthAnchor.constraint(equalTo: clip.widthAnchor)
+        fill.priority = NSLayoutConstraint.Priority(NSLayoutConstraint.Priority.defaultHigh.rawValue - 10)
+        fill.isActive = true
         NSLayoutConstraint.activate([
             scroll.topAnchor.constraint(equalTo: content.topAnchor),
             scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor),
@@ -208,7 +219,10 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
             scroll.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
             document.topAnchor.constraint(equalTo: clip.topAnchor),
             document.leadingAnchor.constraint(equalTo: clip.leadingAnchor),
-            document.widthAnchor.constraint(equalTo: clip.widthAnchor),
+            // At least as wide as the visible part, wider if the content
+            // needs it — then the window widens to it (`widenToContent`),
+            // never leaving it to scroll sideways or squeezing the insets.
+            document.widthAnchor.constraint(greaterThanOrEqualTo: clip.widthAnchor),
             stack.topAnchor.constraint(equalTo: document.topAnchor),
             stack.leadingAnchor.constraint(equalTo: document.leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: document.trailingAnchor),
@@ -291,6 +305,24 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
     /// As tall as what the window holds, no taller; it grows downwards, its
     /// top staying where it is.
+    /// Never scrolled sideways: the window is at least as wide as what it
+    /// holds, with room for the vertical scroller (within the screen).
+    private func widenToContent() {
+        guard let window, let document = scrollView.documentView else { return }
+        // Measured, not estimated: how far the laid-out content overhangs
+        // the visible part.
+        var extra = document.frame.width - scrollView.contentView.bounds.width
+        if let visible = window.screen?.visibleFrame { extra = min(extra, visible.width - window.frame.width) }
+        guard extra > 0.5 else { return }
+        var frame = window.frame
+        frame.size.width += extra
+        if let visible = window.screen?.visibleFrame, frame.maxX > visible.maxX {
+            frame.origin.x = max(visible.minX, visible.maxX - frame.width)
+        }
+        window.setFrame(frame, display: true)
+        window.contentView?.layoutSubtreeIfNeeded()
+    }
+
     /// What the window holds, at full height: the scrolled part and the
     /// status bar under it.
     private var wantedContentHeight: CGFloat {
@@ -300,6 +332,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     private func fitWindowToContent() {
         guard let window, let content = window.contentView else { return }
         content.layoutSubtreeIfNeeded()
+        widenToContent()
         var height = wantedContentHeight
         // No taller than the visible screen, title bar included; past that,
         // the content scrolls.
@@ -344,6 +377,15 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         // (or at the bottom with nothing selected).
         deleteRowButton = button("", #selector(deleteRow), symbol: "minus", name: "Delete Row")
         rows.append(row([caption("Rows"), deleteRowButton, rowsValue, button("", #selector(addRow), symbol: "plus", name: "Add Row")]))
+        // Where a row shorter than the widest stands.
+        alignPicker.segmentCount = Self.alignments.count
+        for (i, a) in Self.alignments.enumerated() { alignPicker.setLabel(a.title, forSegment: i) }
+        alignPicker.trackingMode = .selectOne
+        alignPicker.controlSize = .large
+        alignPicker.font = .systemFont(ofSize: 13)
+        alignPicker.target = self
+        alignPicker.action = #selector(alignmentPicked)
+        rows.append(row([caption("Align rows"), alignPicker]))
         return column(rows, spacing: 8)
     }
 
@@ -408,6 +450,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
             label.stringValue = v == v.rounded() ? String(Int(v)) : String(v)
         }
         rowsValue.stringValue = String(editor.layout.rows.count)
+        alignPicker.selectedSegment = Self.alignments.firstIndex { $0.alignment == editor.layout.geometry.rowAlignment } ?? 1
 
         if editor.layout.isBuiltIn {
             deleteButton.title = "Reset to Factory"
@@ -708,6 +751,10 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         editor.adjustGeometry(Self.geometryOrder[sender.tag], by: 1); refresh()
     }
     /// A row below the selected key's, or at the bottom.
+    @objc private func alignmentPicked() {
+        editor.setRowAlignment(Self.alignments[alignPicker.selectedSegment].alignment)
+        refresh()
+    }
     @objc private func addRow() { editor.addRow(below: true); refresh() }
     @objc private func deleteRow() { editor.deleteRow(); refresh() }
 

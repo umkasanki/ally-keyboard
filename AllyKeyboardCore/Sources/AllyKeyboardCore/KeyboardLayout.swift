@@ -62,6 +62,8 @@ public struct KeyboardLayout: Codable, Equatable, Identifiable {
         public var rowSpacing: Double = 3
         /// Around the keys, inside the keyboard's edge.
         public var padding: Double = 8
+        /// Where a row shorter than the widest stands (`placements(inRow:)`).
+        public var rowAlignment: RowAlignment = .center
 
         public static let keySizeRange: ClosedRange<Double> = 20...96
         public static let spacingRange: ClosedRange<Double> = 0...24
@@ -80,6 +82,42 @@ public struct KeyboardLayout: Codable, Equatable, Identifiable {
             keySpacing = try value(.keySpacing, d.keySpacing, Self.spacingRange)
             rowSpacing = try value(.rowSpacing, d.rowSpacing, Self.spacingRange)
             padding = try value(.padding, d.padding, Self.paddingRange)
+            // An alignment this version does not know reads as the default.
+            rowAlignment = (try? c.decodeIfPresent(RowAlignment.self, forKey: .rowAlignment)).flatMap { $0 } ?? .center
+        }
+    }
+
+    /// Where a row shorter than the widest stands: at the left, in the middle,
+    /// or across the whole width — its keys widened in proportion, the gaps
+    /// between them kept at the layout's key gap.
+    public enum RowAlignment: String, Codable, CaseIterable {
+        case left, center, stretch
+    }
+
+    /// Each key of a row, as the keyboard draws it at 100%: its left edge,
+    /// from the inside of the padding, and its width, in points. A key n
+    /// units wide spans the n-1 gaps it covers; rows are as wide as the
+    /// widest, and a shorter one stands as `rowAlignment` says.
+    public func placements(inRow row: Int) -> [(x: Double, width: Double)] {
+        let g = geometry, unit = g.keyWidth + g.keySpacing
+        let keys = rows[row]
+        guard !keys.isEmpty else { return [] }
+        func span(_ units: Double) -> Double { units * unit - g.keySpacing }
+        var widths = keys.map { span($0.width) }
+        let rowSpan = span(keys.reduce(0) { $0 + $1.width })
+        let full = span(rowWidths.max() ?? 0)
+        var x = 0.0
+        switch g.rowAlignment {
+        case .left: break
+        case .center: x = (full - rowSpan) / 2
+        case .stretch:
+            let gaps = Double(keys.count - 1) * g.keySpacing
+            let keysOnly = widths.reduce(0, +)
+            if keysOnly > 0 { widths = widths.map { $0 * (full - gaps) / keysOnly } }
+        }
+        return widths.map { w in
+            defer { x += w + g.keySpacing }
+            return (x, w)
         }
     }
 }

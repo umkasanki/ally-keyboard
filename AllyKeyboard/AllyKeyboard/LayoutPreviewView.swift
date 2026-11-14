@@ -30,7 +30,9 @@ final class LayoutPreviewView: NSView {
 
     override var isFlipped: Bool { true }
 
-    private var rowsAreUneven: Bool { layout.rowsAreUneven }
+    /// Row widths are shown when rows differ — unless they are stretched,
+    /// when every row fills the width.
+    private var rowsAreUneven: Bool { layout.rowsAreUneven && layout.geometry.rowAlignment != .stretch }
 
     /// The keyboard at 100%, in points — the same arithmetic as the keyboard's
     /// own `keyboardSize`.
@@ -54,21 +56,17 @@ final class LayoutPreviewView: NSView {
         return NSSize(width: natural.width * s + (rowsAreUneven ? widthColumn : 0), height: natural.height * s)
     }
 
-    /// Where each key is drawn — the keyboard's `keyW`: a key n units wide
-    /// also spans the n-1 gaps it covers; a short row is centred.
+    /// Where each key is drawn: the keyboard's own placements
+    /// (`placements(inRow:)` — the row alignment, a key n units wide spanning
+    /// the n-1 gaps it covers), scaled.
     private func frames() -> [[NSRect]] {
         let g = layout.geometry, s = scale
-        let unit = CGFloat(g.keyWidth + g.keySpacing) * s, gap = CGFloat(g.keySpacing) * s
         let height = CGFloat(g.keyHeight) * s, rowStep = CGFloat(g.keyHeight + g.rowSpacing) * s
         let pad = CGFloat(g.padding) * s
-        let widths = layout.rowWidths, widest = widths.max() ?? 0
-        return layout.rows.enumerated().map { r, row in
-            var x = pad + CGFloat(widest - widths[r]) * unit / 2
+        return layout.rows.indices.map { r in
             let y = pad + CGFloat(r) * rowStep
-            return row.map { key in
-                let w = CGFloat(key.width) * unit - gap
-                defer { x += CGFloat(key.width) * unit }
-                return NSRect(x: x, y: y, width: max(w, 4), height: height)
+            return layout.placements(inRow: r).map { place in
+                NSRect(x: pad + CGFloat(place.x) * s, y: y, width: max(CGFloat(place.width) * s, 4), height: height)
             }
         }
     }

@@ -321,4 +321,72 @@ final class LayoutGeometryTests: XCTestCase {
         XCTAssertEqual(e.selection, KeyPosition(row: 1, index: 3))
     }
 
+
+    // MARK: Row alignment
+
+    private func shortOverLong(_ alignment: KeyboardLayout.RowAlignment) -> KeyboardLayout {
+        let keys = (0..<10).map { KeySpec(.character(String(UnicodeScalar(UInt8(97 + $0))))) }
+        var l = KeyboardLayout(name: "T", rows: [Array(keys.prefix(4)), keys])
+        l.geometry.rowAlignment = alignment
+        return l
+    }
+
+    func testRowsAreCentredUnlessToldOtherwise() throws {
+        XCTAssertEqual(KeyboardLayout.Geometry().rowAlignment, .center)
+        let none = try JSONDecoder().decode(KeyboardLayout.Geometry.self, from: Data("{}".utf8))
+        XCTAssertEqual(none.rowAlignment, .center)
+        let unknown = try JSONDecoder().decode(KeyboardLayout.Geometry.self, from: Data(#"{"rowAlignment":"diagonal"}"#.utf8))
+        XCTAssertEqual(unknown.rowAlignment, .center)
+        var g = KeyboardLayout.Geometry()
+        g.rowAlignment = .stretch
+        XCTAssertEqual(try JSONDecoder().decode(KeyboardLayout.Geometry.self, from: JSONEncoder().encode(g)), g)
+    }
+
+    func testCentreAndLeftPlaceTheShortRow() {
+        // 36 + 3 a unit: the long row spans 10 * 39 - 3 = 387, the short 4 * 39 - 3 = 153.
+        let centre = shortOverLong(.center).placements(inRow: 0)
+        XCTAssertEqual(centre[0].x, (387 - 153) / 2, accuracy: 1e-9)
+        XCTAssertEqual(centre[0].width, 36, accuracy: 1e-9)
+        XCTAssertEqual(shortOverLong(.left).placements(inRow: 0)[0].x, 0, accuracy: 1e-9)
+        // The widest row is the same whatever the alignment.
+        XCTAssertEqual(shortOverLong(.left).placements(inRow: 1)[9].x, 9 * 39, accuracy: 1e-9)
+    }
+
+    func testStretchWidensKeysAndKeepsTheGap() {
+        var l = shortOverLong(.stretch)
+        l.rows[0][1].width = 2                                  // keys 1, 2, 1, 1
+        let row = l.placements(inRow: 0)
+        XCTAssertEqual(row[0].x, 0, accuracy: 1e-9)
+        for i in 1..<row.count {
+            XCTAssertEqual(row[i].x - (row[i - 1].x + row[i - 1].width), 3, accuracy: 1e-9)   // the key gap
+        }
+        XCTAssertEqual(row.last!.x + row.last!.width, 387, accuracy: 1e-9)                    // the full width
+        XCTAssertEqual(row[1].width / row[0].width, 75.0 / 36, accuracy: 1e-9)                // in proportion
+    }
+
+    func testMovingToARowFollowsTheAlignment() {
+        let e = LayoutEditor(layout: shortOverLong(.left))
+        e.select(KeyPosition(row: 0, index: 0))
+        e.moveToRow(by: 1)
+        XCTAssertEqual(e.selection, KeyPosition(row: 1, index: 0))
+    }
+
+    func testRowAlignmentIsOneStepToUndo() {
+        let e = LayoutEditor(layout: shortOverLong(.center))
+        e.setRowAlignment(.stretch)
+        XCTAssertEqual(e.layout.geometry.rowAlignment, .stretch)
+        e.setRowAlignment(.stretch)                             // no change, no step
+        e.undo()
+        XCTAssertEqual(e.layout.geometry.rowAlignment, .center)
+        XCTAssertFalse(e.canUndo)
+    }
+
+    func testStretchedRowsAreNotCalledUneven() {
+        let e = LayoutEditor(layout: shortOverLong(.center))
+        XCTAssertTrue(e.problems.contains { if case .unevenRows = $0 { return true }; return false })
+        e.setRowAlignment(.stretch)
+        XCTAssertFalse(e.problems.contains { if case .unevenRows = $0 { return true }; return false })
+        e.setRowAlignment(.left)
+        XCTAssertTrue(e.problems.contains { if case .unevenRows = $0 { return true }; return false })
+    }
 }

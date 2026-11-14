@@ -75,7 +75,8 @@ public final class LayoutEditor {
 
     public var problems: [Problem] {
         var all = layout.problems.map(Problem.layout)
-        if layout.rowsAreUneven { all.append(.unevenRows(rowWidths)) }
+        // Stretched rows fill the width whatever they hold: nothing to even up.
+        if layout.rowsAreUneven && layout.geometry.rowAlignment != .stretch { all.append(.unevenRows(rowWidths)) }
         return all
     }
 
@@ -195,6 +196,12 @@ public final class LayoutEditor {
         setGeometry(field, to: value(of: field) + Double(points))
     }
 
+    /// Where shorter rows stand: left, centre, or stretched across.
+    public func setRowAlignment(_ alignment: KeyboardLayout.RowAlignment) {
+        guard layout.geometry.rowAlignment != alignment else { return }
+        change { $0.geometry.rowAlignment = alignment }
+    }
+
     // MARK: - The selected key
 
     public func setAction(_ action: KeyAction) {
@@ -267,18 +274,20 @@ public final class LayoutEditor {
     /// Move the selected key to the row above (-1) or below (+1), to where it
     /// stands across the keyboard: under the key that starts nearest its own
     /// left edge — on a tie, the one to the left. Positions are measured as
-    /// the keyboard draws them, with each row centred in the widest.
+    /// the keyboard draws them (`placements(inRow:)`, by the row alignment).
     public func moveToRow(by offset: Int) {
         guard let p = selection else { return }
         let targetRow = p.row + offset
         guard layout.rows.indices.contains(targetRow) else { return }
-        let x = start(of: p)
+        let x = layout.placements(inRow: p.row)[p.index].x
         let target = layout.rows[targetRow]
         var index = target.count
-        var edge = indent(of: targetRow)
-        for (i, key) in target.enumerated() {
-            if edge + key.width / 2 >= x { index = i; break }
-            edge += key.width
+        // A key's cell is the key and the gap after it: its middle is where
+        // one key gives way to the next.
+        let gap = layout.geometry.keySpacing
+        for (i, place) in layout.placements(inRow: targetRow).enumerated() where place.x + (place.width + gap) / 2 >= x {
+            index = i
+            break
         }
         // A row left empty is removed, which moves the rows below it up one.
         let sourceEmpties = layout.rows[p.row].count == 1
@@ -291,15 +300,10 @@ public final class LayoutEditor {
     }
 
     /// Where a key starts, in key widths from the keyboard's left edge, its
-    /// row centred as on the keyboard.
+    /// row placed as on the keyboard.
     public func start(of p: KeyPosition) -> Double {
-        indent(of: p.row) + layout.rows[p.row].prefix(p.index).reduce(0) { $0 + $1.width }
-    }
-
-    /// How far a row stands in from the left: half what it falls short of the widest.
-    private func indent(of row: Int) -> Double {
-        let widths = rowWidths
-        return ((widths.max() ?? 0) - widths[row]) / 2
+        let g = layout.geometry
+        return layout.placements(inRow: p.row)[p.index].x / (g.keyWidth + g.keySpacing)
     }
 
     /// Exchange the selected key with another; the selection follows the key.
