@@ -768,9 +768,9 @@ class ViewController: NSViewController {
     // MARK: - Keyboard rows
 
     /// The layout the keyboard is built from. The rows used to be written out
-    /// here; they are data now (`KeyboardLayout.standard` in Core, pinned key
-    /// for key against what was here), so that layouts can be edited and
-    /// switched. Everything below still works in `Key`s and their ids.
+    /// here; they are data now (`KeyboardLayout.extended` in Core is what was
+    /// here, key for key; Standard, the default, is a leaner version of it),
+    /// so that layouts can be edited and switched. Everything below still works in `Key`s and their ids.
     private var layout: KeyboardLayout = .standard
 
     /// The user's layouts, one file each; see `LayoutStore`.
@@ -788,7 +788,8 @@ class ViewController: NSViewController {
     /// (pulled back on screen if the new one is bigger) and is rebuilt.
     func switchLayout(to id: UUID) {
         layout = layoutStore.layout(id: id)
-        settings.activeLayoutID = layout.isStandard ? nil : layout.id
+        // Standard too, by id: a missing id means settings from before layouts.
+        settings.activeLayoutID = layout.id
         settingsStore.save(settings)
         rebuildForLayout()
     }
@@ -797,7 +798,8 @@ class ViewController: NSViewController {
         switchLayout(to: KeyboardLayout.next(after: layout.id, in: layoutStore.loadAll()).id)
     }
 
-    /// Read the active layout again — after its file was edited by hand.
+    /// Read the active layout again — after its file was edited by hand, or
+    /// saved or reset in the editor.
     func reloadLayout() {
         layout = layoutStore.layout(id: layout.id)
         rebuildForLayout()
@@ -805,7 +807,8 @@ class ViewController: NSViewController {
 
     /// A copy of the layout on screen, made the active one, to edit.
     func duplicateCurrentLayout() {
-        switchLayout(to: layoutStore.duplicate(layout, name: layout.name + " copy").id)
+        guard let copy = layoutStore.duplicate(layout, name: layout.name + " copy") else { NSSound.beep(); return }
+        switchLayout(to: copy.id)
     }
 
     var activeLayoutName: String { layout.name }
@@ -841,6 +844,12 @@ class ViewController: NSViewController {
             frame.origin.y = min(max(frame.minY, visible.minY), visible.maxY - frame.height)
         }
         window.setFrame(frame, display: true)
+        // A one-shot ⇧ or ⌘ armed on the old keys would act, unlit, on the new.
+        clearOneShotModifiers()
+        // The suggestion bar took its font from the old keys' height.
+        hideSuggestions()
+        suggestionPanel?.close()
+        suggestionPanel = nil
         buildKeyboard()
         refreshForCurrentLayout()
     }
@@ -862,7 +871,7 @@ class ViewController: NSViewController {
         if let id = item.representedObject as? UUID { switchLayout(to: id) }
     }
 
-    private var allRows: [[Key]] { layout.rows.map { $0.map(Key.init) } }
+    private var allRows: [[Key]] { layout.rows.map { row in row.map { Key($0) } } }
 
     private func rowPixelWidth(_ row: [Key]) -> CGFloat {
         row.reduce(0) { $0 + keyW($1) } + CGFloat(row.count - 1) * keySpacing
@@ -1000,6 +1009,7 @@ class ViewController: NSViewController {
         settings = settingsStore.load()
         AppConfig.Capture.hidden = settings.hideFromCapture
         window.sharingType = AppConfig.Capture.sharingType
+        layoutStore.setAsideUnreadable()
         layout = layoutStore.layout(id: settings.activeLayoutID)
         vocabulary = vocabularyStore.load()
         vocabulary.forgetFaded()
@@ -1232,122 +1242,27 @@ class ViewController: NSViewController {
         // and the rest may move the caret or the focus, and then the space is
         // no longer the character before it.
         let autoSpaceWasPending = autoSpacePending
-        if !Self.keysKeepingAutoSpace.contains(key) { autoSpacePending = false }
-
-        if key == "Shift" {
-            isShifted = sender.state == .on
-            return
+        if (sender as? KeyButton)?.literalChar != nil || !Self.keysKeepingAutoSpace.contains(key) {
+            autoSpacePending = false
         }
 
-        if Self.modifierIDs.contains(key) {
-            if activeModifiers.contains(key) { activeModifiers.remove(key) }
-            else { activeModifiers.insert(key) }
-            updateModifierHighlights()
-            return
-        }
-
-        if key == "LangSwitch" {
-            InputSourceSwitcher.selectNext()
-            refreshForCurrentLayout()
-            return
-        }
-
-        if key == "HideKeyboard" {
-            (NSApp.delegate as? AppDelegate)?.hideKeyboard()
-            return
-        }
-
-        if key == "Screenshot" {
-            // Out of the way first: the keyboard covers half the screen, and
-            // what is being photographed is almost never the keyboard. Then
-            // the system's own capture panel, which offers the whole screen, a
-            // window or a region — all of them a click, none of them a drag.
-            // Hidden from capture or not, the keyboard steps aside: it sits
-            // above the capture screen and would cover its bar and the windows
-            // to pick. It comes back when the capture is over.
-            let app = NSApp.delegate as? AppDelegate
-            app?.hideKeyboard()
-            // After the window has actually gone, or it is in the picture.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                KeySender.send("Screenshot")
-                app?.restoreKeyboardAfterScreenshot()
-            }
-            return
-        }
-
-        if key == "Blank" { return }   // empty placeholder key — does nothing
-
-        if key == "CapsLock" {
-            toggleCapsLock()
-            return
-        }
-
-        if key == "ResizeWidth" {
-            if activeModifiers.contains("Ctrl") {
-                moveFrontWindowHorizontally(byFraction: -0.1)   // Ctrl+⇄ = move window left
-            } else if activeModifiers.contains("Cmd") {
-                moveFrontWindowHorizontally(byFraction: 0.1)    // Cmd+⇄ = move window right
-            } else {
-                let pct = resizeWidthPercents[resizeWidthIdx % resizeWidthPercents.count]
-                resizeWidthIdx += 1
-                applyFrontWindow(widthPct: pct, heightPct: nil)
-            }
-            clearOneShotModifiers()
-            return
-        }
-        if key == "ResizeHeight" {
-            if activeModifiers.contains("Ctrl") {
-                moveFrontWindowVertically(byFraction: 0.05)     // Ctrl+↕ = move window down
-            } else if activeModifiers.contains("Cmd") {
-                moveFrontWindowVertically(byFraction: -0.05)    // Cmd+↕ = move window up
-            } else {
-                let pct = resizeHeightPercents[resizeHeightIdx % resizeHeightPercents.count]
-                resizeHeightIdx += 1
-                applyFrontWindow(widthPct: nil, heightPct: pct)
-            }
-            clearOneShotModifiers()
-            return
-        }
-
-        if key == "Hi" {
-            showGreetings()
-            return
-        }
-
-        if key == Command.nextLayout.rawValue { switchToNextLayout(); return }
-        if key == Command.chooseLayout.rawValue { chooseLayout(from: sender); return }
-        if key == Command.openSettings.rawValue {
-            (NSApp.delegate as? AppDelegate)?.openSettings()
-            return
-        }
-
-        // A chord written into a layout that the keyboard has no key id for.
-        if case .shortcut(let chord)? = actionsByID[key], Shortcut.named(key) == nil {
-            KeySender.sendShortcut(chord, adding: eventFlags(from: activeModifiers))
-            textTracker.reset()
-            clearOneShotModifiers()
-            return
-        }
-
-        if key == "AppSwitcher" {
-            appSwitcher.toggle(settings: settings, scale: scale, over: view.window)
-            return
-        }
-
-        if key == "Translate" {
-            translateSelection()
-            return
-        }
+        // A key that types text types it, whatever the text: "Hi", "Shift" or
+        // "Translate" on a layout's Type Text key are words to type, not the
+        // keyboard's commands of the same name.
+        let literal = (sender as? KeyButton)?.literalChar
+        if literal == nil, performCommand(key, sender: sender) { return }
 
         let smartSpace = autoSpaceWasPending
             ? takeBackAutoSpace(for: key, literal: (sender as? KeyButton)?.literalChar) : .none
         defer { if smartSpace == .moveSpaceAfter { KeySender.sendText(" ") } }
 
-        // Fixed keys (top-row punctuation) type their literal, independent of layout.
-        if activeModifiers.isEmpty, let literal = (sender as? KeyButton)?.literalChar {
+        // Fixed keys (top-row punctuation) type their literal, independent of
+        // layout. A modifier makes a one-character one a chord (⌘= zooms), as
+        // before; longer text is typed as text, the modifier dropped.
+        if let literal, activeModifiers.isEmpty || literal.count > 1 {
             KeySender.sendText(literal)
-            if let c = literal.first { track(c) }
-            if isShifted { isShifted = false }
+            literal.forEach { track($0) }
+            clearOneShotModifiers()
             refreshSuggestions()
             return
         }
@@ -1366,6 +1281,121 @@ class ViewController: NSViewController {
             updateModifierHighlights()
         }
         refreshSuggestions()
+    }
+
+    /// The keys that are commands rather than keystrokes: done here, and true;
+    /// false for a key that types. Never asked about a key that types text
+    /// (`literalChar`), whose text may be a command's name.
+    private func performCommand(_ key: String, sender: NSButton) -> Bool {
+        if key == "Shift" {
+            isShifted = sender.state == .on
+            return true
+        }
+
+        if Self.modifierIDs.contains(key) {
+            if activeModifiers.contains(key) { activeModifiers.remove(key) }
+            else { activeModifiers.insert(key) }
+            updateModifierHighlights()
+            return true
+        }
+
+        if key == "LangSwitch" {
+            InputSourceSwitcher.selectNext()
+            refreshForCurrentLayout()
+            return true
+        }
+
+        if key == "HideKeyboard" {
+            (NSApp.delegate as? AppDelegate)?.hideKeyboard()
+            return true
+        }
+
+        if key == "Screenshot" {
+            // Out of the way first: the keyboard covers half the screen, and
+            // what is being photographed is almost never the keyboard. Then
+            // the system's own capture panel, which offers the whole screen, a
+            // window or a region — all of them a click, none of them a drag.
+            // Hidden from capture or not, the keyboard steps aside: it sits
+            // above the capture screen and would cover its bar and the windows
+            // to pick. It comes back when the capture is over.
+            let app = NSApp.delegate as? AppDelegate
+            app?.hideKeyboard()
+            // After the window has actually gone, or it is in the picture.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                KeySender.send("Screenshot")
+                app?.restoreKeyboardAfterScreenshot()
+            }
+            return true
+        }
+
+        if key == "Blank" { return true }   // empty placeholder key — does nothing
+
+        if key == "CapsLock" {
+            toggleCapsLock()
+            return true
+        }
+
+        if key == "ResizeWidth" {
+            if activeModifiers.contains("Ctrl") {
+                moveFrontWindowHorizontally(byFraction: -0.1)   // Ctrl+⇄ = move window left
+            } else if activeModifiers.contains("Cmd") {
+                moveFrontWindowHorizontally(byFraction: 0.1)    // Cmd+⇄ = move window right
+            } else {
+                let pct = resizeWidthPercents[resizeWidthIdx % resizeWidthPercents.count]
+                resizeWidthIdx += 1
+                applyFrontWindow(widthPct: pct, heightPct: nil)
+            }
+            clearOneShotModifiers()
+            return true
+        }
+        if key == "ResizeHeight" {
+            if activeModifiers.contains("Ctrl") {
+                moveFrontWindowVertically(byFraction: 0.05)     // Ctrl+↕ = move window down
+            } else if activeModifiers.contains("Cmd") {
+                moveFrontWindowVertically(byFraction: -0.05)    // Cmd+↕ = move window up
+            } else {
+                let pct = resizeHeightPercents[resizeHeightIdx % resizeHeightPercents.count]
+                resizeHeightIdx += 1
+                applyFrontWindow(widthPct: nil, heightPct: pct)
+            }
+            clearOneShotModifiers()
+            return true
+        }
+
+        if key == "Hi" {
+            showGreetings()
+            return true
+        }
+
+        if key == Command.nextLayout.rawValue { switchToNextLayout(); return true }
+        if key == Command.chooseLayout.rawValue { chooseLayout(from: sender); return true }
+        if key == Command.openSettings.rawValue {
+            (NSApp.delegate as? AppDelegate)?.openSettings()
+            return true
+        }
+
+        // A chord written into a layout that the keyboard has no key id for.
+        // It ends the word, which it may have deleted (⌥⌫, ⌘Z): dropped
+        // uncounted, and the suggestions for it go with it.
+        if case .shortcut(let chord)? = actionsByID[key], Shortcut.named(key) == nil {
+            KeySender.sendShortcut(chord, adding: eventFlags(from: activeModifiers))
+            textTracker.discard()
+            clearOneShotModifiers()
+            refreshSuggestions()
+            return true
+        }
+
+        if key == "AppSwitcher" {
+            appSwitcher.toggle(settings: settings, scale: scale, over: view.window)
+            return true
+        }
+
+        if key == "Translate" {
+            translateSelection()
+            return true
+        }
+
+        return false
     }
 
     // MARK: - Window resize (cycle the frontmost window through preset sizes via Accessibility)
@@ -1576,6 +1606,7 @@ class ViewController: NSViewController {
         panel.sharingType = AppConfig.Capture.sharingType
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
+        panel.worksWhenModal = true          // its words, in the app's own dialogs too
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = true
@@ -1915,4 +1946,9 @@ class ViewController: NSViewController {
 final class KeyboardPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+    /// Clickable while one of the app's own dialogs is up (a rename, a key's
+    /// label): a modal session sends events only to windows that say so, and
+    /// this keyboard is how its user types into those dialogs. The suggestion
+    /// panel says so too.
+    override var worksWhenModal: Bool { get { true } set {} }
 }

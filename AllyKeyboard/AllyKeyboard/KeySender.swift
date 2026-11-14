@@ -189,10 +189,14 @@ enum KeySender {
             case .control:  flags.insert(.maskControl)
             case .option:   flags.insert(.maskAlternate)
             case .shift:    flags.insert(.maskShift)
-            case .capsLock: flags.insert(.maskAlphaShift)
+            // Not held like the others — no key goes down and up for it — so
+            // it is left out rather than sent as a flag nothing releases.
+            case .capsLock: break
             }
         }
-        sendKeyCode(CGKeyCode(chord.keyCode), flags: flags)
+        // A code from a file: one that is no key is ignored, not trapped on.
+        guard let code = CGKeyCode(exactly: chord.keyCode) else { return }
+        sendKeyCode(code, flags: flags)
     }
 
     private static func sendKeyCode(_ keyCode: CGKeyCode, flags: CGEventFlags = []) {

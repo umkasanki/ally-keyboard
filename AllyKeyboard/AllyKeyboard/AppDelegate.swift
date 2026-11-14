@@ -283,9 +283,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         layoutEditor = editor
         editor.present()
     }
-    @objc private func duplicateLayout() { keyboardViewController()?.duplicateCurrentLayout() }
-    @objc private func reloadLayouts() { keyboardViewController()?.reloadLayout() }
-    @objc private func resetLayout() { keyboardViewController()?.resetActiveLayoutToFactory() }
+    // Each changes the layouts behind the editor's back; it is told.
+    @objc private func duplicateLayout() {
+        keyboardViewController()?.duplicateCurrentLayout()
+        layoutEditor?.layoutsChangedElsewhere()
+    }
+    @objc private func reloadLayouts() {
+        // Files that cannot be read are set aside here and at launch only —
+        // never by a save, while another file may be mid-edit by hand.
+        keyboardViewController()?.layoutStore.setAsideUnreadable()
+        keyboardViewController()?.reloadLayout()
+        layoutEditor?.layoutsChangedElsewhere()
+    }
+    @objc private func resetLayout() {
+        keyboardViewController()?.resetActiveLayoutToFactory()
+        layoutEditor?.layoutsChangedElsewhere()
+    }
     @objc private func openLayoutsFolder() {
         guard let dir = keyboardViewController()?.layoutStore.directory else { return }
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -293,6 +306,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func quitApp() { NSApp.terminate(nil) }
+
+    /// Quitting skips the editor's own close prompt: asked here instead.
+    /// Not while one of the app's dialogs is up — the keyboard works then, and
+    /// its Quit would stack a second question on the first.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        if NSApp.modalWindow != nil { NSSound.beep(); return .terminateCancel }
+        return layoutEditor?.shouldQuit() == false ? .terminateCancel : .terminateNow
+    }
 
     // Never leave ⇧ held in the system behind us, nor a word unsaved.
     func applicationWillTerminate(_ notification: Notification) {

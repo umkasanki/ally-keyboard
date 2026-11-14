@@ -26,7 +26,8 @@ public final class LayoutEditor {
     public enum Problem: Equatable {
         case layout(KeyboardLayout.Problem)
         /// Rows of different widths, in key widths: the keyboard is as wide as
-        /// its widest row, so the others end short of the right edge.
+        /// its widest row, and the others stand centred in it, short at both
+        /// ends.
         case unevenRows([Double])
 
         /// An error stops the layout from being saved; anything else is a
@@ -70,14 +71,11 @@ public final class LayoutEditor {
     }
 
     /// Each row's width in key widths, gaps included as the keyboard draws them.
-    public var rowWidths: [Double] {
-        layout.rows.map { $0.reduce(0) { $0 + $1.width } }
-    }
+    public var rowWidths: [Double] { layout.rowWidths }
 
     public var problems: [Problem] {
         var all = layout.problems.map(Problem.layout)
-        let widths = rowWidths.filter { $0 > 0 }
-        if Set(widths).count > 1 { all.append(.unevenRows(rowWidths)) }
+        if layout.rowsAreUneven { all.append(.unevenRows(rowWidths)) }
         return all
     }
 
@@ -268,7 +266,8 @@ public final class LayoutEditor {
 
     /// Move the selected key to the row above (-1) or below (+1), to where it
     /// stands across the keyboard: under the key that starts nearest its own
-    /// left edge.
+    /// left edge — on a tie, the one to the left. Positions are measured as
+    /// the keyboard draws them, with each row centred in the widest.
     public func moveToRow(by offset: Int) {
         guard let p = selection else { return }
         let targetRow = p.row + offset
@@ -276,9 +275,9 @@ public final class LayoutEditor {
         let x = start(of: p)
         let target = layout.rows[targetRow]
         var index = target.count
-        var edge = 0.0
+        var edge = indent(of: targetRow)
         for (i, key) in target.enumerated() {
-            if edge + key.width / 2 > x { index = i; break }
+            if edge + key.width / 2 >= x { index = i; break }
             edge += key.width
         }
         // A row left empty is removed, which moves the rows below it up one.
@@ -291,9 +290,16 @@ public final class LayoutEditor {
         }
     }
 
-    /// Where a key starts, in key widths from the left edge.
+    /// Where a key starts, in key widths from the keyboard's left edge, its
+    /// row centred as on the keyboard.
     public func start(of p: KeyPosition) -> Double {
-        layout.rows[p.row].prefix(p.index).reduce(0) { $0 + $1.width }
+        indent(of: p.row) + layout.rows[p.row].prefix(p.index).reduce(0) { $0 + $1.width }
+    }
+
+    /// How far a row stands in from the left: half what it falls short of the widest.
+    private func indent(of row: Int) -> Double {
+        let widths = rowWidths
+        return ((widths.max() ?? 0) - widths[row]) / 2
     }
 
     /// Exchange the selected key with another; the selection follows the key.
@@ -314,8 +320,11 @@ public final class LayoutEditor {
         changeSelected { $0 = Self.clamped(key) }
     }
 
-    /// Add a key: right of the selected one, or at the end of the last row
-    /// (a first row if there is none); it is selected.
+    /// Add a key: right of the selected one. With nothing selected, into the
+    /// first row, from the top, that falls short of the widest by at least the
+    /// key's width — at its end, so a gap left by a deleted key fills — or, if
+    /// no row has room, at the end of the last row (a first row if there is
+    /// none). The new key is selected.
     public func addKey(_ key: KeySpec) {
         let key = Self.clamped(key)
         if let p = selection {
@@ -325,7 +334,8 @@ public final class LayoutEditor {
         } else if layout.rows.isEmpty {
             change(selecting: KeyPosition(row: 0, index: 0)) { $0.rows = [[key]] }
         } else {
-            let row = layout.rows.count - 1
+            let widths = rowWidths, widest = widths.max() ?? 0
+            let row = widths.firstIndex { widest - $0 >= key.width - 1e-6 } ?? layout.rows.count - 1
             change(selecting: KeyPosition(row: row, index: layout.rows[row].count)) { $0.rows[row].append(key) }
         }
     }

@@ -23,8 +23,12 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     private let onDeleted: (UUID) -> Void
 
     private var editor: LayoutEditor
-    /// Swap was pressed: the next key clicked is swapped with the selected one.
-    private var swapPending = false
+    /// Swap was pressed: the next key clicked is swapped with the selected
+    /// one. Kept with the layout and selection it was pressed on, and dropped
+    /// as soon as either changes (Undo, Delete Key, a new row…), so a click
+    /// never swaps a key other than the one that was selected.
+    private var swapFrom: (layout: KeyboardLayout, selection: KeyPosition)?
+    private var swapPending: Bool { swapFrom != nil }
 
     private let layoutPopup = NSPopUpButton()
     private let preview = LayoutPreviewView()
@@ -63,7 +67,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func present() {
-        window?.center()
+        // Where it was if it is open already; centred the first time.
+        if window?.isVisible != true { window?.center() }
         // Within the visible part of the screen — above the Dock, below the
         // menu bar — however the screen is set up.
         if let window, let visible = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame {
@@ -80,8 +85,10 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
     // MARK: - Layout of the window
 
-    private func button(_ title: String, _ action: Selector, symbol: String? = nil) -> NSButton {
+    /// `name` is what an image-only button is called to VoiceOver and Voice Control.
+    private func button(_ title: String, _ action: Selector, symbol: String? = nil, name: String? = nil) -> NSButton {
         let b = NSButton(title: title, target: self, action: action)
+        if let name { b.setAccessibilityLabel(name) }
         b.bezelStyle = .rounded
         b.controlSize = .large
         b.font = .systemFont(ofSize: 14)
@@ -248,6 +255,10 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         let top = frame.maxY
         frame.size.height += height - content.frame.height
         frame.origin.y = top - frame.height
+        // Grown past the bottom of the screen: lifted, as far as the top allows.
+        if let visible = window.screen?.visibleFrame, frame.minY < visible.minY {
+            frame.origin.y = min(visible.minY, visible.maxY - frame.height)
+        }
         window.setFrame(frame, display: true)
     }
 
@@ -264,8 +275,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
             value.alignment = .center
             value.widthAnchor.constraint(equalToConstant: 44).isActive = true
             geometryValues[field] = value
-            let minus = button("", #selector(geometryMinus(_:)), symbol: "minus")
-            let plus = button("", #selector(geometryPlus(_:)), symbol: "plus")
+            let minus = button("", #selector(geometryMinus(_:)), symbol: "minus", name: "Less \(title)")
+            let plus = button("", #selector(geometryPlus(_:)), symbol: "plus", name: "More \(title)")
             minus.tag = i
             plus.tag = i
             rows.append(row([caption(title), minus, value, plus, NSTextField(labelWithString: "pt")]))
@@ -275,8 +286,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         rowsValue.widthAnchor.constraint(equalToConstant: 44).isActive = true
         // Like the sizes: − removes the selected key's row, + adds one below it
         // (or at the bottom with nothing selected).
-        deleteRowButton = button("", #selector(deleteRow), symbol: "minus")
-        rows.append(row([caption("Rows"), deleteRowButton, rowsValue, button("", #selector(addRow), symbol: "plus")]))
+        deleteRowButton = button("", #selector(deleteRow), symbol: "minus", name: "Delete Row")
+        rows.append(row([caption("Rows"), deleteRowButton, rowsValue, button("", #selector(addRow), symbol: "plus", name: "Add Row")]))
         return column(rows, spacing: 8)
     }
 
@@ -285,10 +296,10 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         swapButton = button("Swap", #selector(swapKeys), symbol: "arrow.left.arrow.right")
         let editKey = button("Edit Key\u{2026}", #selector(editKey), symbol: "pencil")
         keyButtons = [
-            button("", #selector(nudgeLeft), symbol: "arrow.left"),
-            button("", #selector(nudgeRight), symbol: "arrow.right"),
-            button("", #selector(nudgeUp), symbol: "arrow.up"),
-            button("", #selector(nudgeDown), symbol: "arrow.down"),
+            button("", #selector(nudgeLeft), symbol: "arrow.left", name: "Move Key Left"),
+            button("", #selector(nudgeRight), symbol: "arrow.right", name: "Move Key Right"),
+            button("", #selector(nudgeUp), symbol: "arrow.up", name: "Move Key Up a Row"),
+            button("", #selector(nudgeDown), symbol: "arrow.down", name: "Move Key Down a Row"),
             swapButton,
             button("Delete Key", #selector(deleteSelectedKey), symbol: "trash"),
             editKey,
@@ -301,6 +312,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     // MARK: - Showing the state
 
     private func refresh() {
+        if let from = swapFrom, from.layout != editor.layout || from.selection != editor.selection { swapFrom = nil }
         reloadPopup()
         preview.layout = editor.layout
         preview.selection = editor.selection
@@ -319,7 +331,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
         if editor.layout.isBuiltIn {
             deleteButton.title = "Reset to Factory"
-            deleteButton.isEnabled = store.isEdited(editor.layout.id) || editor.hasUnsavedChanges
+            deleteButton.isEnabled = editor.saved != KeyboardLayout.builtIn(id: editor.layout.id) || editor.hasUnsavedChanges
         } else {
             deleteButton.title = "Delete\u{2026}"
             deleteButton.isEnabled = true
@@ -340,8 +352,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         case .layout(.missing(let key)): return "No \(key.rawValue) key."
         case .unevenRows(let widths):
             let widest = widths.max() ?? 0
-            let short = widths.enumerated().filter { $0.element < widest }
-                .map { "row \($0.offset + 1) by \(widest - $0.element)" }
+            let short = widths.enumerated().filter { widest - $0.element > 1e-6 }
+                .map { "row \($0.offset + 1) by \(LayoutPreviewView.units(widest - $0.element))" }
             return "Rows are uneven: short \(short.joined(separator: ", ")) key widths."
         }
     }
@@ -349,7 +361,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     private func reloadPopup() {
         layoutPopup.removeAllItems()
         for layout in store.loadAll() {
-            let edited = layout.isBuiltIn && store.isEdited(layout.id) ? " (edited)" : ""
+            let factory = KeyboardLayout.builtIn(id: layout.id)
+            let edited = factory != nil && factory != layout ? " (edited)" : ""
             layoutPopup.addItem(withTitle: layout.name + edited)
             layoutPopup.lastItem?.representedObject = layout.id
         }
@@ -396,7 +409,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     private func open(_ id: UUID) {
         guard confirmLeavingEdits() else { refresh(); return }
         editor = LayoutEditor(layout: store.layout(id: id))
-        swapPending = false
+        swapFrom = nil
         refresh()
     }
 
@@ -409,6 +422,14 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     private func confirmLeavingEdits() -> Bool {
         guard editor.hasUnsavedChanges else { return true }
         let alert = NSAlert()
+        guard editor.canSave else {
+            // Nothing that can be saved: discard or stay, no Save to fail.
+            alert.messageText = "Discard the changes to \u{201C}\(editor.layout.name)\u{201D}?"
+            alert.informativeText = "The layout has no keys, so it cannot be saved."
+            alert.addButton(withTitle: "Discard")
+            alert.addButton(withTitle: "Cancel")
+            return run(alert) == .alertFirstButtonReturn
+        }
         alert.messageText = "Save the changes to \u{201C}\(editor.layout.name)\u{201D}?"
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Don\u{2019}t Save")
@@ -422,11 +443,33 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
     func windowShouldClose(_ sender: NSWindow) -> Bool { confirmLeavingEdits() }
 
+    /// Asked before the app quits: save, discard, or stay. True to quit.
+    func shouldQuit() -> Bool {
+        guard window?.isVisible == true else { return true }
+        return confirmLeavingEdits()
+    }
+
+    /// Layouts were changed from outside the editor (the keyboard's menu:
+    /// Duplicate, Reset to Factory, Reload). The list follows; so does the
+    /// layout on screen unless it has edits of its own to keep.
+    func layoutsChangedElsewhere() {
+        if !editor.hasUnsavedChanges {
+            editor = LayoutEditor(layout: store.layout(id: editor.layout.id))
+            swapFrom = nil
+        }
+        refresh()
+    }
+
     // MARK: - Layout actions
 
     @discardableResult
     @objc private func save() -> Bool {
-        guard editor.canSave, store.save(editor.layout) else { NSSound.beep(); return false }
+        guard editor.canSave else { NSSound.beep(); return false }
+        guard store.save(editor.layout) else {
+            tell("\u{201C}\(editor.layout.name)\u{201D} could not be saved.",
+                 "Its file may be from a newer version of AllyKeyboard, or the layouts folder cannot be written to.")
+            return false
+        }
         editor.markSaved()
         onSaved(editor.layout)
         refresh()
@@ -452,13 +495,16 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
     @objc private func duplicate() {
         guard confirmLeavingEdits() else { return }
-        let copy = store.duplicate(editor.saved, name: uniqueName(editor.saved.name + " copy"))
+        guard let copy = store.duplicate(editor.saved, name: uniqueName(editor.saved.name + " copy")) else {
+            tell("The copy could not be saved.")
+            return
+        }
         editor = LayoutEditor(layout: copy)
         refresh()
     }
 
-    private func uniqueName(_ base: String) -> String {
-        let taken = Set(store.loadAll().map(\.name))
+    private func uniqueName(_ base: String, except id: UUID? = nil) -> String {
+        let taken = Set(store.loadAll().filter { $0.id != id }.map(\.name))
         guard taken.contains(base) else { return base }
         var n = 2
         while taken.contains("\(base) \(n)") { n += 1 }
@@ -476,7 +522,10 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         alert.addButton(withTitle: "Cancel")
         alert.window.initialFirstResponder = field
         guard run(alert) == .alertFirstButtonReturn else { return }
-        editor.rename(field.stringValue)
+        // A name another layout has would make two alike in the lists.
+        let name = field.stringValue.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return }
+        editor.rename(uniqueName(name, except: editor.layout.id))
         refresh()
     }
 
@@ -522,7 +571,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         do {
             let layout = try store.importLayout(from: try Data(contentsOf: url))
             editor = LayoutEditor(layout: layout)
-            swapPending = false
+            swapFrom = nil
             refresh()
         } catch let error as KeyboardLayout.ImportError {
             tell("\u{201C}\(url.lastPathComponent)\u{201D} was not imported.", error.message)
@@ -576,10 +625,10 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
     private func clicked(_ position: KeyPosition?) {
         if swapPending, let position {
-            swapPending = false
+            swapFrom = nil
             editor.swapSelected(with: position)
         } else {
-            swapPending = false
+            swapFrom = nil
             editor.select(position)
         }
         refresh()
@@ -589,7 +638,11 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     @objc private func nudgeRight() { editor.moveAlongRow(by: 1); refresh() }
     @objc private func nudgeUp() { editor.moveToRow(by: -1); refresh() }
     @objc private func nudgeDown() { editor.moveToRow(by: 1); refresh() }
-    @objc private func swapKeys() { swapPending.toggle(); refresh() }
+    @objc private func swapKeys() {
+        if swapPending { swapFrom = nil }
+        else if let selection = editor.selection { swapFrom = (editor.layout, selection) }
+        refresh()
+    }
     @objc private func deleteSelectedKey() { editor.deleteKey(); refresh() }
 
     /// The selected key in the key dialog; Done replaces it, as one step to undo.

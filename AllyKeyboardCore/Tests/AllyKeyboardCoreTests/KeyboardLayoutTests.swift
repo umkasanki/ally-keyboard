@@ -63,7 +63,7 @@ final class KeyboardLayoutTests: XCTestCase {
         row.prefix { $0.action != action }.reduce(0) { $0 + $1.width }
     }
 
-    func testBothBuiltInsHaveEvenRowsAndUpAboveDown() {
+    func testEveryBuiltInHasEvenRowsAndUpAboveDown() {
         for layout in KeyboardLayout.builtIns {
             let widths = Set(layout.rows.map { $0.reduce(0) { $0 + $1.width } })
             XCTAssertEqual(widths.count, 1, "\(layout.name): rows of different widths \(widths)")
@@ -148,7 +148,8 @@ final class KeyboardLayoutTests: XCTestCase {
         XCTAssertEqual(KeyAction.modifier(.option).legacyID, "Alt")
         XCTAssertEqual(KeyAction.command(.phrases).legacyID, "Hi")
         XCTAssertEqual(KeyAction.spacer.legacyID, "__spacer__")
+        // Spelled in macOS's own order, ⌃⌥⇧⌘, whatever order they came in.
         XCTAssertEqual(KeyAction.shortcut(Shortcut(keyCode: 1, modifiers: [.command, .shift])).legacyID,
-                       "Shortcut(1,Cmd+Shift)")
+                       "Shortcut(1,Shift+Cmd)")
     }
 }

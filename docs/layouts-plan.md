@@ -1,8 +1,9 @@
 # Editable layouts — implementation plan
 
-Branch: `feature/editable-layouts`. Status: phases 1–4 done (model, the
-keyboard built from it, several layouts with switching, the editor); phase 5,
-import/export and polish, in progress.
+Branch: `feature/editable-layouts`. Status: phases 1–5 done (model, the
+keyboard built from it, several layouts with switching, the editor,
+import/export); phase 6 under way — the branch reviewed to zero (below), then
+merge and release.
 
 ## Goal
 
@@ -83,10 +84,11 @@ enum KeyAction: Codable, Equatable {
 }
 ```
 
-- The current hard-coded keyboard becomes the default layout **"Standard"**,
-  produced by code from today's arrays. A test pins it: same rows, same actions,
-  same widths as today, so the move to data cannot change the keyboard by
-  accident.
+- The current hard-coded keyboard becomes a built-in layout, produced by code
+  from today's arrays. A test pins it: same rows, same actions, same widths as
+  today, so the move to data cannot change the keyboard by accident. (Later
+  decided: this one is **Extended**; the default **Standard** is a leaner
+  version of it — see Decisions.)
 - **Standard is editable like any other layout.** Its factory definition stays
   in code: the first edit saves the user's version as a file, and
   "Reset to factory" brings the original back. So the default can be changed
@@ -97,10 +99,14 @@ enum KeyAction: Codable, Equatable {
 
 ### 2. Storage
 
-- `~/Library/Application Support/AllyKeyboard/layouts/<uuid>.json`, one file per
-  user layout; the active layout's id in `Settings` (`activeLayoutID`, default:
-  Standard).
-- An unreadable or invalid file is moved aside (as the vocabulary does) and the
+- `~/Library/Application Support/AllyKeyboard/Layouts/<uuid>.json`, one file per
+  user layout (and per edited built-in); the active layout's id in `Settings`
+  (`activeLayoutID`, default: Standard). Each file carries the layout's sizes
+  (`geometry`: key width and height, gaps, padding); a file without them gets
+  the defaults, and values out of range are brought into it.
+- An unreadable or invalid file is skipped, and moved aside (as the vocabulary
+  does) at launch and on Reload — not by every read, which would rename a file
+  someone is editing by hand. A file from a newer version is left alone. The
   keyboard falls back to Standard.
 
 ### 3. Never locked out
@@ -109,11 +115,11 @@ The keyboard is this user's only way to type, so a layout must never be able to
 take that away:
 
 - switching layouts and opening Settings stay reachable **outside** the
-  keyboard: menu bar menu, the launcher's and the keyboard's right-click menu;
+  keyboard: the menu-bar menu and the keyboard's right-click menu;
 - the validator refuses to save a layout with no keys, and warns (does not
   refuse) when a layout lacks Space, Backspace or Return;
 - "Switch to Standard" is always one click away in the menu, and
-  "Reset Standard to factory" in Settings undoes any edit to it.
+  "Layout ▸ Reset … to Factory" undoes any edit to a built-in.
 
 ### 4. Rendering and dispatch
 
@@ -170,7 +176,7 @@ steppers — and Undo for every change.
   Navigation (arrows, Home/End, Page Up/Down), Modifiers, Shortcuts (common
   ones, plus "Record shortcut…" for any chord — our "Any"), Media, Keyboard
   (hide, screenshot, app switcher, translate, phrases, language, next/choose
-  layout, settings), Layout (Gap, Blank). Clicking an action assigns it to the
+  layout, settings), Gaps (Gap, Blank). Clicking an action assigns it to the
   selected key at once.
 - **Inspector** on the right for the selected key: label, corner label, icon
   (a grid of the bundled icons and common SF Symbols), width and font size with
@@ -194,6 +200,12 @@ steppers — and Undo for every change.
 - **4b — the window**: top bar, preview with selection, structure buttons,
   Save/Revert, Undo/Redo, problems strip.
 - **4c — palette, inspector and shortcut recording.**
+- **4d — the window redesigned** (the user's call, 2026-11-14): the window
+  edits the keyboard as a whole — key width and height, gaps, padding, rows,
+  each with − / + — and moves, swaps and deletes keys; one key's action and
+  look are edited in a dialog of its own (New Key…, prefilled from the
+  selection, and Edit Key…). Short rows are drawn centred, as the keyboard
+  draws them; a status bar at the bottom shows the hint, errors and warnings.
 
 ### 7. Import and export
 
@@ -244,3 +256,33 @@ Each phase ends with tests green, a build installed, and a check on the device.
   column (Space one key narrower, Translate in front of the arrows so ↑ stays
   above ↓). Both are editable, with a factory reset each. The author uses
   Extended.
+- A third (2026-11-14): **Standard Multilingual** — Standard with the
+  input-language key kept and Screenshot left out, for people who type in more
+  than one language.
+- Sizes belong to the layout (2026-11-14): each layout's file carries its own
+  key width and height, gaps and padding; the size setting scales them all.
+
+## Review to zero (2026-11-14)
+
+The whole branch against `main`, in three areas (Core; the keyboard's
+integration; the editor's windows), against this plan and main's behaviour.
+
+- **Pass 1** — 32 findings, 3 of them grade 1: a blank key drawn empty in the
+  preview but "Blank" on the keyboard; the preview left-aligning rows the
+  keyboard centres; Done on an unchanged spacebar relabelling it. Grade 2
+  included a Type Text key whose text named a command ("Hi", "Shift") running
+  that command, unchecked sizes and key codes in files, the suggestion balloon
+  outliving a recorded shortcut, and no migration for existing installs — the
+  user's call: settings from before layouts open on **Extended**, the keyboard
+  they had; new installs on Standard.
+- **Pass 2** (the fixes) — 8, all grade 3; every pinned fix mutation-checked.
+- **Pass 3** (the fixes to those, and the migration) — 4, all grade 3. Closed.
+
+Deferred, with reasons: the "same as main" test still pins ids and widths only
+(Extended was checked key by key against main by the reviewer); the size
+setting does not clamp the keyboard on screen (as on main); quitting is refused
+while one of the app's dialogs is up, logout included (AppKit's usual
+behaviour). Not testable without an app test target, so checked on the device:
+the Type Text dispatch, suggestions after a shortcut, the key dialog's labels,
+the quit prompt, typing into the editor's dialogs.
+

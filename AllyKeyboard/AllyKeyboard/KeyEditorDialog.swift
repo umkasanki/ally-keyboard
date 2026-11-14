@@ -15,6 +15,10 @@ final class KeyEditorDialog: NSObject {
 
     /// The key as edited so far.
     private(set) var draft: KeySpec
+    /// The labels as the key came (or as the palette entry set them): an empty
+    /// field keeps an empty one ("show nothing", the spacebar's) instead of
+    /// turning it into no label, which shows the action's name.
+    private var givenLabels: (label: String?, corner: String?)
     private let window: NSWindow
     private var done = false
 
@@ -34,6 +38,7 @@ final class KeyEditorDialog: NSObject {
 
     private init(title: String, key: KeySpec) {
         draft = key
+        givenLabels = (key.label, key.secondary)
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1240, height: 420),
                           styleMask: [.titled], backing: .buffered, defer: false)
         window.title = title
@@ -52,6 +57,14 @@ final class KeyEditorDialog: NSObject {
             window.level = NSWindow.Level(rawValue: AppConfig.Levels.keyboard.rawValue + 1)
         }
         RunLoop.main.add(raise, forMode: .modalPanel)
+        // The editor can be clicked while the app is not the active one (it
+        // floats over others); a modal session in an inactive app may end at
+        // once, so the app comes forward first, and the dialog with it.
+        // Raised before it shows too, not only after: if the timer were late,
+        // it would open under the floating editor and look like nothing.
+        window.level = NSWindow.Level(rawValue: AppConfig.Levels.keyboard.rawValue + 1)
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
         NSApp.runModal(for: window)
         window.orderOut(nil)
         return done ? draft : nil
@@ -247,8 +260,9 @@ final class KeyEditorDialog: NSObject {
     }
 
     private func applyFields() {
-        draft.label = labelField.stringValue.isEmpty ? nil : labelField.stringValue
-        draft.secondary = cornerField.stringValue.isEmpty ? nil : cornerField.stringValue
+        // Done on an unchanged key must change nothing (`givenLabels`).
+        draft.label = labelField.stringValue.isEmpty ? (givenLabels.label == "" ? "" : nil) : labelField.stringValue
+        draft.secondary = cornerField.stringValue.isEmpty ? (givenLabels.corner == "" ? "" : nil) : cornerField.stringValue
     }
 
     @objc private func fieldsEdited() { applyFields(); show() }
@@ -275,6 +289,7 @@ final class KeyEditorDialog: NSObject {
     private func take(_ key: KeySpec) {
         let width = draft.width, font = draft.fontScale
         draft = key
+        givenLabels = (key.label, key.secondary)
         draft.width = width
         draft.fontScale = font
         show()
@@ -296,7 +311,7 @@ final class KeyEditorDialog: NSObject {
 
     // MARK: - Recording a shortcut, typing text
 
-    /// "⌘⇧S" for a chord.
+    /// "⇧⌘S" for a chord, the modifiers in macOS's order.
     static func chordName(_ chord: Shortcut, key: String? = nil) -> String {
         let symbols: [(Modifier, String)] = [(.control, "\u{2303}"), (.option, "\u{2325}"),
                                              (.shift, "\u{21E7}"), (.command, "\u{2318}")]

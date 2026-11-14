@@ -217,6 +217,23 @@ final class LayoutEditorTests: XCTestCase {
             XCTAssertEqual(LayoutEditor(layout: layout).problems, [], layout.name)
         }
     }
+
+    func testANewKeyFillsTheFirstRowWithRoomForIt() {
+        // Widths 1.5, 1, 2: row 0 is half a key short — too little for a
+        // key of width 1 — row 1 a whole key short, so the key goes there.
+        let half = KeySpec(.character("H"), width: 0.5)
+        let e = LayoutEditor(layout: KeyboardLayout(name: "T", rows: [[b, half], [a], [b, c]]))
+        e.addKey(KeySpec(.character("N")))
+        XCTAssertEqual(names(e), [["B", "H"], ["A", "N"], ["B", "C"]])
+        XCTAssertEqual(e.selection, p(1, 1))
+    }
+
+    func testANewKeyTooWideForAnyGapGoesToTheLastRow() {
+        let e = LayoutEditor(layout: KeyboardLayout(name: "T", rows: [[a], [b, c]]))
+        e.addKey(KeySpec(.character("N"), width: 2))
+        XCTAssertEqual(names(e), [["A"], ["B", "C", "N"]])
+        XCTAssertEqual(e.selection, p(1, 2))
+    }
 }
 
 final class LayoutGeometryTests: XCTestCase {
@@ -291,4 +308,17 @@ final class LayoutGeometryTests: XCTestCase {
         e.undo()
         XCTAssertEqual(e.selectedKey, KeySpec(.character("A"), label: "a"))
     }
+
+    // MARK: Review 2026-11-14
+
+    func testMovingToARowGoesWhereTheKeyStandsOnTheKeyboard() {
+        // A 4-key row over a 10-key row: the keyboard centres it, so its first
+        // key stands above the fourth key below (index 3), not the first.
+        let keys = (0..<10).map { KeySpec(.character(String(UnicodeScalar(UInt8(97 + $0))))) }
+        let e = LayoutEditor(layout: KeyboardLayout(name: "T", rows: [Array(keys.prefix(4)), keys]))
+        e.select(KeyPosition(row: 0, index: 0))
+        e.moveToRow(by: 1)
+        XCTAssertEqual(e.selection, KeyPosition(row: 1, index: 3))
+    }
+
 }

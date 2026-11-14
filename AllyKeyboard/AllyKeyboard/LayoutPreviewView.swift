@@ -2,11 +2,14 @@
 //  LayoutPreviewView.swift
 //  AllyKeyboard
 //
-//  The layout editor's picture of a layout: the keys drawn as the keyboard
-//  draws them — at the layout's own key sizes, gaps and padding, scaled to
-//  fit the room given — each one a click target. A click selects a key; the
-//  selected one is outlined. When rows differ in width, each row's width
-//  stands at its right, red where it falls short; when they are even, nothing.
+//  The layout editor's picture of a layout: the keys laid out and labelled
+//  as the keyboard does it (`ViewController.buildKeyboard`) — the layout's own
+//  key sizes, gaps and padding, short rows centred, the same label sizes and
+//  weights, symbols white — scaled to fit the room given; each key a click
+//  target. A click selects a key; the selected one is outlined. When rows
+//  differ in width, each row's width stands at its right, red where it falls
+//  short; when they are even, nothing. Not drawn: the keyboard's dimming and
+//  its top and bottom bars.
 //
 
 import AppKit
@@ -27,14 +30,13 @@ final class LayoutPreviewView: NSView {
 
     override var isFlipped: Bool { true }
 
-    private func rowWidth(_ row: [KeySpec]) -> Double { row.reduce(0) { $0 + $1.width } }
-    private var rowsAreUneven: Bool { Set(layout.rows.map(rowWidth).filter { $0 > 0 }).count > 1 }
+    private var rowsAreUneven: Bool { layout.rowsAreUneven }
 
     /// The keyboard at 100%, in points — the same arithmetic as the keyboard's
     /// own `keyboardSize`.
     private var naturalSize: NSSize {
         let g = layout.geometry
-        let widest = layout.rows.map(rowWidth).max() ?? 0
+        let widest = layout.rowWidths.max() ?? 0
         let w = CGFloat(widest) * (g.keyWidth + g.keySpacing) - g.keySpacing + 2 * g.padding
         let n = Double(max(layout.rows.count, 1))
         let h = n * (g.keyHeight + g.rowSpacing) - g.rowSpacing + 2 * g.padding
@@ -53,14 +55,15 @@ final class LayoutPreviewView: NSView {
     }
 
     /// Where each key is drawn — the keyboard's `keyW`: a key n units wide
-    /// also spans the n-1 gaps it covers.
+    /// also spans the n-1 gaps it covers; a short row is centred.
     private func frames() -> [[NSRect]] {
         let g = layout.geometry, s = scale
         let unit = CGFloat(g.keyWidth + g.keySpacing) * s, gap = CGFloat(g.keySpacing) * s
         let height = CGFloat(g.keyHeight) * s, rowStep = CGFloat(g.keyHeight + g.rowSpacing) * s
         let pad = CGFloat(g.padding) * s
+        let widths = layout.rowWidths, widest = widths.max() ?? 0
         return layout.rows.enumerated().map { r, row in
-            var x = pad
+            var x = pad + CGFloat(widest - widths[r]) * unit / 2
             let y = pad + CGFloat(r) * rowStep
             return row.map { key in
                 let w = CGFloat(key.width) * unit - gap
@@ -75,7 +78,7 @@ final class LayoutPreviewView: NSView {
         let picture = NSRect(origin: .zero, size: NSSize(width: naturalSize.width * scale, height: naturalSize.height * scale))
         NSBezierPath(roundedRect: picture, xRadius: 10, yRadius: 10).fill()
 
-        let widths = layout.rows.map(rowWidth)
+        let widths = layout.rowWidths
         let widest = widths.max() ?? 0
         let uneven = rowsAreUneven
         for (r, rowFrames) in frames().enumerated() {
@@ -84,8 +87,8 @@ final class LayoutPreviewView: NSView {
             }
             guard uneven, let first = rowFrames.first else { continue }
             // The row's width, red when it falls short of the widest.
-            let label = widths[r] == widths[r].rounded() ? String(Int(widths[r])) : String(widths[r])
-            let color: NSColor = widths[r] == widest ? .secondaryLabelColor : .systemRed
+            let label = Self.units(widths[r])
+            let color: NSColor = abs(widths[r] - widest) < 1e-6 ? .secondaryLabelColor : .systemRed
             (label as NSString).draw(at: NSPoint(x: picture.maxX + 10, y: first.midY - 9),
                                      withAttributes: [.font: NSFont.systemFont(ofSize: 14), .foregroundColor: color])
         }
@@ -113,42 +116,63 @@ final class LayoutPreviewView: NSView {
         }
     }
 
+    /// A width in key widths, as people write it: 16, 16.5, 16.25.
+    static func units(_ value: Double) -> String {
+        let rounded = (value * 1000).rounded() / 1000
+        return rounded == rounded.rounded() ? String(Int(rounded)) : String(rounded)
+    }
+
+    /// The keyboard's label arithmetic, against the key's height: its primary
+    /// font is 15 pt on a 32 pt key, its corner font 9.6 pt.
     private func drawFace(of key: KeySpec, in frame: NSRect) {
-        if let name = key.icon, let image = icon(named: name, colored: key.colored) {
-            let side = min(frame.height * 0.5 * CGFloat(key.fontScale), frame.width - 8)
-            let aspect = image.size.height > 0 ? image.size.width / image.size.height : 1
-            let size = NSSize(width: side * aspect, height: side)
-            image.draw(in: NSRect(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2,
-                                  width: size.width, height: size.height),
-                       from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+        let primary = frame.height * AppConfig.Layout.fontSizePrimary / 32
+        let fontScale = CGFloat(key.fontScale)
+        if let name = key.icon, let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil) {
+            // A symbol, always white, as on the keyboard.
+            let config = NSImage.SymbolConfiguration(pointSize: primary * 0.85 * fontScale, weight: .regular)
+                .applying(.init(paletteColors: [.white]))
+            if let image = symbol.withSymbolConfiguration(config) { draw(image, centredIn: frame) }
+        } else if let name = key.icon, let asset = NSImage(named: name) {
+            // A bundled image: white unless it keeps its colours.
+            let h = frame.height * (key.colored ? 0.55 : 0.4) * fontScale
+            let size = NSSize(width: h * asset.size.width / max(asset.size.height, 1), height: h)
+            draw(key.colored ? asset : tinted(asset, size: size), centredIn: frame, size: size)
         } else {
-            let title = key.action == .blank && key.label == nil ? "" : key.title
-            // One base size for every label, scaled by the key's own font scale,
-            // as the keyboard does — words (Esc, Home) already carry a smaller
-            // scale, and a second reduction here left them too small to read.
-            let font = NSFont.systemFont(ofSize: frame.height * 0.48 * CGFloat(key.fontScale),
-                                         weight: title.count > 1 ? .regular : .light)
-            let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.white]
-            let size = (title as NSString).size(withAttributes: attrs)
-            (title as NSString).draw(at: NSPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2),
-                                     withAttributes: attrs)
+            let id = key.action.legacyID
+            let isLetterOrDigit = id.count == 1 && (id.first?.isLetter ?? false || id.first?.isNumber ?? false)
+            let weight: NSFont.Weight = key.title.count > 1 ? .thin : (isLetterOrDigit ? .light : .regular)
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: primary * fontScale * 1.1, weight: weight),
+                .foregroundColor: NSColor.white]
+            let size = (key.title as NSString).size(withAttributes: attrs)
+            (key.title as NSString).draw(at: NSPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2),
+                                         withAttributes: attrs)
         }
         if let secondary = key.secondary {
-            (secondary as NSString).draw(at: NSPoint(x: frame.maxX - 13, y: frame.minY + 3), withAttributes: [
-                .font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor(white: 1, alpha: 0.7)])
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: frame.height * AppConfig.Layout.fontSizeSecondary / 32, weight: .light),
+                .foregroundColor: NSColor(white: 1, alpha: 0.75)]
+            let size = (secondary as NSString).size(withAttributes: attrs)
+            (secondary as NSString).draw(at: NSPoint(x: frame.maxX - size.width - 3, y: frame.minY + 3), withAttributes: attrs)
         }
     }
 
-    /// A bundled image or an SF Symbol, tinted white unless it keeps its colours.
-    private func icon(named name: String, colored: Bool) -> NSImage? {
-        guard let base = NSImage(named: name) ?? NSImage(systemSymbolName: name, accessibilityDescription: nil)
-        else { return nil }
-        guard !colored, let tinted = base.copy() as? NSImage else { return base }
-        tinted.lockFocus()
-        NSColor.white.set()
-        NSRect(origin: .zero, size: tinted.size).fill(using: .sourceAtop)
-        tinted.unlockFocus()
-        return tinted
+    private func draw(_ image: NSImage, centredIn frame: NSRect, size: NSSize? = nil) {
+        let size = size ?? image.size
+        image.draw(in: NSRect(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2,
+                              width: size.width, height: size.height),
+                   from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+    }
+
+    /// The image in white, drawn at the size it is shown at — not a small
+    /// bitmap scaled up.
+    private func tinted(_ image: NSImage, size: NSSize) -> NSImage {
+        NSImage(size: size, flipped: false) { rect in
+            image.draw(in: rect)
+            NSColor.white.set()
+            rect.fill(using: .sourceAtop)
+            return true
+        }
     }
 
     override func mouseDown(with event: NSEvent) {

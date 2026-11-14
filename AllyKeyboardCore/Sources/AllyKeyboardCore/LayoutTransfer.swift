@@ -25,6 +25,8 @@ extension KeyboardLayout {
         case newerFormat(Int)
         /// A layout with nothing to press.
         case noKeys
+        /// Read, but it could not be written into the layouts folder.
+        case couldNotSave
 
         public var message: String {
             switch self {
@@ -32,6 +34,7 @@ extension KeyboardLayout {
             case .newerFormat(let v):
                 return "The layout was made by a newer version of AllyKeyboard (format \(v); this version reads up to \(KeyboardLayout.currentFormatVersion)). Update the app to import it."
             case .noKeys: return "The layout has no keys."
+            case .couldNotSave: return "The layout could not be saved in the layouts folder."
             }
         }
     }
@@ -125,7 +128,7 @@ extension LayoutStore {
             layout.name = "\(layout.name) \(n)"
         }
         layout.formatVersion = KeyboardLayout.currentFormatVersion
-        guard save(layout) else { throw KeyboardLayout.ImportError.unreadable(detail: "it could not be saved") }
+        guard save(layout) else { throw KeyboardLayout.ImportError.couldNotSave }
         return layout
     }
 }

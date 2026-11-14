@@ -124,9 +124,11 @@ public struct Settings: Codable, Equatable {
     /// Launch with the keyboard collapsed (hidden; only the floating launcher shown).
     public var startCollapsed: Bool
 
-    /// The layout the keyboard shows; nil is Standard. An id no layout has any
-    /// more falls back to Standard too.
-    public var activeLayoutID: UUID?
+    /// The layout the keyboard shows; Standard on a new install. An id no
+    /// layout has any more falls back to Standard. Never optional: it is
+    /// always written, so a missing field can only mean settings from before
+    /// layouts (see `init(from:)`).
+    public var activeLayoutID: UUID
 
     /// Leave the keyboard's own windows out of screenshots and screen
     /// recordings; they stay on screen. Off, they can be photographed.
@@ -192,7 +194,7 @@ public struct Settings: Codable, Equatable {
                 dragCooldownMs: Int = 400,
                 startCollapsed: Bool = false,
                 hideFromCapture: Bool = true,
-                activeLayoutID: UUID? = nil,
+                activeLayoutID: UUID = KeyboardLayout.standardID,
                 showHideSlide: Bool = true,
                 showHideFade: Bool = true,
                 theme: String = "darkSystem",
@@ -314,7 +316,16 @@ public struct Settings: Codable, Equatable {
         self.dragCooldownMs = Settings.clampDragCooldown(try c.decodeIfPresent(Int.self, forKey: .dragCooldownMs) ?? 400)
         self.startCollapsed = try c.decodeIfPresent(Bool.self, forKey: .startCollapsed) ?? false
         self.hideFromCapture = try c.decodeIfPresent(Bool.self, forKey: .hideFromCapture) ?? true
-        self.activeLayoutID = try c.decodeIfPresent(UUID.self, forKey: .activeLayoutID)
+        // Settings saved before there were layouts have no layout at all:
+        // that keyboard is Extended, key for key, so an update keeps it.
+        // Every save since writes the field (Standard included), so only those
+        // lack it. A malformed id costs only the layout choice — Standard —
+        // not every setting.
+        if c.contains(.activeLayoutID) {
+            self.activeLayoutID = (try? c.decodeIfPresent(UUID.self, forKey: .activeLayoutID)) ?? KeyboardLayout.standardID
+        } else {
+            self.activeLayoutID = KeyboardLayout.extendedID
+        }
         self.showHideSlide = try c.decodeIfPresent(Bool.self, forKey: .showHideSlide) ?? true
         self.showHideFade = try c.decodeIfPresent(Bool.self, forKey: .showHideFade) ?? true
         self.theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "darkSystem"

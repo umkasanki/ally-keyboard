@@ -107,4 +107,58 @@ final class LayoutTransferTests: XCTestCase {
         XCTAssertEqual(importError(try empty.encoded()), .noKeys)
         XCTAssertEqual(store.loadAll(), KeyboardLayout.builtIns)
     }
+
+    // MARK: Review 2026-11-14
+
+    private func editedJSON(_ change: (inout [String: Any]) -> Void) throws -> Data {
+        var object = try JSONSerialization.jsonObject(with: try mine().encoded()) as! [String: Any]
+        change(&object)
+        return try JSONSerialization.data(withJSONObject: object)
+    }
+
+    func testSizesOutOfRangeAreBroughtIntoIt() throws {
+        let data = try editedJSON { o in
+            var rows = o["rows"] as! [[[String: Any]]]
+            rows[0][0]["width"] = -3
+            rows[0][1]["fontScale"] = 40
+            o["rows"] = rows
+            o["geometry"] = ["keyWidth": 0, "keyHeight": 100000, "keySpacing": -1, "padding": 999]
+            o["name"] = "  "
+        }
+        let l = try store.importLayout(from: data)
+        XCTAssertEqual(l.rows[0][0].width, LayoutEditor.widthRange.lowerBound)
+        XCTAssertEqual(l.rows[0][1].fontScale, LayoutEditor.fontScaleRange.upperBound)
+        XCTAssertEqual(l.geometry.keyWidth, KeyboardLayout.Geometry.keySizeRange.lowerBound)
+        XCTAssertEqual(l.geometry.keyHeight, KeyboardLayout.Geometry.keySizeRange.upperBound)
+        XCTAssertEqual(l.geometry.keySpacing, KeyboardLayout.Geometry.spacingRange.lowerBound)
+        XCTAssertEqual(l.geometry.padding, KeyboardLayout.Geometry.paddingRange.upperBound)
+        XCTAssertEqual(l.name, KeyboardLayout.untitled)
+    }
+
+    func testAKeyCodeNoKeyHasIsRefused() throws {
+        for code in [-1, 128, 70000] {
+            let data = try editedJSON { o in
+                var rows = o["rows"] as! [[[String: Any]]]
+                rows[0][0]["action"] = ["type": "shortcut", "keyCode": code, "modifiers": ["Cmd"]]
+                o["rows"] = rows
+            }
+            guard case .unreadable(let detail)? = importError(data) else { return XCTFail("\(code)") }
+            XCTAssertTrue(detail.contains("row 1, key 1"), detail)
+        }
+    }
+
+    func testAFailedSaveIsNotCalledAnUnreadableFile() throws {
+        try Data().write(to: dir)
+        XCTAssertEqual(importError(try mine().encoded()), .couldNotSave)
+    }
+
+    func testModifierOrderDoesNotMakeAnotherChord() {
+        XCTAssertEqual(Shortcut(keyCode: 6, modifiers: [.shift, .command]),
+                       Shortcut(keyCode: 6, modifiers: [.command, .shift, .command]))
+    }
+
+    func testABlankKeyWithoutALabelShowsNothing() {
+        XCTAssertEqual(KeySpec(.blank).title, "")
+        XCTAssertEqual(KeySpec(.blank, label: "X").title, "X")
+    }
 }

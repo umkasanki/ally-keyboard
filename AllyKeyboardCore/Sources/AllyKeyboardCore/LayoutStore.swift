@@ -14,7 +14,7 @@ import Foundation
 extension KeyboardLayout {
 
     public enum Problem: Equatable {
-        /// Not a keyboard at all: refused.
+        /// Not a keyboard at all — nothing on it does anything: refused.
         case noKeys
         /// Usable, but typing will be hard without it.
         case missing(SpecialKey)
@@ -25,13 +25,22 @@ extension KeyboardLayout {
     /// narrow job may leave them out on purpose.
     public var problems: [Problem] {
         let actions = rows.flatMap { $0 }.map(\.action)
-        guard actions.contains(where: { $0 != .spacer }) else { return [.noKeys] }
+        guard actions.contains(where: { $0 != .spacer && $0 != .blank }) else { return [.noKeys] }
         return [SpecialKey.space, .backspace, .returnKey]
             .filter { !actions.contains(.key($0)) }
             .map { .missing($0) }
     }
 
     public var isUsable: Bool { !problems.contains(.noKeys) }
+
+    /// Each row's width in key widths, gaps included as the keyboard draws them.
+    public var rowWidths: [Double] { rows.map { $0.reduce(0) { $0 + $1.width } } }
+
+    /// Whether rows differ in width — to a millionth of a key, so sums of
+    /// fractions that are equal (1.1 + 2.2 and 3.3) count as equal.
+    public var rowsAreUneven: Bool {
+        Set(rowWidths.filter { $0 > 0 }.map { ($0 * 1_000_000).rounded() }).count > 1
+    }
 
     public var isStandard: Bool { id == KeyboardLayout.standardID }
 }
@@ -54,11 +63,19 @@ extension KeyboardLayout {
 
 /// Layouts kept as `<id>.json` in one folder.
 ///
-/// The built-ins (Standard, Extended) are always there: from the factory, or
-/// as the user edited them (a file with a built-in's id overrides the factory
-/// one; deleting that file — "Reset to factory" — brings the original back). A file that cannot be read, or that
-/// has no keys, is moved aside as `<name>.unreadable.json`, never half-loaded
-/// and never left to break the next launch.
+/// The built-ins (Standard, Standard Multilingual, Extended) are always there:
+/// from the factory, or as the user edited them (a file with a built-in's id
+/// overrides the factory one; deleting that file — "Reset to factory" — brings
+/// the original back).
+///
+/// Files are written by hand too, so reading is forgiving and never
+/// destructive: a file that cannot be read, or has no keys, is skipped —
+/// never half-loaded — and set aside as `<name>.unreadable.json` only when
+/// asked (`setAsideUnreadable`, at launch and on Reload), never by a read made
+/// to fill a menu while someone is mid-edit. A file from a newer version of
+/// the app is left alone: skipped, not set aside, never written over. Two
+/// files with one id show once, the one named after the id winning; deleting
+/// the id removes them all.
 public final class LayoutStore {
 
     public let directory: URL
@@ -71,19 +88,44 @@ public final class LayoutStore {
         directory.appendingPathComponent(id.uuidString + ".json")
     }
 
+    /// What one file in the folder holds.
+    private enum Entry {
+        case layout(KeyboardLayout, URL)
+        case newer(UUID?, URL)
+        case unreadable(URL)
+    }
+
+    /// The folder's layout files, the ones named after their id first.
+    private func entries() -> [Entry] {
+        let fm = FileManager.default
+        let files = ((try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [])
+            .filter { $0.pathExtension == "json" && !$0.lastPathComponent.hasSuffix(".unreadable.json") }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        let entries: [Entry] = files.map { file in
+            guard let data = try? Data(contentsOf: file) else { return .unreadable(file) }
+            if let header = try? JSONDecoder().decode(Header.self, from: data),
+               (header.formatVersion ?? 0) > KeyboardLayout.currentFormatVersion {
+                return .newer(header.id, file)
+            }
+            guard let layout = try? JSONDecoder().decode(KeyboardLayout.self, from: data), layout.isUsable
+            else { return .unreadable(file) }
+            return .layout(layout, file)
+        }
+        func canonical(_ e: Entry) -> Bool {
+            if case .layout(let l, let f) = e { return f.lastPathComponent == l.id.uuidString + ".json" }
+            return false
+        }
+        return entries.filter(canonical) + entries.filter { !canonical($0) }
+    }
+
+    private struct Header: Decodable { var id: UUID?; var formatVersion: Int? }
+
     /// Every layout: the built-ins first, then the user's by name.
     public func loadAll() -> [KeyboardLayout] {
-        let fm = FileManager.default
-        let files = (try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         var builtIns = KeyboardLayout.builtIns
         var others: [KeyboardLayout] = []
-        for file in files where file.pathExtension == "json" && !file.lastPathComponent.hasSuffix(".unreadable.json") {
-            guard let data = try? Data(contentsOf: file),
-                  let layout = try? JSONDecoder().decode(KeyboardLayout.self, from: data),
-                  layout.isUsable else {
-                moveAside(file)
-                continue
-            }
+        var seen = Set<UUID>()
+        for case .layout(let layout, _) in entries() where seen.insert(layout.id).inserted {
             if let i = builtIns.firstIndex(where: { $0.id == layout.id }) {
                 builtIns[i] = layout
             } else {
@@ -92,6 +134,19 @@ public final class LayoutStore {
         }
         others.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         return builtIns + others
+    }
+
+    /// Move files that cannot be read out of the way, as
+    /// `<name>.unreadable.json`; the names moved.
+    @discardableResult
+    public func setAsideUnreadable() -> [String] {
+        entries().compactMap { entry in
+            guard case .unreadable(let file) = entry else { return nil }
+            let aside = file.deletingPathExtension().appendingPathExtension("unreadable.json")
+            try? FileManager.default.removeItem(at: aside)
+            try? FileManager.default.moveItem(at: file, to: aside)
+            return file.lastPathComponent
+        }
     }
 
     /// Whether a built-in has been edited, so there is a factory one to go back to.
@@ -107,33 +162,42 @@ public final class LayoutStore {
         return all.first { $0.id == id } ?? all[0]
     }
 
-    /// Write a layout. Refused if it has no keys.
+    /// Write a layout. Refused if it has no keys, or if a newer version of the
+    /// app keeps a file for it, which this one would write over without what
+    /// it does not know.
     @discardableResult
     public func save(_ layout: KeyboardLayout) -> Bool {
         guard layout.isUsable else { return false }
-        guard let data = try? layout.encoded() else { return false }
+        let newer = entries().contains { if case .newer(layout.id?, _) = $0 { return true }; return false }
+        guard !newer, let data = try? layout.encoded() else { return false }
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return (try? data.write(to: url(for: layout.id), options: .atomic)) != nil
     }
 
-    /// Delete a user layout. For a built-in this is "Reset to factory".
+    /// Delete a user layout — every file holding it. For a built-in this is
+    /// "Reset to factory".
     public func delete(id: UUID) {
-        try? FileManager.default.removeItem(at: url(for: id))
+        let all = entries()
+        for case .layout(let layout, let file) in all where layout.id == id {
+            try? FileManager.default.removeItem(at: file)
+        }
+        // `<id>.json` once more, whatever is in it — unless a newer version
+        // keeps it, which is never written over, nor deleted.
+        let own = url(for: id)
+        // By name: the folder's listing and `url(for:)` may spell the path differently.
+        let newer = all.contains {
+            if case .newer(_, let file) = $0 { return file.lastPathComponent == own.lastPathComponent }
+            return false
+        }
+        if !newer { try? FileManager.default.removeItem(at: own) }
     }
 
-    /// A copy of a layout under a new id and name, saved.
+    /// A copy of a layout under a new id and name, saved; nil if it could not be.
     @discardableResult
-    public func duplicate(_ layout: KeyboardLayout, name: String) -> KeyboardLayout {
+    public func duplicate(_ layout: KeyboardLayout, name: String) -> KeyboardLayout? {
         var copy = layout
         copy.id = UUID()
         copy.name = name
-        save(copy)
-        return copy
-    }
-
-    private func moveAside(_ file: URL) {
-        let aside = file.deletingPathExtension().appendingPathExtension("unreadable.json")
-        try? FileManager.default.removeItem(at: aside)
-        try? FileManager.default.moveItem(at: file, to: aside)
+        return save(copy) ? copy : nil
     }
 }

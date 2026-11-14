@@ -32,11 +32,18 @@ public struct KeyboardLayout: Codable, Equatable, Identifiable {
 
     private enum CodingKeys: String, CodingKey { case id, name, rows, geometry, formatVersion }
 
-    // Files written before layouts had sizes take today's.
+    /// The name a layout without one is shown under.
+    public static let untitled = "Untitled"
+
+    // Files written before layouts had sizes take today's. Files are written
+    // by hand too: a blank name gets one, and sizes out of range are brought
+    // into it (the editor's own limits), so no file can draw a key of
+    // negative width or a keyboard taller than the screen.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
-        name = try c.decode(String.self, forKey: .name)
+        let given = try c.decode(String.self, forKey: .name).trimmingCharacters(in: .whitespacesAndNewlines)
+        name = given.isEmpty ? KeyboardLayout.untitled : given
         rows = try c.decode([[KeySpec]].self, forKey: .rows)
         geometry = try c.decodeIfPresent(Geometry.self, forKey: .geometry) ?? Geometry()
         formatVersion = try c.decodeIfPresent(Int.self, forKey: .formatVersion) ?? KeyboardLayout.currentFormatVersion
@@ -65,11 +72,14 @@ public struct KeyboardLayout: Codable, Equatable, Identifiable {
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             let d = Geometry()
-            keyWidth = try c.decodeIfPresent(Double.self, forKey: .keyWidth) ?? d.keyWidth
-            keyHeight = try c.decodeIfPresent(Double.self, forKey: .keyHeight) ?? d.keyHeight
-            keySpacing = try c.decodeIfPresent(Double.self, forKey: .keySpacing) ?? d.keySpacing
-            rowSpacing = try c.decodeIfPresent(Double.self, forKey: .rowSpacing) ?? d.rowSpacing
-            padding = try c.decodeIfPresent(Double.self, forKey: .padding) ?? d.padding
+            func value(_ key: CodingKeys, _ fallback: Double, _ range: ClosedRange<Double>) throws -> Double {
+                (try c.decodeIfPresent(Double.self, forKey: key) ?? fallback).clamped(to: range)
+            }
+            keyWidth = try value(.keyWidth, d.keyWidth, Self.keySizeRange)
+            keyHeight = try value(.keyHeight, d.keyHeight, Self.keySizeRange)
+            keySpacing = try value(.keySpacing, d.keySpacing, Self.spacingRange)
+            rowSpacing = try value(.rowSpacing, d.rowSpacing, Self.spacingRange)
+            padding = try value(.padding, d.padding, Self.paddingRange)
         }
     }
 }
@@ -101,8 +111,9 @@ public struct KeySpec: Codable, Equatable {
         self.colored = colored
     }
 
-    /// The text on the key when it has no icon.
-    public var title: String { label ?? action.legacyID }
+    /// The text on the key when it has no icon. A blank key without a label
+    /// shows nothing — not its action's name.
+    public var title: String { label ?? (action == .blank ? "" : action.legacyID) }
 
     // Readable files: defaults are left out, and missing keys take them.
     private enum CodingKeys: String, CodingKey {
@@ -115,8 +126,8 @@ public struct KeySpec: Codable, Equatable {
         label = try c.decodeIfPresent(String.self, forKey: .label)
         secondary = try c.decodeIfPresent(String.self, forKey: .secondary)
         icon = try c.decodeIfPresent(String.self, forKey: .icon)
-        width = try c.decodeIfPresent(Double.self, forKey: .width) ?? 1
-        fontScale = try c.decodeIfPresent(Double.self, forKey: .fontScale) ?? 1
+        width = (try c.decodeIfPresent(Double.self, forKey: .width) ?? 1).clamped(to: LayoutEditor.widthRange)
+        fontScale = (try c.decodeIfPresent(Double.self, forKey: .fontScale) ?? 1).clamped(to: LayoutEditor.fontScaleRange)
         colored = try c.decodeIfPresent(Bool.self, forKey: .colored) ?? false
     }
 
@@ -201,14 +212,24 @@ public enum Command: String, Codable, CaseIterable {
 }
 
 /// A chord: a virtual key code with modifiers held.
-public struct Shortcut: Codable, Hashable {
+/// Not Codable of its own: files carry it inside a `KeyAction` (keyCode and
+/// modifiers spelled out), which goes through `init` and so the ordering.
+public struct Shortcut: Hashable {
     public var keyCode: Int
-    public var modifiers: [Modifier]
+    /// In macOS's order, once each — set only through `init`, which sorts them.
+    public private(set) var modifiers: [Modifier]
 
+    /// Virtual key codes a Mac keyboard has.
+    public static let keyCodeRange = 0...127
+
+    /// The modifiers in the order macOS writes them (⌃⌥⇧⌘, as in its menus),
+    /// once each: ⇧⌘Z and ⌘⇧Z are one chord.
     public init(keyCode: Int, modifiers: [Modifier]) {
         self.keyCode = keyCode
-        self.modifiers = modifiers
+        self.modifiers = Self.order.filter(modifiers.contains)
     }
+
+    private static let order: [Modifier] = [.control, .option, .shift, .capsLock, .command]
 
     /// The chords the keyboard has keys for, by the names the app gives them.
     public static let named: [String: Shortcut] = [
@@ -248,8 +269,12 @@ extension KeyAction: Codable {
         case .media:     self = .media(try c.decode(MediaKey.self, forKey: .value))
         case .command:   self = .command(try c.decode(Command.self, forKey: .value))
         case .shortcut:
-            self = .shortcut(Shortcut(keyCode: try c.decode(Int.self, forKey: .keyCode),
-                                      modifiers: try c.decode([Modifier].self, forKey: .modifiers)))
+            let code = try c.decode(Int.self, forKey: .keyCode)
+            guard Shortcut.keyCodeRange.contains(code) else {
+                throw DecodingError.dataCorruptedError(forKey: .keyCode, in: c,
+                                                       debugDescription: "No key has code \(code)")
+            }
+            self = .shortcut(Shortcut(keyCode: code, modifiers: try c.decode([Modifier].self, forKey: .modifiers)))
         case .blank:     self = .blank
         case .spacer:    self = .spacer
         }
@@ -272,4 +297,8 @@ extension KeyAction: Codable {
         case .spacer: try c.encode(Kind.spacer, forKey: .type)
         }
     }
+}
+
+extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self { min(max(self, range.lowerBound), range.upperBound) }
 }
