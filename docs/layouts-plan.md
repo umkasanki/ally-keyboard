@@ -136,20 +136,64 @@ take that away:
 A preview of a full keyboard plus an inspector does not fit the Settings window,
 so the editor gets a window of its own.
 
+#### What others do (researched 2026-11-14)
 
-- Left: the list of layouts — New (empty or copy of the current), Duplicate,
-  Rename, Delete, Make active, Export…, Import….
-- Centre: a live preview of the selected layout, drawn with the keyboard's own
-  key views. Clicking a key selects it.
-- Right: the selected key's inspector — action (grouped picker: Letters & digits,
-  Text, Editing & navigation, Modifiers, Shortcuts, Media, Keyboard commands,
-  Gap), label, secondary label, icon, width (stepper, 0.5 steps), colored icon.
-  A "Record shortcut" button for custom chords.
-- Under the preview, click-only structure editing: ◀ ▶ move key, ▲ ▼ move to the
-  row above or below, insert key before/after, delete key, add row above/below,
-  delete row.
-- Edits apply to the preview at once; "Save" writes the file and, if the layout
-  is active, rebuilds the keyboard. "Revert" drops unsaved edits.
+- **VIA / Vial** (configurators for programmable keyboards): the keyboard drawn
+  on top; click a key to select it, then click a keycode in a palette below,
+  grouped in tabs (Basic, Media, Layers…). An "Any" entry takes a raw code for
+  whatever the palette lacks. Two clicks per change, no dragging.
+- **Apple's Panel Editor** (for the macOS Accessibility Keyboard): panels of
+  buttons, an inspector for the selected button (title, icon, action), panels
+  saved as a file that can be shared.
+- **Grid 3** (AAC software): an explicit Edit mode with Finish Editing and Undo
+  always in the same corner; Copy and Paste of cells.
+- **Hot Virtual Keyboard** (the Windows keyboard this one follows): its editor
+  gained a "Swap keys" action — exchange two keys by clicking both.
+- **OptiKey / EyeMine** (eye-tracking keyboards): layouts are files edited by
+  hand, after copying a built-in one to a custom folder. Workable for the
+  technical, not for most people — the folder stays as our power-user path.
+
+#### Design
+
+What fits a head-mouse user: everything by single clicks on large targets —
+no drag and drop, no double clicks, nothing shown only on hover, no tiny
+steppers — and Undo for every change.
+
+- **Top bar:** the layout being edited (a pop-up of all layouts), New,
+  Duplicate, Rename, Delete (Reset to Factory for a built-in), Import, Export;
+  Undo and Redo, large, always in the same place; Save and Revert.
+- **Preview:** the layout drawn as the keyboard draws it, larger. Click a key
+  to select it (outlined). Each row shows its width at the right edge and is
+  marked when it differs from the others, so rows can be evened up.
+- **Action palette** under the preview, VIA-style, in tabs: Letters & Digits,
+  Text (type any text), Editing (Space, ⌫, Return, Tab, Esc, Delete),
+  Navigation (arrows, Home/End, Page Up/Down), Modifiers, Shortcuts (common
+  ones, plus "Record shortcut…" for any chord — our "Any"), Media, Keyboard
+  (hide, screenshot, app switcher, translate, phrases, language, next/choose
+  layout, settings), Layout (Gap, Blank). Clicking an action assigns it to the
+  selected key at once.
+- **Inspector** on the right for the selected key: label, corner label, icon
+  (a grid of the bundled icons and common SF Symbols), width and font size with
+  big − / + buttons (0.25 steps), colored icon.
+- **Structure buttons** (click-only): move ◀ ▶, move to the row above ▲ /
+  below ▼, Swap (then click the other key), insert a key left / right (a Blank),
+  delete key, add row above / below, delete row.
+- **Problems** shown in a strip: no keys (cannot save), no Space / Backspace /
+  Return, rows of different widths.
+- Edits go to a working copy shown in the preview; Save writes the file and, if
+  the layout is active, rebuilds the keyboard; Revert drops the edits. Editing
+  a built-in saves the user's version of it (Reset to Factory brings the
+  original back).
+
+#### Built in three steps
+
+- **4a — editor model in Core**, no UI: a working copy, the selected key, every
+  edit as an operation (assign action, set label/icon/width/font, move,
+  swap, insert, delete, add/delete row), Undo/Redo, row widths and problems.
+  Fully unit-tested — the window only calls it.
+- **4b — the window**: top bar, preview with selection, structure buttons,
+  Save/Revert, Undo/Redo, problems strip.
+- **4c — palette, inspector and shortcut recording.**
 
 ### 7. Import and export
 
