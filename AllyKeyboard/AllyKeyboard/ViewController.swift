@@ -210,6 +210,10 @@ final class KeyButton: NSButton {
     var isActive = false { didSet { updateBackground() } }
     /// Overrides the resting background (e.g. suggestion rows blend into the keyboard bg).
     var normalColorOverride: NSColor? { didSet { updateBackground() } }
+    /// Told when the pointer comes onto the key (true) and leaves it (false) —
+    /// for a face drawn as an attributed title, which the glyph dimming does not
+    /// reach: the balloon's rows brighten their text this way.
+    var onHoverChange: ((Bool) -> Void)?
 
     /// Secondary symbol drawn in the top-right corner of the key (e.g. shifted character).
     var secondaryText: String? { didSet { needsDisplay = true; updateGlyphOffset() } }
@@ -335,11 +339,11 @@ final class KeyButton: NSButton {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        isHovered = true;  updateBackground(); updateGlyphAlpha(animated: true)
+        isHovered = true;  updateBackground(); updateGlyphAlpha(animated: true); onHoverChange?(true)
         if !KeyButton.isDraggingWindow { NSCursor.pointingHand.set() }
     }
     override func mouseExited (with event: NSEvent) {
-        isHovered = false; updateBackground(); updateGlyphAlpha(animated: true)
+        isHovered = false; updateBackground(); updateGlyphAlpha(animated: true); onHoverChange?(false)
         if !KeyButton.isDraggingWindow { NSCursor.arrow.set() }
     }
 
@@ -1559,8 +1563,10 @@ class ViewController: NSViewController {
     private func showGreetings() {
         let phrases = settings.savedPhrases
         guard !phrases.isEmpty else { hideSuggestions(); return }
-        // prefixLength larger than any phrase => the whole phrase is drawn bright.
-        showBalloon(phrases, prefixLength: Int.max, widthFactor: 0.5, greetings: true)
+        // Nothing of a phrase has been typed: it rests dimmed whole, and lights
+        // up under the pointer, like a prediction's untyped part. It used to be
+        // drawn bright throughout, which glared beside the predictions.
+        showBalloon(phrases, prefixLength: 0, widthFactor: 0.5, greetings: true)
     }
 
     private func showBalloon(_ items: [String], prefixLength: Int, widthFactor: CGFloat, greetings: Bool) {

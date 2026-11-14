@@ -4,7 +4,8 @@
 //
 //  A vertical column of clickable word suggestions, drawn as a speech-balloon
 //  with a triangular tail pointing at the keyboard. Rows reuse KeyButton and
-//  blend into the keyboard background (flat list, highlight on hover).
+//  blend into the keyboard background (flat list, highlight on hover). The
+//  same view shows the saved phrases, styled the same way.
 //
 
 import AppKit
@@ -55,18 +56,24 @@ final class SuggestionBarView: NSView {
             let y = bodyRect.maxY - rowH * CGFloat(i + 1) - spacing * CGFloat(i)
             let btn = KeyButton(frame: NSRect(x: bodyRect.minX, y: y, width: bodyRect.width, height: rowH))
             btn.identifier = NSUserInterfaceItemIdentifier(word)
-            let attr = NSMutableAttributedString(string: word, attributes: [
+            let attributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: fontSize, weight: .regular),
-                .foregroundColor: NSColor(white: 1, alpha: 0.45),   // completion is dimmed
+                .foregroundColor: NSColor(white: 1, alpha: 0.45),   // what is not typed yet is dimmed
                 .paragraphStyle: para,
-            ])
+            ]
+            let rest = NSMutableAttributedString(string: word, attributes: attributes)
             let ns = word as NSString
             let bright = max(0, min(prefixLength, ns.length))        // already-typed prefix stays bright
             if bright > 0 {
-                attr.addAttribute(.foregroundColor, value: NSColor.white,
+                rest.addAttribute(.foregroundColor, value: NSColor.white,
                                   range: NSRange(location: 0, length: bright))
             }
-            btn.attributedTitle = attr
+            // Under the pointer the whole row lights up, as well as its background.
+            let hover = NSMutableAttributedString(string: word, attributes: attributes)
+            hover.addAttribute(.foregroundColor, value: NSColor.white,
+                               range: NSRange(location: 0, length: ns.length))
+            btn.attributedTitle = rest
+            btn.onHoverChange = { [weak btn] on in btn?.attributedTitle = on ? hover : rest }
             btn.normalColorOverride = AppConfig.Colors.keyboardBg
             btn.layer?.cornerRadius = 0
             btn.target = self
