@@ -16,6 +16,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusBar: StatusBarController!
     private var settingsWindow: SettingsWindowController?
+    private var layoutEditor: LayoutEditorWindowController?
     private var launcher: LauncherWindowController?
 
     // App Nap off, as AllyClicker and SmartNav Lite do. The keyboard has no Dock
@@ -248,6 +249,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             sub.addItem(entry)
         }
         sub.addItem(.separator())
+        sub.addItem(withTitle: "Edit Layouts\u{2026}", action: #selector(openLayoutEditor), keyEquivalent: "").target = self
         sub.addItem(withTitle: "Next Layout", action: #selector(nextLayout), keyEquivalent: "").target = self
         sub.addItem(withTitle: "Duplicate Current Layout", action: #selector(duplicateLayout), keyEquivalent: "").target = self
         sub.addItem(.separator())
@@ -265,6 +267,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let id = item.representedObject as? UUID { keyboardViewController()?.switchLayout(to: id) }
     }
     @objc private func nextLayout() { keyboardViewController()?.switchToNextLayout() }
+
+    /// The layout editor, opened on the layout on screen. One window: asked
+    /// again, it comes forward as it is.
+    @objc func openLayoutEditor() {
+        guard let vc = keyboardViewController() else { return }
+        if let editor = layoutEditor, editor.window?.isVisible == true {
+            editor.present()
+            return
+        }
+        let editor = LayoutEditorWindowController(
+            store: vc.layoutStore, open: vc.activeLayoutID,
+            onSaved: { [weak vc] layout in vc?.layoutChanged(layout.id, deleted: false) },
+            onDeleted: { [weak vc] id in vc?.layoutChanged(id, deleted: true) })
+        layoutEditor = editor
+        editor.present()
+    }
     @objc private func duplicateLayout() { keyboardViewController()?.duplicateCurrentLayout() }
     @objc private func reloadLayouts() { keyboardViewController()?.reloadLayout() }
     @objc private func resetLayout() { keyboardViewController()?.resetActiveLayoutToFactory() }

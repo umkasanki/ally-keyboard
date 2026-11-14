@@ -805,6 +805,17 @@ class ViewController: NSViewController {
 
     var activeLayoutName: String { layout.name }
 
+    /// The editor saved or deleted a layout: follow it if it is the one shown.
+    /// A deleted user layout gives way to Standard; a reset built-in reloads.
+    func layoutChanged(_ id: UUID, deleted: Bool) {
+        guard id == layout.id else { return }
+        if deleted, KeyboardLayout.builtIn(id: id) == nil {
+            switchLayout(to: KeyboardLayout.standardID)
+        } else {
+            reloadLayout()
+        }
+    }
+
     /// Whether the layout on screen is a built-in the user has edited, so
     /// there is a factory one to go back to.
     var activeLayoutIsEditedBuiltIn: Bool { layoutStore.isEdited(layout.id) }
