@@ -156,6 +156,18 @@ public final class LayoutEditor {
         changeSelected { $0.action = action }
     }
 
+    /// Give the selected key a palette entry: its action and its look —
+    /// label, corner label, icon, colour — keeping the key's width and font
+    /// size, which belong to where it stands.
+    public func assign(_ choice: ActionChoice) {
+        changeSelected {
+            let width = $0.width, fontScale = $0.fontScale
+            $0 = choice.key
+            $0.width = width
+            $0.fontScale = fontScale
+        }
+    }
+
     /// nil or empty shows the action's own name.
     public func setLabel(_ label: String?) {
         changeSelected { $0.label = (label?.isEmpty ?? true) ? nil : label }

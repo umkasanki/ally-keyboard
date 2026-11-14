@@ -19,7 +19,7 @@ final class LayoutPreviewView: NSView {
     var onClick: ((KeyPosition?) -> Void)?
 
     /// One standard key, in points: large enough to aim at with a head mouse.
-    private let unit: CGFloat = 46
+    private let unit: CGFloat = 40
     private let gap: CGFloat = 5
     private let padding: CGFloat = 12
     private let widthColumn: CGFloat = 54
