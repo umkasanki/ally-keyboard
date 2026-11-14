@@ -37,6 +37,8 @@ final class KeyEditorPanel: NSObject {
     private let widthValue = NSTextField(labelWithString: "")
     private let fontValue = NSTextField(labelWithString: "")
     private let tabs = NSTabView()
+    /// The tabs' names, at the left edge: a tab view centres its own bar.
+    private let tabPicker = NSSegmentedControl()
 
     override init() {
         super.init()
@@ -50,6 +52,7 @@ final class KeyEditorPanel: NSObject {
         draft = key
         givenLabels = (key.label, key.secondary)
         tabs.selectTabViewItem(at: 0)
+        tabPicker.selectedSegment = 0
         show()
     }
 
@@ -132,12 +135,14 @@ final class KeyEditorPanel: NSObject {
             value.widthAnchor.constraint(equalToConstant: 56).isActive = true
         }
 
-        let sizes = row([
+        // One above the other: the panel sits inside the Keys block, and side
+        // by side they would push it past the window's width.
+        let sizes = column([
             column([caption("Width"), row([button("", #selector(narrower), symbol: "minus"), widthValue,
                                            button("", #selector(wider), symbol: "plus")])]),
             column([caption("Font size"), row([button("", #selector(smallerFont), symbol: "minus"), fontValue,
                                                button("", #selector(largerFont), symbol: "plus")])]),
-        ], spacing: 24)
+        ], spacing: 10)
 
         let cancelButton = button("Cancel", #selector(cancel))
         cancelButton.keyEquivalent = "\u{1b}"
@@ -145,34 +150,38 @@ final class KeyEditorPanel: NSObject {
         doneButton.keyEquivalent = "\r"
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let footer = row([spacer, cancelButton, doneButton])
+        // Cancel and Done on the title's line, at the right, under New Key…
+        // and Edit Key… — not left hanging under the fields.
+        let header = row([titleLabel, spacer, cancelButton, doneButton])
 
         let inspector = column([
             caption("Action"), actionValue,
             caption("Label"), labelField,
             caption("Corner label"), cornerField,
             caption("Icon"), iconPopup, coloredCheck,
-            sizes, footer,
+            sizes,
         ])
-        footer.widthAnchor.constraint(equalTo: inspector.widthAnchor).isActive = true
 
         let main = row([makePalette(), inspector], spacing: 24)
         main.alignment = .top
-        let stack = column([titleLabel, main], spacing: 8)
+        // The tabs' bar sits inside the tab view's frame, nearer its title than
+        // a button would; 12 gives the same gap as "Keys" over its buttons.
+        let stack = column([header, main], spacing: 12)
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.topAnchor),
             stack.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            header.widthAnchor.constraint(equalTo: stack.widthAnchor),
         ])
     }
 
     // MARK: - Palette
 
     private func makePalette() -> NSView {
-        tabs.font = .systemFont(ofSize: 13)
+        tabs.tabViewType = .noTabsBezelBorder
         for group in ActionCatalog.groups {
             var buttons: [NSButton] = group.choices.enumerated().map { i, choice in
                 let b = button(choice.name, #selector(choicePicked(_:)))
@@ -189,10 +198,21 @@ final class KeyEditorPanel: NSObject {
             tabs.addTabViewItem(item)
         }
         tabs.translatesAutoresizingMaskIntoConstraints = false
-        tabs.heightAnchor.constraint(equalToConstant: 300).isActive = true
-        tabs.widthAnchor.constraint(equalToConstant: 800).isActive = true
-        return tabs
+        tabs.heightAnchor.constraint(equalToConstant: 270).isActive = true
+        tabs.widthAnchor.constraint(equalToConstant: 790).isActive = true
+
+        tabPicker.segmentCount = ActionCatalog.groups.count
+        for (i, group) in ActionCatalog.groups.enumerated() { tabPicker.setLabel(group.title, forSegment: i) }
+        tabPicker.trackingMode = .selectOne
+        tabPicker.controlSize = .large
+        tabPicker.font = .systemFont(ofSize: 13)
+        tabPicker.selectedSegment = 0
+        tabPicker.target = self
+        tabPicker.action = #selector(tabPicked)
+        return column([tabPicker, tabs], spacing: 8)
     }
+
+    @objc private func tabPicked() { tabs.selectTabViewItem(at: tabPicker.selectedSegment) }
 
     private static let wideTag = -1
     private func wide(_ b: NSButton) -> NSButton { b.tag = Self.wideTag; return b }

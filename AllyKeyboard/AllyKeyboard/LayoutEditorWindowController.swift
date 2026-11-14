@@ -33,17 +33,18 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     private let layoutPopup = NSPopUpButton()
     /// One key's action and look, slid out under the keys (`beginKeyEdit`).
     private let keyPanel = KeyEditorPanel()
-    /// The key being edited in it, and how Done puts it into the layout.
-    private var keyEdit: (draft: KeySpec, apply: (LayoutEditor, KeySpec) -> Void)?
+    /// The key being edited in it: which button opened the panel, the layout
+    /// it belongs to, the draft, and how Done puts it into the layout.
+    private var keyEdit: (isNew: Bool, layoutID: UUID, draft: KeySpec, apply: (LayoutEditor, KeySpec) -> Void)?
     private var keyboardPanel: NSView!, keysPanel: NSView!
-    /// The top bar's controls, set aside while a key is being edited.
-    private var topControls: [NSControl] = []
+    private var newKeyButton: NSButton!, editKeyButton: NSButton!
+    /// The line between the Keys buttons and the key panel, out with it.
+    private let keyPanelRule = NSBox()
     /// Everything above the status bar, in a scroll view: the window grows
     /// with it up to the screen's visible height (above the Dock), and
     /// scrolls past that (the user's call, 2026-11-14).
     private var contentStack: NSStackView!, statusBarView: NSView!
     private static let previewSize = NSSize(width: 820, height: 330)
-    private static let previewSizeWhileEditingKey = NSSize(width: 1140, height: 220)
     private let preview = LayoutPreviewView()
     /// The status bar's lines: the hint first, then a line per warning.
     private let statusLines = NSStackView()
@@ -163,7 +164,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        topControls = [layoutPopup,
+        let topControls: [NSView] = [layoutPopup,
                        button("New", #selector(newLayout)),
                        button("Duplicate", #selector(duplicate)),
                        button("Rename\u{2026}", #selector(rename)),
@@ -171,7 +172,6 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
                        button("Import\u{2026}", #selector(importLayout)),
                        button("Export\u{2026}", #selector(exportLayout))]
         let top = row(topControls + [spacer, undoButton, redoButton, revertButton, saveButton])
-        topControls += [undoButton, redoButton, revertButton, saveButton]
 
         preview.onClick = { [weak self] position in self?.clicked(position) }
         preview.maximumSize = Self.previewSize
@@ -183,8 +183,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         middle.alignment = .centerY
 
         keysPanel = makeKeysPanel()
-        keyPanel.view.isHidden = true
-        let stack = column([top, middle, keysPanel, keyPanel.view], spacing: 16)
+        let stack = column([top, middle, keysPanel], spacing: 16)
         stack.edgeInsets = NSEdgeInsets(top: 18, left: 18, bottom: 18, right: 18)
         stack.translatesAutoresizingMaskIntoConstraints = false
         let document = TopDownView()
@@ -362,8 +361,21 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
             editKey,
         ]
         let newKey = button("New Key\u{2026}", #selector(newKey), symbol: "plus.rectangle")
+        newKeyButton = newKey
+        editKeyButton = editKey
         let buttons = row(keyButtons.dropLast() + [NSView(), newKey, editKey])
-        let panel = column([heading("Keys"), buttons], spacing: 8)
+        // The key panel slides out inside this block, under its buttons: it
+        // goes on from them.
+        keyPanel.view.isHidden = true
+        keyPanelRule.boxType = .separator
+        keyPanelRule.isHidden = true
+        let panel = column([heading("Keys"), buttons, keyPanelRule, keyPanel.view], spacing: 8)
+        // Room above and below the line, so the panel does not run into the buttons.
+        panel.setCustomSpacing(18, after: buttons)
+        panel.setCustomSpacing(16, after: keyPanelRule)
+        keyPanelRule.widthAnchor.constraint(equalTo: panel.widthAnchor, constant: -20).isActive = true
+        // As wide as the buttons above, so its Done lines up under Edit Key….
+        keyPanel.view.widthAnchor.constraint(equalTo: panel.widthAnchor, constant: -20).isActive = true
         // On the keyboard picture's own background, so the block's edge reads
         // where the picture's does — in line with the top bar.
         panel.wantsLayer = true
@@ -382,7 +394,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         let shown = layoutWithDraft() ?? (editor.layout, editor.selection)
         preview.layout = shown.layout
         preview.selection = shown.selection
-        topControls.forEach { $0.isEnabled = true }
+        // Another layout opened: the key being edited belonged to the last one.
+        if let edit = keyEdit, edit.layoutID != editor.layout.id { closeKeyPanel() }
         undoButton.isEnabled = editor.canUndo
         redoButton.isEnabled = editor.canRedo
         saveButton.isEnabled = editor.hasUnsavedChanges && editor.canSave
@@ -404,8 +417,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
             deleteButton.isEnabled = true
         }
 
-        // While a key is being edited, nothing else may change the layout.
-        if keyEdit != nil { topControls.forEach { $0.isEnabled = false } }
+        // The button that opened the key panel is dimmed while it is out.
+        if let edit = keyEdit { (edit.isNew ? newKeyButton : editKeyButton)?.isEnabled = false }
 
         window?.title = "Layout Editor — \(editor.layout.name)" + (editor.hasUnsavedChanges ? " (edited)" : "")
         refreshStatus()
@@ -730,28 +743,28 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     /// The selected key in the key panel; Done replaces it, as one step to undo.
     @objc private func editKey() {
         guard let key = editor.selectedKey else { return }
-        beginKeyEdit(title: "Edit Key", key: key) { $0.replaceSelectedKey(with: $1) }
+        beginKeyEdit(title: "Edit Key", key: key, isNew: false) { $0.replaceSelectedKey(with: $1) }
     }
 
     /// A new key from the key panel — starting as a copy of the selected key,
     /// or blank with none selected — placed right of the selection, or in the
     /// first row with room for it.
     @objc private func newKey() {
-        beginKeyEdit(title: "New Key", key: editor.selectedKey ?? KeySpec(.blank)) { $0.addKey($1) }
+        beginKeyEdit(title: "New Key", key: editor.selectedKey ?? KeySpec(.blank), isNew: true) { $0.addKey($1) }
     }
 
-    /// Slide the key panel out under the keyboard's picture. While it is out
-    /// the picture shows the layout as Done would leave it, redrawn on every
-    /// change; what does not belong to one key — the sizes, the key moves,
-    /// the top bar — steps aside, so the window stays short and the edit
-    /// cannot be lost half way.
-    private func beginKeyEdit(title: String, key: KeySpec, apply: @escaping (LayoutEditor, KeySpec) -> Void) {
+    /// Slide the key panel out, inside the Keys block, under its buttons;
+    /// the rest of the window stays as it is, and scrolls when it no longer
+    /// fits the screen. While the panel is out the picture shows the layout
+    /// as Done would leave it, redrawn on every change. Done puts the key in
+    /// at the selection of the moment — the key itself, for Edit Key, which
+    /// the selection follows when it is moved.
+    private func beginKeyEdit(title: String, key: KeySpec, isNew: Bool,
+                              apply: @escaping (LayoutEditor, KeySpec) -> Void) {
         swapFrom = nil
-        keyEdit = (key, apply)
-        keyboardPanel.isHidden = true
-        keysPanel.isHidden = true
+        keyEdit = (isNew, editor.layout.id, key, apply)
         keyPanel.view.isHidden = false
-        preview.maximumSize = Self.previewSizeWhileEditingKey
+        keyPanelRule.isHidden = false
         keyPanel.onChange = { [weak self] draft in
             guard let self, self.keyEdit != nil else { return }
             self.keyEdit?.draft = draft
@@ -760,18 +773,22 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         keyPanel.onFinish = { [weak self] key in self?.endKeyEdit(with: key) }
         keyPanel.begin(title: title, key: key)
         fitWindowToContent()
+        window?.contentView?.layoutSubtreeIfNeeded()
+        keyPanel.view.scrollToVisible(keyPanel.view.bounds)
     }
 
     /// Done (a key) or Cancel (nil): the panel slides back in.
     private func endKeyEdit(with key: KeySpec?) {
         guard let edit = keyEdit else { return }
-        keyEdit = nil
         if let key { edit.apply(editor, key) }
-        keyPanel.view.isHidden = true
-        keyboardPanel.isHidden = false
-        keysPanel.isHidden = false
-        preview.maximumSize = Self.previewSize
+        closeKeyPanel()
         refresh()
+    }
+
+    private func closeKeyPanel() {
+        keyEdit = nil
+        keyPanel.view.isHidden = true
+        keyPanelRule.isHidden = true
     }
 
     /// The layout as the key panel's draft would leave it, worked out on a
