@@ -10,7 +10,9 @@
 //  Extended is the keyboard as it was built for its first user; Standard, the
 //  default for everyone else, leaves out what would puzzle most people: the
 //  input-language key, and the Home / Page Up / Page Down / End column, which
-//  behaves the Windows way (2026-11-14, the author's call).
+//  behaves the Windows way (2026-11-14, the author's call). Standard
+//  Multilingual keeps the language key for those who type in more than one
+//  language, and leaves out the screenshot key instead.
 //
 
 import Foundation
@@ -20,9 +22,10 @@ extension KeyboardLayout {
     /// Fixed, so the built-in layouts are recognised across launches and files.
     public static let standardID = UUID(uuidString: "00000000-0000-0000-0000-00000000A11E")!
     public static let extendedID = UUID(uuidString: "00000000-0000-0000-0000-00000000E77D")!
+    public static let standardMultilingualID = UUID(uuidString: "00000000-0000-0000-0000-0000000A11E2")!
 
     /// The built-ins, default first.
-    public static let builtIns: [KeyboardLayout] = [standard, extended]
+    public static let builtIns: [KeyboardLayout] = [standard, standardMultilingual, extended]
 
     public var isBuiltIn: Bool { KeyboardLayout.builtIns.contains { $0.id == id } }
 
@@ -34,13 +37,21 @@ extension KeyboardLayout {
     ])
 
     /// The default: Extended without the language key and the Windows-style
-    /// page column. Space gives up the one key's width that leaves, so the
-    /// bottom row stays as wide as the others; and Translate moves in front of
-    /// the arrows, which would otherwise slide left under the narrower Space
-    /// and leave ↑ above → instead of ↓.
-    public static let standard: KeyboardLayout = {
-        let left: Set<KeyAction> = [.command(.languageSwitch),
-                                    .key(.home), .key(.pageUp), .key(.pageDown), .key(.end)]
+    /// page column.
+    public static let standard = leaner(leaving: [.command(.languageSwitch)],
+                                        id: standardID, name: "Standard")
+
+    /// Standard with the language key back, and without the screenshot key.
+    public static let standardMultilingual = leaner(leaving: [.command(.screenshot)],
+                                                    id: standardMultilingualID, name: "Standard Multilingual")
+
+    /// Extended without the Windows-style page column and one more key of the
+    /// top row. Space gives up the one key's width that leaves the other rows,
+    /// so the bottom row stays as wide as they are; and Translate moves in
+    /// front of the arrows, which would otherwise slide left under the
+    /// narrower Space and leave ↑ above → instead of ↓.
+    private static func leaner(leaving topRowKey: Set<KeyAction>, id: UUID, name: String) -> KeyboardLayout {
+        let left = topRowKey.union([.key(.home), .key(.pageUp), .key(.pageDown), .key(.end)])
         var rows = extended.rows.map { row in
             row.filter { !left.contains($0.action) }.map { key -> KeySpec in
                 var key = key
@@ -54,8 +65,8 @@ extension KeyboardLayout {
             bottom.insert(bottom.remove(at: t), at: arrows)
         }
         rows[rows.count - 1] = bottom
-        return KeyboardLayout(id: standardID, name: "Standard", rows: rows)
-    }()
+        return KeyboardLayout(id: id, name: name, rows: rows)
+    }
 
     // Shorthands for the rows below.
     private static func ch(_ id: String, _ label: String? = nil, secondary: String? = nil) -> KeySpec {

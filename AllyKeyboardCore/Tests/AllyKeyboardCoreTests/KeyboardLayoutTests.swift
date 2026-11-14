@@ -30,6 +30,16 @@ final class KeyboardLayoutTests: XCTestCase {
         ["Ctrl@1.5", "Alt@1.5", "Cmd@1.5", "Space@4.0", "Cmd@1.5", "HideKeyboard@1.5", "Translate", "ArrowLeft", "ArrowDown", "ArrowRight"],
     ]
 
+    /// Standard Multilingual: the language key back, the screenshot key out.
+    private let expectedStandardMultilingual: [[String]] = [
+        ["Escape@1.5", "Hi", "AppSwitcher", "@", "!", "?", ".", ",", "-", "+", "=", "Mute", "VolumeDown", "VolumeUp", "LangSwitch"],
+        ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace@1.5", "Cmd+C"],
+        ["Tab@1.5", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\", "Cmd+X"],
+        ["CapsLock@1.75", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Return@1.75", "Cmd+V"],
+        ["Shift@2.25", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Shift@1.25", "ArrowUp", "Cmd+Z"],
+        ["Ctrl@1.5", "Alt@1.5", "Cmd@1.5", "Space@4.0", "Cmd@1.5", "HideKeyboard@1.5", "Translate", "ArrowLeft", "ArrowDown", "ArrowRight"],
+    ]
+
     private func ids(_ layout: KeyboardLayout) -> [[String]] {
         layout.rows.map { row in
             row.map { $0.width == 1 ? $0.action.legacyID : "\($0.action.legacyID)@\($0.width)" }
@@ -42,6 +52,10 @@ final class KeyboardLayoutTests: XCTestCase {
 
     func testStandardIsTheLeanDefault() {
         XCTAssertEqual(ids(.standard), expectedStandard)
+    }
+
+    func testStandardMultilingualKeepsTheLanguageKey() {
+        XCTAssertEqual(ids(.standardMultilingual), expectedStandardMultilingual)
     }
 
     /// Where a key starts, in key widths from the left edge.
@@ -60,8 +74,10 @@ final class KeyboardLayoutTests: XCTestCase {
     }
 
     func testBuiltInsHaveFixedIDsAndNoProblems() {
-        XCTAssertEqual(KeyboardLayout.builtIns.map(\.id), [KeyboardLayout.standardID, KeyboardLayout.extendedID])
-        XCTAssertEqual(KeyboardLayout.builtIns.map(\.name), ["Standard", "Extended"])
+        XCTAssertEqual(KeyboardLayout.builtIns.map(\.id),
+                       [KeyboardLayout.standardID, KeyboardLayout.standardMultilingualID, KeyboardLayout.extendedID])
+        XCTAssertEqual(KeyboardLayout.builtIns.map(\.name), ["Standard", "Standard Multilingual", "Extended"])
+        XCTAssertEqual(Set(KeyboardLayout.builtIns.map(\.id)).count, 3)
         for layout in KeyboardLayout.builtIns { XCTAssertEqual(layout.problems, [], layout.name) }
     }
 

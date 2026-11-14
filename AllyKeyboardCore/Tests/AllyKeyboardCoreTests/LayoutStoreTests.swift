@@ -39,7 +39,7 @@ final class LayoutStoreTests: XCTestCase {
         var mine = KeyboardLayout.standard
         mine.rows[0].removeFirst()                       // edited: no Esc
         XCTAssertTrue(store.save(mine))
-        XCTAssertEqual(store.loadAll(), [mine, .extended])   // the edit replaces the factory one
+        XCTAssertEqual(store.loadAll(), [mine, .standardMultilingual, .extended])   // the edit replaces the factory one
         XCTAssertTrue(store.isEdited(KeyboardLayout.standardID))
         XCTAssertFalse(store.isEdited(KeyboardLayout.extendedID))
         store.delete(id: KeyboardLayout.standardID)          // "Reset to factory"
@@ -51,7 +51,7 @@ final class LayoutStoreTests: XCTestCase {
         var mine = KeyboardLayout.extended
         mine.name = "My Extended"
         store.save(mine)
-        XCTAssertEqual(store.loadAll().map(\.name), ["Standard", "My Extended"])
+        XCTAssertEqual(store.loadAll().map(\.name), ["Standard", "Standard Multilingual", "My Extended"])
         store.delete(id: KeyboardLayout.extendedID)
         XCTAssertEqual(store.loadAll(), KeyboardLayout.builtIns)
     }
@@ -61,7 +61,7 @@ final class LayoutStoreTests: XCTestCase {
     func testLayoutsComeBackStandardFirstThenByName() {
         let b = layout("Coding"), a = layout("arrows only")
         store.save(b); store.save(a)
-        XCTAssertEqual(store.loadAll().map(\.name), ["Standard", "Extended", "arrows only", "Coding"])
+        XCTAssertEqual(store.loadAll().map(\.name), ["Standard", "Standard Multilingual", "Extended", "arrows only", "Coding"])
         XCTAssertEqual(store.layout(id: b.id), b)
     }
 
@@ -69,7 +69,7 @@ final class LayoutStoreTests: XCTestCase {
         let copy = store.duplicate(.standard, name: "Standard copy")
         XCTAssertNotEqual(copy.id, KeyboardLayout.standardID)
         XCTAssertEqual(copy.rows, KeyboardLayout.standard.rows)
-        XCTAssertEqual(store.loadAll().map(\.name), ["Standard", "Extended", "Standard copy"])
+        XCTAssertEqual(store.loadAll().map(\.name), ["Standard", "Standard Multilingual", "Extended", "Standard copy"])
     }
 
     func testDeleteRemovesAUserLayout() {
@@ -127,8 +127,8 @@ final class LayoutStoreTests: XCTestCase {
 
     func testNextLayoutWrapsRound() {
         let a = layout("A"), b = layout("B")
-        let all = [KeyboardLayout.standard, KeyboardLayout.extended, a, b]
-        XCTAssertEqual(KeyboardLayout.next(after: KeyboardLayout.standardID, in: all), .extended)
+        let all = KeyboardLayout.builtIns + [a, b]
+        XCTAssertEqual(KeyboardLayout.next(after: KeyboardLayout.standardID, in: all), .standardMultilingual)
         XCTAssertEqual(KeyboardLayout.next(after: KeyboardLayout.extendedID, in: all), a)
         XCTAssertEqual(KeyboardLayout.next(after: b.id, in: all), .standard)
         XCTAssertEqual(KeyboardLayout.next(after: UUID(), in: all), .standard)
