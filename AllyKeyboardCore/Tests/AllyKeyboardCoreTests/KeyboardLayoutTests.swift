@@ -152,4 +152,15 @@ final class KeyboardLayoutTests: XCTestCase {
         XCTAssertEqual(KeyAction.shortcut(Shortcut(keyCode: 1, modifiers: [.command, .shift])).legacyID,
                        "Shortcut(1,Shift+Cmd)")
     }
+
+    func testKeysThatTypeNothingHaveNames() {
+        // Apple's virtual key codes (Events.h): kVK_RightArrow 0x7C, kVK_Return
+        // 0x24, kVK_F1 0x7A, kVK_Escape 0x35, kVK_Home 0x73.
+        XCTAssertEqual(Shortcut.keyNames[0x7C], "\u{2192}")
+        XCTAssertEqual(Shortcut.keyNames[0x24], "\u{21A9}")
+        XCTAssertEqual(Shortcut.keyNames[0x7A], "F1")
+        XCTAssertEqual(Shortcut.keyNames[0x35], "\u{238B}")
+        XCTAssertEqual(Shortcut.keyNames[0x73], "\u{2196}")
+        XCTAssertNil(Shortcut.keyNames[1])                     // S types a character
+    }
 }

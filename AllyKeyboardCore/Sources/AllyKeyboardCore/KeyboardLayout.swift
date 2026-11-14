@@ -242,6 +242,19 @@ public struct Shortcut: Hashable {
 
     public static func named(_ name: String) -> Shortcut? { named[name] }
 
+    /// What macOS shows for the keys that type no character — in its menus
+    /// and keyboard settings — by virtual key code. A recorded chord's event
+    /// gives these keys as invisible function-key characters (U+F700…), so
+    /// their names come from here.
+    public static let keyNames: [Int: String] = [
+        123: "\u{2190}", 124: "\u{2192}", 125: "\u{2193}", 126: "\u{2191}",   // ← → ↓ ↑
+        36: "\u{21A9}", 76: "\u{2324}", 48: "\u{21E5}", 49: "Space",          // ↩ ⌤ ⇥
+        51: "\u{232B}", 117: "\u{2326}", 53: "\u{238B}",                      // ⌫ ⌦ ⎋
+        115: "\u{2196}", 119: "\u{2198}", 116: "\u{21DE}", 121: "\u{21DF}",  // ↖ ↘ ⇞ ⇟
+        122: "F1", 120: "F2", 99: "F3", 118: "F4", 96: "F5", 97: "F6",
+        98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12",
+    ]
+
     /// A named chord's name; any other is spelled out.
     public var legacyID: String {
         if let name = Self.named.first(where: { $0.value == self })?.key { return name }

@@ -204,8 +204,9 @@ final class KeyEditorDialog: NSObject {
                 b.identifier = NSUserInterfaceItemIdentifier(group.title)
                 return b
             }
-            if group.title == "Shortcuts" { buttons.append(button("Record Shortcut\u{2026}", #selector(recordShortcut))) }
-            if group.title == "Text" { buttons.append(button("Type Text\u{2026}", #selector(typeText))) }
+            // Two cells wide, so their names show whole.
+            if group.title == "Shortcuts" { buttons.append(wide(button("Record Shortcut\u{2026}", #selector(recordShortcut)))) }
+            if group.title == "Text" { buttons.append(wide(button("Type Text\u{2026}", #selector(typeText)))) }
             let item = NSTabViewItem(identifier: group.title)
             item.label = group.title
             item.view = grid(of: buttons, columns: 9)
@@ -217,13 +218,16 @@ final class KeyEditorDialog: NSObject {
         return tabs
     }
 
+    private static let wideTag = -1
+    private func wide(_ b: NSButton) -> NSButton { b.tag = Self.wideTag; return b }
+
     /// Buttons in rows of `columns`; every tab fits with no scrolling.
     private func grid(of buttons: [NSButton], columns: Int) -> NSView {
         var rows: [NSView] = []
         var start = 0
         while start < buttons.count {
             let slice = Array(buttons[start..<min(start + columns, buttons.count)])
-            slice.forEach { $0.widthAnchor.constraint(equalToConstant: 88).isActive = true }
+            slice.forEach { $0.widthAnchor.constraint(equalToConstant: $0.tag == Self.wideTag ? 2 * 88 + 8 : 88).isActive = true }
             rows.append(row(slice))
             start += columns
         }
@@ -315,10 +319,30 @@ final class KeyEditorDialog: NSObject {
     // MARK: - Recording a shortcut, typing text
 
     /// "⇧⌘S" for a chord, the modifiers in macOS's order.
+    /// The key: its name if it types nothing (→, ↩, F1), else the character
+    /// it was typed as, else the one it types in the current input source.
     static func chordName(_ chord: Shortcut, key: String? = nil) -> String {
         let symbols: [(Modifier, String)] = [(.control, "\u{2303}"), (.option, "\u{2325}"),
                                              (.shift, "\u{21E7}"), (.command, "\u{2318}")]
-        return symbols.filter { chord.modifiers.contains($0.0) }.map(\.1).joined() + (key ?? "key \(chord.keyCode)")
+        return symbols.filter { chord.modifiers.contains($0.0) }.map(\.1).joined() + keyName(chord.keyCode, typed: key)
+    }
+
+    private static func keyName(_ code: Int, typed: String?) -> String {
+        if let name = Shortcut.keyNames[code] { return name }
+        // A function-key character (U+F700…) or a control character shows as nothing.
+        func printable(_ s: String?) -> String? {
+            guard let s, !s.isEmpty, !s.unicodeScalars.contains(where: {
+                (0xF700...0xF8FF).contains($0.value) || $0.properties.generalCategory == .control
+            }) else { return nil }
+            return s.uppercased()
+        }
+        if let typed = printable(typed) { return typed }
+        if let code16 = UInt16(exactly: code),
+           let ch = printable(InputSourceSwitcher.character(forKeyCode: code16, shift: false,
+                                                            from: InputSourceSwitcher.currentSource())) {
+            return ch
+        }
+        return "key \(code)"
     }
 
     /// A dialog in front of this one; both ordinary windows, under the keyboard.
@@ -351,8 +375,7 @@ final class KeyEditorDialog: NSObject {
             if event.modifierFlags.contains(.shift) { mods.append(.shift) }
             if event.modifierFlags.contains(.command) { mods.append(.command) }
             let chord = Shortcut(keyCode: Int(event.keyCode), modifiers: mods)
-            let key = (event.charactersIgnoringModifiers ?? "").uppercased()
-            let name = Self.chordName(chord, key: key.isEmpty ? nil : key)
+            let name = Self.chordName(chord, key: event.charactersIgnoringModifiers)
             recorded = (chord, name)
             shown.stringValue = name
             return nil                                      // recorded, not acted on
