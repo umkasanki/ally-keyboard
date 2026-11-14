@@ -2,22 +2,60 @@
 //  StandardLayout.swift
 //  AllyKeyboardCore
 //
-//  The keyboard as it has been, as data: the factory definition of the
-//  default layout. The user may edit their copy of it; this stays the
-//  original that "Reset to factory" brings back. Pinned key for key by
-//  StandardLayoutTests — change it only on purpose.
+//  The built-in layouts, as data: their factory definitions. A user may edit
+//  their copy of either; these stay the originals that "Reset to factory"
+//  brings back. Pinned key for key by KeyboardLayoutTests — change them only
+//  on purpose.
+//
+//  Extended is the keyboard as it was built for its first user; Standard, the
+//  default for everyone else, leaves out what would puzzle most people: the
+//  input-language key, and the Home / Page Up / Page Down / End column, which
+//  behaves the Windows way (2026-11-14, the author's call).
 //
 
 import Foundation
 
 extension KeyboardLayout {
 
-    /// Fixed, so the default layout is recognised across launches and files.
+    /// Fixed, so the built-in layouts are recognised across launches and files.
     public static let standardID = UUID(uuidString: "00000000-0000-0000-0000-00000000A11E")!
+    public static let extendedID = UUID(uuidString: "00000000-0000-0000-0000-00000000E77D")!
 
-    public static let standard = KeyboardLayout(id: standardID, name: "Standard", rows: [
+    /// The built-ins, default first.
+    public static let builtIns: [KeyboardLayout] = [standard, extended]
+
+    public var isBuiltIn: Bool { KeyboardLayout.builtIns.contains { $0.id == id } }
+
+    public static func builtIn(id: UUID) -> KeyboardLayout? { builtIns.first { $0.id == id } }
+
+    /// Every key of the full keyboard.
+    public static let extended = KeyboardLayout(id: extendedID, name: "Extended", rows: [
         functionRow, numberRow, qwertyRow, asdfRow, zxcvRow, bottomRow,
     ])
+
+    /// The default: Extended without the language key and the Windows-style
+    /// page column. Space gives up the one key's width that leaves, so the
+    /// bottom row stays as wide as the others; and Translate moves in front of
+    /// the arrows, which would otherwise slide left under the narrower Space
+    /// and leave ↑ above → instead of ↓.
+    public static let standard: KeyboardLayout = {
+        let left: Set<KeyAction> = [.command(.languageSwitch),
+                                    .key(.home), .key(.pageUp), .key(.pageDown), .key(.end)]
+        var rows = extended.rows.map { row in
+            row.filter { !left.contains($0.action) }.map { key -> KeySpec in
+                var key = key
+                if key.action == .key(.space) { key.width -= 1 }
+                return key
+            }
+        }
+        var bottom = rows[rows.count - 1]
+        if let t = bottom.firstIndex(where: { $0.action == .command(.translate) }),
+           let arrows = bottom.firstIndex(where: { $0.action == .key(.arrowLeft) }) {
+            bottom.insert(bottom.remove(at: t), at: arrows)
+        }
+        rows[rows.count - 1] = bottom
+        return KeyboardLayout(id: standardID, name: "Standard", rows: rows)
+    }()
 
     // Shorthands for the rows below.
     private static func ch(_ id: String, _ label: String? = nil, secondary: String? = nil) -> KeySpec {

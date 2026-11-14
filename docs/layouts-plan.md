@@ -1,6 +1,8 @@
 # Editable layouts — implementation plan
 
-Branch: `feature/editable-layouts`. Status: plan, not started.
+Branch: `feature/editable-layouts`. Status: phases 1–3 done (model, the
+keyboard built from it, several layouts with switching); phase 4, the editor,
+next.
 
 ## Goal
 
@@ -192,3 +194,9 @@ Each phase ends with tests green, a build installed, and a check on the device.
   add any chord.
 - The editor gets its own window (room for a full-size preview).
 - Automatic switching per application: not now; the model leaves room for it.
+- Two built-in layouts (2026-11-14): **Extended** is the keyboard as built for
+  its first user; **Standard**, the default for everyone else, leaves out the
+  input-language key and the Windows-style Home / Page Up / Page Down / End
+  column (Space one key narrower, Translate in front of the arrows so ↑ stays
+  above ↓). Both are editable, with a factory reset each. The author uses
+  Extended.

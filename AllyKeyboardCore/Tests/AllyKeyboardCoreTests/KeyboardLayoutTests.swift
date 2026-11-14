@@ -3,13 +3,13 @@ import XCTest
 
 final class KeyboardLayoutTests: XCTestCase {
 
-    // MARK: Standard is the keyboard as it has been
+    // MARK: The built-ins
 
     /// Every key's id (the one the app's behaviour reads) and width, row by row.
-    /// Checked key for key against ViewController's row arrays when written
-    /// (2026-11-10); the move to data must not change the keyboard. Change this
-    /// only together with a deliberate change to the default layout.
-    private let expectedStandard: [[String]] = [
+    /// Extended is the keyboard as it was built for its first user — checked
+    /// key for key against ViewController's row arrays (2026-11-10). Change it
+    /// only together with a deliberate change to the layout.
+    private let expectedExtended: [[String]] = [
         ["Escape@1.5", "Hi", "AppSwitcher", "Screenshot", "@", "!", "?", ".", ",", "-", "+", "=", "Mute", "VolumeDown", "VolumeUp", "LangSwitch"],
         ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace@1.5", "Home", "Cmd+C"],
         ["Tab@1.5", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\", "PageUp", "Cmd+X"],
@@ -18,15 +18,55 @@ final class KeyboardLayoutTests: XCTestCase {
         ["Ctrl@1.5", "Alt@1.5", "Cmd@1.5", "Space@5.0", "Cmd@1.5", "HideKeyboard@1.5", "ArrowLeft", "ArrowDown", "ArrowRight", "Translate"],
     ]
 
-    func testStandardIsTheKeyboardAsItHasBeen() {
-        let actual = KeyboardLayout.standard.rows.map { row in
+    /// Standard, the default: Extended without the language key and the
+    /// Home / Page Up / Page Down / End column (2026-11-14), Space one key
+    /// narrower, Translate in front of the arrows.
+    private let expectedStandard: [[String]] = [
+        ["Escape@1.5", "Hi", "AppSwitcher", "Screenshot", "@", "!", "?", ".", ",", "-", "+", "=", "Mute", "VolumeDown", "VolumeUp"],
+        ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace@1.5", "Cmd+C"],
+        ["Tab@1.5", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\", "Cmd+X"],
+        ["CapsLock@1.75", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Return@1.75", "Cmd+V"],
+        ["Shift@2.25", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Shift@1.25", "ArrowUp", "Cmd+Z"],
+        ["Ctrl@1.5", "Alt@1.5", "Cmd@1.5", "Space@4.0", "Cmd@1.5", "HideKeyboard@1.5", "Translate", "ArrowLeft", "ArrowDown", "ArrowRight"],
+    ]
+
+    private func ids(_ layout: KeyboardLayout) -> [[String]] {
+        layout.rows.map { row in
             row.map { $0.width == 1 ? $0.action.legacyID : "\($0.action.legacyID)@\($0.width)" }
         }
-        XCTAssertEqual(actual, expectedStandard)
     }
 
-    func testStandardKindsOfKey() {
-        let rows = KeyboardLayout.standard.rows
+    func testExtendedIsTheKeyboardAsItHasBeen() {
+        XCTAssertEqual(ids(.extended), expectedExtended)
+    }
+
+    func testStandardIsTheLeanDefault() {
+        XCTAssertEqual(ids(.standard), expectedStandard)
+    }
+
+    /// Where a key starts, in key widths from the left edge.
+    private func start(of action: KeyAction, in row: [KeySpec]) -> Double {
+        row.prefix { $0.action != action }.reduce(0) { $0 + $1.width }
+    }
+
+    func testBothBuiltInsHaveEvenRowsAndUpAboveDown() {
+        for layout in KeyboardLayout.builtIns {
+            let widths = Set(layout.rows.map { $0.reduce(0) { $0 + $1.width } })
+            XCTAssertEqual(widths.count, 1, "\(layout.name): rows of different widths \(widths)")
+            let zxcv = layout.rows[4], bottom = layout.rows[5]
+            XCTAssertEqual(start(of: .key(.arrowUp), in: zxcv), start(of: .key(.arrowDown), in: bottom),
+                           "\(layout.name): ↑ is not above ↓")
+        }
+    }
+
+    func testBuiltInsHaveFixedIDsAndNoProblems() {
+        XCTAssertEqual(KeyboardLayout.builtIns.map(\.id), [KeyboardLayout.standardID, KeyboardLayout.extendedID])
+        XCTAssertEqual(KeyboardLayout.builtIns.map(\.name), ["Standard", "Extended"])
+        for layout in KeyboardLayout.builtIns { XCTAssertEqual(layout.problems, [], layout.name) }
+    }
+
+    func testKindsOfKey() {
+        let rows = KeyboardLayout.extended.rows
         XCTAssertEqual(rows[0][4].action, .literal("@"))           // top-row punctuation types as is
         XCTAssertEqual(rows[1][1].action, .character("1"))         // follows the input layout
         XCTAssertEqual(rows[2][1].title, "q")
@@ -36,7 +76,6 @@ final class KeyboardLayoutTests: XCTestCase {
         XCTAssertEqual(rows[1][15].action, .shortcut(Shortcut(keyCode: 8, modifiers: [.command])))
         XCTAssertEqual(rows[1][15].icon, "copy-icon")
         XCTAssertTrue(rows[1][15].colored)
-        XCTAssertEqual(KeyboardLayout.standard.id, KeyboardLayout.standardID)
     }
 
     // MARK: Files

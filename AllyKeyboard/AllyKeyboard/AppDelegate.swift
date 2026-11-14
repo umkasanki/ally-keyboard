@@ -54,7 +54,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Menu-bar entry: left click toggles the keyboard, right click opens the menu.
         statusBar = StatusBarController(
             onToggleKeyboard: { [weak self] in self?.togglePanel() },
-            onOpenSettings: { [weak self] in self?.openSettings() })
+            onOpenSettings: { [weak self] in self?.openSettings() },
+            layoutMenuItem: { [weak self] in self?.layoutMenuItem() })
 
         // Floating launcher shown while the keyboard is hidden; click brings it back.
         let s = SettingsStore().load()
@@ -224,10 +225,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func makeContextMenu() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(withTitle: "Show / Hide Keyboard", action: #selector(togglePanel), keyEquivalent: "").target = self
+        menu.addItem(layoutMenuItem())
         menu.addItem(withTitle: "Settings\u{2026}", action: #selector(openSettings), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit AllyKeyboard", action: #selector(quitApp), keyEquivalent: "").target = self
         return menu
+    }
+
+    // MARK: - Layout menu
+
+    /// "Layout ▸", in every menu the app has: switching back to Standard must
+    /// never depend on a key the current layout may not have.
+    func layoutMenuItem() -> NSMenuItem {
+        let item = NSMenuItem(title: "Layout", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        guard let vc = keyboardViewController() else { item.submenu = sub; return item }
+        for layout in vc.layoutStore.loadAll() {
+            let entry = NSMenuItem(title: layout.name, action: #selector(chooseLayout(_:)), keyEquivalent: "")
+            entry.target = self
+            entry.representedObject = layout.id
+            entry.state = layout.id == vc.activeLayoutID ? .on : .off
+            sub.addItem(entry)
+        }
+        sub.addItem(.separator())
+        sub.addItem(withTitle: "Next Layout", action: #selector(nextLayout), keyEquivalent: "").target = self
+        sub.addItem(withTitle: "Duplicate Current Layout", action: #selector(duplicateLayout), keyEquivalent: "").target = self
+        sub.addItem(.separator())
+        sub.addItem(withTitle: "Open Layouts Folder", action: #selector(openLayoutsFolder), keyEquivalent: "").target = self
+        sub.addItem(withTitle: "Reload Layouts", action: #selector(reloadLayouts), keyEquivalent: "").target = self
+        if vc.activeLayoutIsEditedBuiltIn {
+            sub.addItem(withTitle: "Reset \(vc.activeLayoutName) to Factory", action: #selector(resetLayout),
+                        keyEquivalent: "").target = self
+        }
+        item.submenu = sub
+        return item
+    }
+
+    @objc private func chooseLayout(_ item: NSMenuItem) {
+        if let id = item.representedObject as? UUID { keyboardViewController()?.switchLayout(to: id) }
+    }
+    @objc private func nextLayout() { keyboardViewController()?.switchToNextLayout() }
+    @objc private func duplicateLayout() { keyboardViewController()?.duplicateCurrentLayout() }
+    @objc private func reloadLayouts() { keyboardViewController()?.reloadLayout() }
+    @objc private func resetLayout() { keyboardViewController()?.resetActiveLayoutToFactory() }
+    @objc private func openLayoutsFolder() {
+        guard let dir = keyboardViewController()?.layoutStore.directory else { return }
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(dir)
     }
 
     @objc private func quitApp() { NSApp.terminate(nil) }
@@ -249,6 +293,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
         let menu = NSMenu()
         menu.addItem(withTitle: "Show / Hide Keyboard", action: #selector(togglePanel), keyEquivalent: "").target = self
+        menu.addItem(layoutMenuItem())
         menu.addItem(withTitle: "Settings\u{2026}", action: #selector(openSettings), keyEquivalent: "").target = self
         return menu
     }
@@ -333,16 +378,15 @@ final class StatusBarController {
     private let menu = NSMenu()
     private let onToggleKeyboard: () -> Void
     private let onOpenSettings: () -> Void
+    /// Made afresh each time the menu opens: the layouts and the active one change.
+    private let layoutMenuItem: () -> NSMenuItem?
 
-    init(onToggleKeyboard: @escaping () -> Void, onOpenSettings: @escaping () -> Void) {
+    init(onToggleKeyboard: @escaping () -> Void, onOpenSettings: @escaping () -> Void,
+         layoutMenuItem: @escaping () -> NSMenuItem?) {
         self.onToggleKeyboard = onToggleKeyboard
         self.onOpenSettings = onOpenSettings
+        self.layoutMenuItem = layoutMenuItem
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-
-        menu.addItem(withTitle: "Show / Hide Keyboard", action: #selector(toggle), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Settings\u{2026}", action: #selector(openSettingsItem), keyEquivalent: ",").target = self
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit AllyKeyboard", action: #selector(quit), keyEquivalent: "q").target = self
 
         if let button = item.button {
             let config = NSImage.SymbolConfiguration(pointSize: 16, weight: .regular)
@@ -362,6 +406,12 @@ final class StatusBarController {
         let rightClick = event?.type == .rightMouseUp
             || (event?.modifierFlags.contains(.control) ?? false)
         if rightClick {
+            menu.removeAllItems()
+            menu.addItem(withTitle: "Show / Hide Keyboard", action: #selector(toggle), keyEquivalent: "").target = self
+            if let layouts = layoutMenuItem() { menu.addItem(layouts) }
+            menu.addItem(withTitle: "Settings\u{2026}", action: #selector(openSettingsItem), keyEquivalent: ",").target = self
+            menu.addItem(.separator())
+            menu.addItem(withTitle: "Quit AllyKeyboard", action: #selector(quit), keyEquivalent: "q").target = self
             item.menu = menu
             item.button?.performClick(nil)   // pops the menu at the item
             item.menu = nil                  // keep left click as an action, not a menu

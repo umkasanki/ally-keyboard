@@ -90,7 +90,7 @@ public struct KeySpec: Codable, Equatable {
 // MARK: - Actions
 
 /// What a key does.
-public enum KeyAction: Equatable {
+public enum KeyAction: Hashable {
     /// A key of the active input layout, by its US name ("Q", "1", "["): it
     /// types whatever that layout puts there and is relabelled to match.
     case character(String)
@@ -129,7 +129,7 @@ public enum KeyAction: Equatable {
     }
 }
 
-public enum SpecialKey: String, Codable, CaseIterable {
+public enum SpecialKey: String, Codable, CaseIterable, Hashable {
     case space = "Space", backspace = "Backspace", delete = "Delete",
          returnKey = "Return", tab = "Tab", escape = "Escape",
          arrowUp = "ArrowUp", arrowDown = "ArrowDown",
@@ -156,7 +156,7 @@ public enum Command: String, Codable, CaseIterable {
 }
 
 /// A chord: a virtual key code with modifiers held.
-public struct Shortcut: Codable, Equatable {
+public struct Shortcut: Codable, Hashable {
     public var keyCode: Int
     public var modifiers: [Modifier]
 

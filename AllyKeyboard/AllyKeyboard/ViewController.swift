@@ -433,6 +433,8 @@ class ViewController: NSViewController {
         let fontScale:       CGFloat     // title font size multiplier (1.0 = default)
         let fixed:           Bool        // label/output never change with the active layout
         let colored:         Bool        // render the image in full color (not a template tint)
+        /// What the key does, when it comes from a layout.
+        var action: KeyAction?
 
         init(_ id: String,
              title: String? = nil,
@@ -465,6 +467,7 @@ class ViewController: NSViewController {
             self.init(spec.action.legacyID, title: spec.title, secondary: spec.secondary,
                       image: spec.icon, w: CGFloat(spec.width), fontScale: CGFloat(spec.fontScale),
                       fixed: isLiteral, colored: spec.colored)
+            action = spec.action
         }
     }
 
@@ -765,6 +768,84 @@ class ViewController: NSViewController {
     /// switched. Everything below still works in `Key`s and their ids.
     private var layout: KeyboardLayout = .standard
 
+    /// The user's layouts, one file each; see `LayoutStore`.
+    let layoutStore = LayoutStore(directory: FileManager.default
+        .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("AllyKeyboard/Layouts"))
+
+    /// What each key id does, for actions the id alone cannot carry — a
+    /// shortcut written into a layout file, for one.
+    private var actionsByID: [String: KeyAction] = [:]
+
+    var activeLayoutID: UUID { layout.id }
+
+    /// Show another layout, in place: the keyboard keeps its top-left corner
+    /// (pulled back on screen if the new one is bigger) and is rebuilt.
+    func switchLayout(to id: UUID) {
+        layout = layoutStore.layout(id: id)
+        settings.activeLayoutID = layout.isStandard ? nil : layout.id
+        settingsStore.save(settings)
+        rebuildForLayout()
+    }
+
+    func switchToNextLayout() {
+        switchLayout(to: KeyboardLayout.next(after: layout.id, in: layoutStore.loadAll()).id)
+    }
+
+    /// Read the active layout again — after its file was edited by hand.
+    func reloadLayout() {
+        layout = layoutStore.layout(id: layout.id)
+        rebuildForLayout()
+    }
+
+    /// A copy of the layout on screen, made the active one, to edit.
+    func duplicateCurrentLayout() {
+        switchLayout(to: layoutStore.duplicate(layout, name: layout.name + " copy").id)
+    }
+
+    var activeLayoutName: String { layout.name }
+
+    /// Whether the layout on screen is a built-in the user has edited, so
+    /// there is a factory one to go back to.
+    var activeLayoutIsEditedBuiltIn: Bool { layoutStore.isEdited(layout.id) }
+
+    func resetActiveLayoutToFactory() {
+        layoutStore.delete(id: layout.id)
+        reloadLayout()
+    }
+
+    private func rebuildForLayout() {
+        guard windowConfigured, let window = view.window else { return }
+        let old = window.frame
+        window.setContentSize(keyboardSize)
+        var frame = window.frame
+        frame.origin = NSPoint(x: old.minX, y: old.maxY - frame.height)
+        if let visible = window.screen?.visibleFrame {
+            frame.origin.x = min(max(frame.minX, visible.minX), visible.maxX - frame.width)
+            frame.origin.y = min(max(frame.minY, visible.minY), visible.maxY - frame.height)
+        }
+        window.setFrame(frame, display: true)
+        buildKeyboard()
+        refreshForCurrentLayout()
+    }
+
+    /// The layouts to choose from, in a menu at the key that asked.
+    private func chooseLayout(from button: NSView) {
+        let menu = NSMenu()
+        for l in layoutStore.loadAll() {
+            let item = NSMenuItem(title: l.name, action: #selector(layoutChosen(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = l.id
+            item.state = l.id == layout.id ? .on : .off
+            menu.addItem(item)
+        }
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height), in: button)
+    }
+
+    @objc private func layoutChosen(_ item: NSMenuItem) {
+        if let id = item.representedObject as? UUID { switchLayout(to: id) }
+    }
+
     private var allRows: [[Key]] { layout.rows.map { $0.map(Key.init) } }
 
     private func rowPixelWidth(_ row: [Key]) -> CGFloat {
@@ -903,6 +984,7 @@ class ViewController: NSViewController {
         settings = settingsStore.load()
         AppConfig.Capture.hidden = settings.hideFromCapture
         window.sharingType = AppConfig.Capture.sharingType
+        layout = layoutStore.layout(id: settings.activeLayoutID)
         vocabulary = vocabularyStore.load()
         vocabulary.forgetFaded()
         vocabularyLoaded = true
@@ -975,6 +1057,7 @@ class ViewController: NSViewController {
         activeModifiers = []
         langSwitchButtons = []
         characterButtons = []
+        actionsByID = [:]
 
         let size       = keyboardSize  // compute once
         let contentW   = size.width - padding * 2
@@ -1007,6 +1090,7 @@ class ViewController: NSViewController {
                 if key.isSpacer { x += w + keySpacing; continue }   // empty gap, no button
                 let btn = KeyButton(frame: NSRect(x: x, y: y, width: w, height: keyHeight))
                 btn.identifier = NSUserInterfaceItemIdentifier(key.id)
+                if let action = key.action { actionsByID[key.id] = action }
                 btn.target     = self
                 btn.action     = #selector(keyPressed(_:))
                 btn.movesWindowOnDrag = settings.dragToMove   // drag a key to move the keyboard
@@ -1211,6 +1295,21 @@ class ViewController: NSViewController {
 
         if key == "Hi" {
             showGreetings()
+            return
+        }
+
+        if key == Command.nextLayout.rawValue { switchToNextLayout(); return }
+        if key == Command.chooseLayout.rawValue { chooseLayout(from: sender); return }
+        if key == Command.openSettings.rawValue {
+            (NSApp.delegate as? AppDelegate)?.openSettings()
+            return
+        }
+
+        // A chord written into a layout that the keyboard has no key id for.
+        if case .shortcut(let chord)? = actionsByID[key], Shortcut.named(key) == nil {
+            KeySender.sendShortcut(chord, adding: eventFlags(from: activeModifiers))
+            textTracker.reset()
+            clearOneShotModifiers()
             return
         }
 

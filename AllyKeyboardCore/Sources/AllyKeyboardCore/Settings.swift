@@ -6,6 +6,8 @@
 //  and is unit-tested on Linux. The macOS app applies these to the window.
 //
 
+import Foundation   // UUID, for the active layout
+
 public struct Settings: Codable, Equatable {
 
     /// Base keyboard scale that corresponds to 100% ("small").
@@ -122,6 +124,10 @@ public struct Settings: Codable, Equatable {
     /// Launch with the keyboard collapsed (hidden; only the floating launcher shown).
     public var startCollapsed: Bool
 
+    /// The layout the keyboard shows; nil is Standard. An id no layout has any
+    /// more falls back to Standard too.
+    public var activeLayoutID: UUID?
+
     /// Leave the keyboard's own windows out of screenshots and screen
     /// recordings; they stay on screen. Off, they can be photographed.
     public var hideFromCapture: Bool
@@ -186,6 +192,7 @@ public struct Settings: Codable, Equatable {
                 dragCooldownMs: Int = 400,
                 startCollapsed: Bool = false,
                 hideFromCapture: Bool = true,
+                activeLayoutID: UUID? = nil,
                 showHideSlide: Bool = true,
                 showHideFade: Bool = true,
                 theme: String = "darkSystem",
@@ -204,6 +211,7 @@ public struct Settings: Codable, Equatable {
         self.spaceAfterSuggestion = spaceAfterSuggestion
         self.startCollapsed = startCollapsed
         self.hideFromCapture = hideFromCapture
+        self.activeLayoutID = activeLayoutID
         self.showHideSlide = showHideSlide
         self.showHideFade = showHideFade
         self.theme = theme
@@ -283,7 +291,7 @@ public struct Settings: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case sizePercent, showSuggestions, learnWords, spaceAfterSuggestion, savedPhrases, launcherWidth, launcherOpacityPercent,
              topBarShow, topBarHeight, bottomBarShow, bottomBarHeight,
-             dragToMove, dragCooldownMs, startCollapsed, hideFromCapture, showHideSlide, showHideFade, theme,
+             dragToMove, dragCooldownMs, startCollapsed, hideFromCapture, activeLayoutID, showHideSlide, showHideFade, theme,
              appPanelIconSize, appPanelOpacityPercent, appPanelHiddenApps, appPanelAutoHideSeconds,
              appPanelHoverZoom, appPanelOutlineWidth, appPanelOutlineGap,
              appPanelIconSpacing, appPanelEdgeSpacing
@@ -306,6 +314,7 @@ public struct Settings: Codable, Equatable {
         self.dragCooldownMs = Settings.clampDragCooldown(try c.decodeIfPresent(Int.self, forKey: .dragCooldownMs) ?? 400)
         self.startCollapsed = try c.decodeIfPresent(Bool.self, forKey: .startCollapsed) ?? false
         self.hideFromCapture = try c.decodeIfPresent(Bool.self, forKey: .hideFromCapture) ?? true
+        self.activeLayoutID = try c.decodeIfPresent(UUID.self, forKey: .activeLayoutID)
         self.showHideSlide = try c.decodeIfPresent(Bool.self, forKey: .showHideSlide) ?? true
         self.showHideFade = try c.decodeIfPresent(Bool.self, forKey: .showHideFade) ?? true
         self.theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "darkSystem"

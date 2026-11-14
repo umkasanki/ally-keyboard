@@ -5,6 +5,7 @@
 
 import Cocoa
 import Carbon   // IsSecureEventInputEnabled
+import AllyKeyboardCore
 
 /// Sends synthetic keyboard events to the frontmost application.
 /// Requires Accessibility permission — call `requestAccessibilityIfNeeded()` at launch.
@@ -177,6 +178,22 @@ enum KeySender {
     private static let modifierKeys: [(flag: CGEventFlags, code: CGKeyCode)] = [
         (.maskCommand, 55), (.maskControl, 59), (.maskAlternate, 58), (.maskShift, 56),
     ]
+
+    /// A chord from a layout file: its key code with its modifiers, plus any
+    /// one-shot modifiers the user armed on the keyboard.
+    static func sendShortcut(_ chord: Shortcut, adding extra: CGEventFlags) {
+        var flags = extra
+        for m in chord.modifiers {
+            switch m {
+            case .command:  flags.insert(.maskCommand)
+            case .control:  flags.insert(.maskControl)
+            case .option:   flags.insert(.maskAlternate)
+            case .shift:    flags.insert(.maskShift)
+            case .capsLock: flags.insert(.maskAlphaShift)
+            }
+        }
+        sendKeyCode(CGKeyCode(chord.keyCode), flags: flags)
+    }
 
     private static func sendKeyCode(_ keyCode: CGKeyCode, flags: CGEventFlags = []) {
         let held = modifierKeys.filter { flags.contains($0.flag) }
