@@ -373,12 +373,13 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
     // MARK: - Dialogs
 
-    /// Show a dialog above the keyboard. `runModal` puts an alert at the
-    /// system's modal level, under the keyboard and anything above it, so it
-    /// could not be reached without moving them; raised again once it is up,
-    /// it stays raised (checked on the device, 2026-11-14).
-    private func run(_ alert: NSAlert) -> NSApplication.ModalResponse {
-        raiseWhenShown(alert.window)
+    /// Show a dialog over everything but the keyboard's own windows: above the
+    /// keyboard when it is only clicked, just under it when it is typed into
+    /// (`typing`). `runModal` puts an alert at the system's modal level, under
+    /// the keyboard and anything above it; set again once it is up, the level
+    /// stays (checked on the device, 2026-11-14).
+    private func run(_ alert: NSAlert, typing: Bool = false) -> NSApplication.ModalResponse {
+        raiseWhenShown(alert.window, to: typing ? AppConfig.Levels.typingDialog : nil)
         return alert.runModal()
     }
 
@@ -388,9 +389,10 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         return panel.runModal()
     }
 
-    private func raiseWhenShown(_ window: NSWindow) {
+    /// Above the keyboard, or to `level` — a dialog typed into goes under it.
+    private func raiseWhenShown(_ window: NSWindow, to level: NSWindow.Level? = nil) {
         let raise = Timer(timeInterval: 0, repeats: false) { _ in
-            window.level = NSWindow.Level(rawValue: AppConfig.Levels.keyboard.rawValue + 2)
+            window.level = level ?? NSWindow.Level(rawValue: AppConfig.Levels.keyboard.rawValue + 2)
         }
         RunLoop.main.add(raise, forMode: .modalPanel)
     }
@@ -521,7 +523,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         alert.addButton(withTitle: "Rename")
         alert.addButton(withTitle: "Cancel")
         alert.window.initialFirstResponder = field
-        guard run(alert) == .alertFirstButtonReturn else { return }
+        guard run(alert, typing: true) == .alertFirstButtonReturn else { return }
         // A name another layout has would make two alike in the lists.
         let name = field.stringValue.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }

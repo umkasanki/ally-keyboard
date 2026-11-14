@@ -67,6 +67,13 @@ enum AppConfig {
         /// Measured at 1501 against the keyboard's 1500 on 2026-10-04.
         static let settings =
             NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)) + 1)
+        /// One below the keyboard: the editor's dialogs that are typed into
+        /// (a key, a rename, text for a key, a shortcut to record). Above the
+        /// editor and every other app, and under the keyboard, which is how
+        /// they are typed into — never covered by them (the user's call,
+        /// 2026-11-14). Dialogs only clicked (confirmations) stay above it.
+        static let typingDialog =
+            NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)) - 1)
     }
 
     // MARK: - Feature flags

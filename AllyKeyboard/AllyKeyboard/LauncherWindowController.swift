@@ -31,6 +31,9 @@ final class LauncherWindowController {
         window.sharingType = AppConfig.Capture.sharingType
         window.hidesOnDeactivate = false
         window.isReleasedWhenClosed = false
+        // Clickable while one of the app's dialogs is up: it is how the
+        // keyboard is brought out to type into that dialog.
+        window.worksWhenModal = true
         window.backgroundColor = .clear
         window.isOpaque = false
         window.hasShadow = true

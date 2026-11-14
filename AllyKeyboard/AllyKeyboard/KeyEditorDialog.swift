@@ -51,10 +51,11 @@ final class KeyEditorDialog: NSObject {
 
     private func runModal() -> KeySpec? {
         window.center()
-        // Above the keyboard; runModal would otherwise put the window at the
-        // system's modal level, under it (as with the editor's alerts).
+        // Over the editor and other apps, just under the keyboard that types
+        // into it (`AppConfig.Levels.typingDialog`); runModal would otherwise
+        // put it at the system's modal level (as with the editor's alerts).
         let raise = Timer(timeInterval: 0, repeats: false) { [window] _ in
-            window.level = NSWindow.Level(rawValue: AppConfig.Levels.keyboard.rawValue + 1)
+            window.level = AppConfig.Levels.typingDialog
         }
         RunLoop.main.add(raise, forMode: .modalPanel)
         // The editor can be clicked while the app is not the active one (it
@@ -62,7 +63,7 @@ final class KeyEditorDialog: NSObject {
         // once, so the app comes forward first, and the dialog with it.
         // Raised before it shows too, not only after: if the timer were late,
         // it would open under the floating editor and look like nothing.
-        window.level = NSWindow.Level(rawValue: AppConfig.Levels.keyboard.rawValue + 1)
+        window.level = AppConfig.Levels.typingDialog
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         NSApp.runModal(for: window)
@@ -318,10 +319,10 @@ final class KeyEditorDialog: NSObject {
         return symbols.filter { chord.modifiers.contains($0.0) }.map(\.1).joined() + (key ?? "key \(chord.keyCode)")
     }
 
-    /// A dialog above this one, and above the keyboard.
+    /// A dialog above this one — both typed into, so under the keyboard.
     private func run(_ alert: NSAlert) -> NSApplication.ModalResponse {
         let raise = Timer(timeInterval: 0, repeats: false) { _ in
-            alert.window.level = NSWindow.Level(rawValue: AppConfig.Levels.keyboard.rawValue + 2)
+            alert.window.level = AppConfig.Levels.typingDialog
         }
         RunLoop.main.add(raise, forMode: .modalPanel)
         return alert.runModal()
