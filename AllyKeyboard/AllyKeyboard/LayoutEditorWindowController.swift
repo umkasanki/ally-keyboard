@@ -2,11 +2,13 @@
 //  LayoutEditorWindowController.swift
 //  AllyKeyboard
 //
-//  The layout editor's window. Every edit goes through `LayoutEditor` (Core,
-//  tested); this file only lays out controls and calls it. Everything is a
-//  single click on a large button — no drag and drop, no double clicks,
-//  nothing shown only on hover — since it is used with a head mouse. See
-//  docs/layouts-plan.md, "Editor".
+//  The layout editor's window: the keyboard as a whole. Its sizes and rows
+//  are edited here, and keys are moved, swapped and deleted; one key's
+//  action and look are edited in a dialog of their own (`KeyEditorDialog`),
+//  opened by New Key… and Edit Key…. Every edit goes through `LayoutEditor`
+//  (Core, tested). Everything is a single click on a large button — no drag
+//  and drop, no double clicks, nothing shown only on hover — since it is used
+//  with a head mouse. See docs/layouts-plan.md, "Editor".
 //
 
 import AppKit
@@ -25,24 +27,16 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate {
 
     private let layoutPopup = NSPopUpButton()
     private let preview = LayoutPreviewView()
-    private let problemsLabel = NSTextField(wrappingLabelWithString: "")
-    private let statusLabel = NSTextField(labelWithString: "")
+    /// The status bar's lines: the hint first, then a line per warning.
+    private let statusLines = NSStackView()
+    private let rowsValue = NSTextField(labelWithString: "")
 
     private var undoButton: NSButton!, redoButton: NSButton!, saveButton: NSButton!, revertButton: NSButton!
-    private var deleteButton: NSButton!, swapButton: NSButton!
+    private var deleteButton: NSButton!, swapButton: NSButton!, deleteRowButton: NSButton!
     /// Buttons that act on the selected key, enabled only with one.
     private var keyButtons: [NSButton] = []
-
-    // The inspector: the selected key's look.
-    private let labelField = NSTextField()
-    private let cornerField = NSTextField()
-    private let iconPopup = NSPopUpButton()
-    private let coloredCheck = NSButton(checkboxWithTitle: "Icon keeps its colours", target: nil, action: nil)
-    private let widthValue = NSTextField(labelWithString: "")
-    private let fontValue = NSTextField(labelWithString: "")
-    private let actionValue = NSTextField(wrappingLabelWithString: "")
-    /// Controls that edit the selected key: the inspector and the palette.
-    private var selectionControls: [NSControl] = []
+    /// The keyboard's sizes: each value shown between its − and + buttons.
+    private var geometryValues: [LayoutEditor.GeometryField: NSTextField] = [:]
 
     init(store: LayoutStore, open layoutID: UUID,
          onSaved: @escaping (KeyboardLayout) -> Void, onDeleted: @escaping (UUID) -> Void) {
@@ -50,14 +44,14 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate {
         self.onSaved = onSaved
         self.onDeleted = onDeleted
         editor = LayoutEditor(layout: store.layout(id: layoutID))
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 700),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 500),
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)
         window.title = "Layout Editor"
         window.isReleasedWhenClosed = false
         // Under the keyboard, over other applications' windows: the keyboard
         // stays at hand above the editor, and the editor's own dialogs go
-        // above both (see `run(_:)`).
+        // above both (see `run(_:)` and `KeyEditorDialog`).
         window.level = .floating
         super.init(window: window)
         window.delegate = self
@@ -98,12 +92,34 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate {
         return b
     }
 
-    private func row(_ views: [NSView]) -> NSStackView {
+    private func row(_ views: [NSView], spacing: CGFloat = 8) -> NSStackView {
         let s = NSStackView(views: views)
         s.orientation = .horizontal
-        s.spacing = 8
+        s.spacing = spacing
         s.alignment = .centerY
         return s
+    }
+
+    private func column(_ views: [NSView], spacing: CGFloat = 6) -> NSStackView {
+        let s = NSStackView(views: views)
+        s.orientation = .vertical
+        s.alignment = .leading
+        s.spacing = spacing
+        return s
+    }
+
+    private func heading(_ text: String) -> NSTextField {
+        let t = NSTextField(labelWithString: text)
+        t.font = .systemFont(ofSize: 15, weight: .bold)
+        return t
+    }
+
+    private func caption(_ text: String) -> NSTextField {
+        let t = NSTextField(labelWithString: text)
+        t.font = .systemFont(ofSize: 13, weight: .semibold)
+        t.textColor = .secondaryLabelColor
+        t.widthAnchor.constraint(equalToConstant: 110).isActive = true
+        return t
     }
 
     private func buildUI() {
@@ -120,305 +136,163 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate {
         saveButton = button("Save", #selector(save))
         saveButton.keyEquivalent = "s"
         saveButton.keyEquivalentModifierMask = .command
-        deleteButton = button("Delete…", #selector(deleteOrReset))
+        deleteButton = button("Delete\u{2026}", #selector(deleteOrReset))
 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let top = row([layoutPopup,
                        button("New", #selector(newLayout)),
                        button("Duplicate", #selector(duplicate)),
-                       button("Rename…", #selector(rename)),
+                       button("Rename\u{2026}", #selector(rename)),
                        deleteButton,
                        spacer, undoButton, redoButton, revertButton, saveButton])
 
         preview.onClick = { [weak self] position in self?.clicked(position) }
+        preview.maximumSize = NSSize(width: 820, height: 330)
 
+        let middle = row([preview, makeKeyboardPanel()], spacing: 24)
+        middle.alignment = .top
+
+        let stack = column([top, middle, makeKeysPanel()], spacing: 16)
+        stack.edgeInsets = NSEdgeInsets(top: 18, left: 18, bottom: 18, right: 18)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(stack)
+        let statusBar = makeStatusBar()
+        content.addSubview(statusBar)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: content.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            top.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -36),
+            statusBar.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            statusBar.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            statusBar.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+        ])
+        // As tall as what it holds, no taller: nothing hangs in empty space.
+        content.layoutSubtreeIfNeeded()
+        window?.setContentSize(NSSize(width: content.frame.width, height: content.fittingSize.height))
+    }
+
+    /// The strip along the bottom edge, as in Finder: a column in the middle —
+    /// the hint (what is selected, what to do) marked ⓘ, and under it a line
+    /// per error, marked with a red circled "!", then a line per warning,
+    /// marked ⚠ in orange. It grows with the warnings, and the
+    /// window with it (`fitWindowToContent`).
+    private func makeStatusBar() -> NSView {
+        let bar = NSView()
+        bar.wantsLayer = true
+        bar.layer?.backgroundColor = NSColor(white: 0, alpha: 0.18).cgColor
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        let line = NSBox()
+        line.boxType = .separator
+        statusLines.orientation = .vertical
+        statusLines.alignment = .centerX
+        statusLines.spacing = 4
+        for v in [line, statusLines] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            bar.addSubview(v)
+        }
+        NSLayoutConstraint.activate([
+            line.topAnchor.constraint(equalTo: bar.topAnchor),
+            line.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
+            line.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
+            statusLines.topAnchor.constraint(equalTo: bar.topAnchor, constant: 9),
+            statusLines.bottomAnchor.constraint(equalTo: bar.bottomAnchor, constant: -9),
+            statusLines.centerXAnchor.constraint(equalTo: bar.centerXAnchor),
+            statusLines.leadingAnchor.constraint(greaterThanOrEqualTo: bar.leadingAnchor, constant: 18),
+        ])
+        return bar
+    }
+
+    /// One line of the status bar: a symbol, then the text, in one colour.
+    private func statusLine(_ text: String, symbol: String, color: NSColor) -> NSView {
+        let icon = NSImageView()
+        icon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        icon.contentTintColor = color
+        icon.symbolConfiguration = .init(pointSize: 13, weight: .regular)
+        let label = NSTextField(labelWithString: text)
+        label.font = .systemFont(ofSize: 13)
+        label.textColor = color
+        label.lineBreakMode = .byTruncatingTail
+        return row([icon, label], spacing: 6)
+    }
+
+    private func refreshStatus() {
+        let hint = swapPending ? "Click the key to swap it with."
+            : editor.selection == nil ? "Click a key to select it." : selectedDescription()
+        var lines = [statusLine(hint, symbol: "info.circle", color: .secondaryLabelColor)]
+        // Errors (the layout cannot be saved) before warnings (it can).
+        let problems = editor.problems
+        lines += problems.filter(\.isError).map {
+            statusLine(describe($0), symbol: "exclamationmark.circle", color: .systemRed)
+        }
+        lines += problems.filter { !$0.isError }.map {
+            statusLine(describe($0), symbol: "exclamationmark.triangle", color: .systemOrange)
+        }
+        statusLines.setViews(lines, in: .top)
+        fitWindowToContent()
+    }
+
+    /// As tall as what the window holds, no taller; it grows downwards, its
+    /// top staying where it is.
+    private func fitWindowToContent() {
+        guard let window, let content = window.contentView else { return }
+        content.layoutSubtreeIfNeeded()
+        let height = content.fittingSize.height
+        guard abs(content.frame.height - height) > 0.5 else { return }
+        var frame = window.frame
+        let top = frame.maxY
+        frame.size.height += height - content.frame.height
+        frame.origin.y = top - frame.height
+        window.setFrame(frame, display: true)
+    }
+
+    /// The keyboard as a whole: its sizes and its rows.
+    private func makeKeyboardPanel() -> NSView {
+        let fields: [(LayoutEditor.GeometryField, String)] = [
+            (.keyWidth, "Key width"), (.keyHeight, "Key height"),
+            (.keySpacing, "Key gap"), (.rowSpacing, "Row gap"), (.padding, "Padding"),
+        ]
+        var rows: [NSView] = [heading("Keyboard")]
+        for (i, (field, title)) in fields.enumerated() {
+            let value = NSTextField(labelWithString: "")
+            value.font = .monospacedDigitSystemFont(ofSize: 15, weight: .regular)
+            value.alignment = .center
+            value.widthAnchor.constraint(equalToConstant: 44).isActive = true
+            geometryValues[field] = value
+            let minus = button("", #selector(geometryMinus(_:)), symbol: "minus")
+            let plus = button("", #selector(geometryPlus(_:)), symbol: "plus")
+            minus.tag = i
+            plus.tag = i
+            rows.append(row([caption(title), minus, value, plus, NSTextField(labelWithString: "pt")]))
+        }
+        rowsValue.font = .monospacedDigitSystemFont(ofSize: 15, weight: .regular)
+        rowsValue.alignment = .center
+        rowsValue.widthAnchor.constraint(equalToConstant: 44).isActive = true
+        // Like the sizes: − removes the selected key's row, + adds one below it
+        // (or at the bottom with nothing selected).
+        deleteRowButton = button("", #selector(deleteRow), symbol: "minus")
+        rows.append(row([caption("Rows"), deleteRowButton, rowsValue, button("", #selector(addRow), symbol: "plus")]))
+        return column(rows, spacing: 8)
+    }
+
+    /// What is done to keys: moving them, and the dialog for one.
+    private func makeKeysPanel() -> NSView {
         swapButton = button("Swap", #selector(swapKeys), symbol: "arrow.left.arrow.right")
+        let editKey = button("Edit Key\u{2026}", #selector(editKey), symbol: "pencil")
         keyButtons = [
             button("", #selector(nudgeLeft), symbol: "arrow.left"),
             button("", #selector(nudgeRight), symbol: "arrow.right"),
             button("", #selector(nudgeUp), symbol: "arrow.up"),
             button("", #selector(nudgeDown), symbol: "arrow.down"),
             swapButton,
-            button("Insert Left", #selector(insertLeft)),
-            button("Insert Right", #selector(insertRight)),
-            button("Delete Key", #selector(deleteSelectedKey)),
-            button("Row Above", #selector(rowAbove)),
-            button("Row Below", #selector(rowBelow)),
-            button("Delete Row", #selector(deleteRow)),
+            button("Delete Key", #selector(deleteSelectedKey), symbol: "trash"),
+            editKey,
         ]
-        let structure = row(keyButtons)
-
-        problemsLabel.textColor = .systemOrange
-        problemsLabel.font = .systemFont(ofSize: 13)
-        statusLabel.font = .systemFont(ofSize: 13)
-        statusLabel.textColor = .secondaryLabelColor
-
-        let middle = row([preview, makeInspector()])
-        middle.alignment = .top
-        middle.spacing = 18
-
-        let footer = row([statusLabel, problemsLabel])
-        footer.spacing = 24
-        let stack = NSStackView(views: [top, middle, structure, makePalette(), footer])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 14
-        stack.edgeInsets = NSEdgeInsets(top: 18, left: 18, bottom: 18, right: 18)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: content.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor),
-            top.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -36),
-        ])
-    }
-
-    // MARK: - Inspector
-
-    private func caption(_ text: String) -> NSTextField {
-        let t = NSTextField(labelWithString: text)
-        t.font = .systemFont(ofSize: 13, weight: .semibold)
-        t.textColor = .secondaryLabelColor
-        return t
-    }
-
-    private func column(_ views: [NSView]) -> NSStackView {
-        let s = NSStackView(views: views)
-        s.orientation = .vertical
-        s.alignment = .leading
-        s.spacing = 6
-        return s
-    }
-
-    private func makeInspector() -> NSView {
-        for field in [labelField, cornerField] {
-            field.font = .systemFont(ofSize: 15)
-            field.target = self
-            field.widthAnchor.constraint(equalToConstant: 240).isActive = true
-        }
-        labelField.action = #selector(labelEdited)
-        labelField.placeholderString = "The action's own name"
-        cornerField.action = #selector(cornerEdited)
-        cornerField.placeholderString = "None"
-
-        iconPopup.target = self
-        iconPopup.action = #selector(iconChosen)
-        iconPopup.controlSize = .large
-        iconPopup.addItem(withTitle: "No icon")
-        for name in ActionCatalog.bundledIcons + ActionCatalog.symbolIcons {
-            iconPopup.addItem(withTitle: name)
-            let image = NSImage(named: name) ?? NSImage(systemSymbolName: name, accessibilityDescription: nil)
-            image?.size = NSSize(width: 18, height: 18)
-            iconPopup.lastItem?.image = image
-            iconPopup.lastItem?.representedObject = name
-        }
-        coloredCheck.target = self
-        coloredCheck.action = #selector(coloredToggled)
-        actionValue.font = .systemFont(ofSize: 13)
-        actionValue.preferredMaxLayoutWidth = 240
-        for value in [widthValue, fontValue] {
-            value.font = .monospacedDigitSystemFont(ofSize: 15, weight: .regular)
-            value.alignment = .center
-            value.widthAnchor.constraint(equalToConstant: 56).isActive = true
-        }
-
-        let widthMinus = button("", #selector(narrower), symbol: "minus")
-        let widthPlus = button("", #selector(wider), symbol: "plus")
-        let fontMinus = button("", #selector(smallerFont), symbol: "minus")
-        let fontPlus = button("", #selector(largerFont), symbol: "plus")
-        selectionControls = [labelField, cornerField, iconPopup, coloredCheck,
-                             widthMinus, widthPlus, fontMinus, fontPlus]
-
-        let sizes = row([column([caption("Width"), row([widthMinus, widthValue, widthPlus])]),
-                         column([caption("Font size"), row([fontMinus, fontValue, fontPlus])])])
-        sizes.spacing = 32
-        let inspector = NSStackView(views: [
-            caption("Action"), actionValue,
-            caption("Label"), labelField,
-            caption("Corner label"), cornerField,
-            caption("Icon"), iconPopup, coloredCheck,
-            // Side by side, so the inspector is no taller than the preview,
-            // with room between them: two − and + pairs must not run together.
-            sizes,
-        ])
-        inspector.orientation = .vertical
-        inspector.alignment = .leading
-        inspector.spacing = 6
-        return inspector
-    }
-
-    @objc private func labelEdited() { editor.setLabel(labelField.stringValue); refresh() }
-    @objc private func cornerEdited() { editor.setSecondary(cornerField.stringValue); refresh() }
-    @objc private func iconChosen() { editor.setIcon(iconPopup.selectedItem?.representedObject as? String); refresh() }
-    @objc private func coloredToggled() { editor.setColored(coloredCheck.state == .on); refresh() }
-    @objc private func narrower() { editor.adjustWidth(by: -1); refresh() }
-    @objc private func wider() { editor.adjustWidth(by: 1); refresh() }
-    @objc private func smallerFont() { editor.adjustFontScale(by: -1); refresh() }
-    @objc private func largerFont() { editor.adjustFontScale(by: 1); refresh() }
-
-    private func refreshInspector() {
-        let key = editor.selectedKey
-        selectionControls.forEach { $0.isEnabled = key != nil }
-        actionValue.stringValue = key.map { describe($0.action) } ?? "Select a key in the picture."
-        labelField.stringValue = key?.label ?? ""
-        cornerField.stringValue = key?.secondary ?? ""
-        if let icon = key?.icon, let i = iconPopup.itemArray.firstIndex(where: { ($0.representedObject as? String) == icon }) {
-            iconPopup.selectItem(at: i)
-        } else if let icon = key?.icon {
-            // An icon written into the file that the list does not offer: shown, kept.
-            iconPopup.addItem(withTitle: icon)
-            iconPopup.lastItem?.representedObject = icon
-            iconPopup.select(iconPopup.lastItem)
-        } else {
-            iconPopup.selectItem(at: 0)
-        }
-        coloredCheck.state = key?.colored == true ? .on : .off
-        widthValue.stringValue = key.map { String($0.width) } ?? ""
-        fontValue.stringValue = key.map { String($0.fontScale) } ?? ""
-    }
-
-    /// The palette entry's name for an action, or what the action is.
-    private func describe(_ action: KeyAction) -> String {
-        for group in ActionCatalog.groups {
-            if let choice = group.choices.first(where: { $0.key.action == action }) {
-                return "\(choice.name) — \(group.title)"
-            }
-        }
-        switch action {
-        case .literal(let text): return "Types \u{201C}\(text)\u{201D}"
-        case .shortcut(let chord): return "Shortcut \(Self.chordName(chord))"
-        default: return action.legacyID
-        }
-    }
-
-    // MARK: - Palette
-
-    private func makePalette() -> NSView {
-        let tabs = NSTabView()
-        tabs.font = .systemFont(ofSize: 13)
-        for group in ActionCatalog.groups {
-            var buttons: [NSButton] = group.choices.enumerated().map { i, choice in
-                let b = button(choice.name, #selector(choicePicked(_:)))
-                b.tag = i
-                b.identifier = NSUserInterfaceItemIdentifier(group.title)
-                return b
-            }
-            if group.title == "Shortcuts" { buttons.append(button("Record Shortcut\u{2026}", #selector(recordShortcut))) }
-            if group.title == "Text" { buttons.append(button("Type Text\u{2026}", #selector(typeText))) }
-            selectionControls += buttons
-            let item = NSTabViewItem(identifier: group.title)
-            item.label = group.title
-            // Twelve to a row: the longest tab, Letters & Digits, fits in four
-            // rows with no scrolling, which a head mouse makes hard.
-            item.view = grid(of: buttons, columns: 12)
-            tabs.addTabViewItem(item)
-        }
-        tabs.translatesAutoresizingMaskIntoConstraints = false
-        tabs.heightAnchor.constraint(equalToConstant: 214).isActive = true
-        tabs.widthAnchor.constraint(equalToConstant: 1140).isActive = true
-        return tabs
-    }
-
-    /// Buttons in rows of `columns`. No scroll view: every tab fits (the
-    /// longest, Letters & Digits, in four rows of twelve), and scrolling is
-    /// hard with a head mouse — and with "always show scroll bars" set, a
-    /// scroller showed even with nothing to scroll.
-    private func grid(of buttons: [NSButton], columns: Int) -> NSView {
-        var rows: [NSView] = []
-        var start = 0
-        while start < buttons.count {
-            let slice = Array(buttons[start..<min(start + columns, buttons.count)])
-            slice.forEach { $0.widthAnchor.constraint(equalToConstant: 86).isActive = true }
-            rows.append(row(slice))
-            start += columns
-        }
-        let column = NSStackView(views: rows)
-        column.orientation = .vertical
-        column.alignment = .leading
-        column.spacing = 6
-        column.edgeInsets = NSEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
-        let container = FlippedView()
-        column.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(column)
-        NSLayoutConstraint.activate([
-            column.topAnchor.constraint(equalTo: container.topAnchor),
-            column.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-        ])
-        return container
-    }
-
-    @objc private func choicePicked(_ sender: NSButton) {
-        guard let title = sender.identifier?.rawValue,
-              let group = ActionCatalog.groups.first(where: { $0.title == title }),
-              group.choices.indices.contains(sender.tag) else { return }
-        editor.assign(group.choices[sender.tag])
-        refresh()
-    }
-
-    // MARK: - Recording a shortcut, typing text
-
-    /// "⌘⇧S" for a chord.
-    static func chordName(_ chord: Shortcut, key: String? = nil) -> String {
-        let symbols: [(Modifier, String)] = [(.control, "\u{2303}"), (.option, "\u{2325}"),
-                                             (.shift, "\u{21E7}"), (.command, "\u{2318}")]
-        let mods = symbols.filter { chord.modifiers.contains($0.0) }.map(\.1).joined()
-        return mods + (key ?? "key \(chord.keyCode)")
-    }
-
-    /// Wait for a chord — typed on this keyboard (⌘, then S) or on a real
-    /// one — and give it to the selected key.
-    @objc private func recordShortcut() {
-        guard editor.selection != nil else { return }
-        let alert = NSAlert()
-        alert.messageText = "Record a shortcut"
-        alert.informativeText = "Press it now: choose the modifiers on the keyboard (\u{2318} \u{2325} \u{2303} \u{21E7}), then the key."
-        let shown = NSTextField(labelWithString: "Waiting\u{2026}")
-        shown.font = .systemFont(ofSize: 22, weight: .medium)
-        shown.frame = NSRect(x: 0, y: 0, width: 320, height: 34)
-        alert.accessoryView = shown
-        alert.addButton(withTitle: "Use")
-        alert.addButton(withTitle: "Cancel")
-        var recorded: (Shortcut, String)?
-        let monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            var mods: [Modifier] = []
-            if event.modifierFlags.contains(.control) { mods.append(.control) }
-            if event.modifierFlags.contains(.option) { mods.append(.option) }
-            if event.modifierFlags.contains(.shift) { mods.append(.shift) }
-            if event.modifierFlags.contains(.command) { mods.append(.command) }
-            let chord = Shortcut(keyCode: Int(event.keyCode), modifiers: mods)
-            let key = (event.charactersIgnoringModifiers ?? "").uppercased()
-            let name = Self.chordName(chord, key: key.isEmpty ? nil : key)
-            recorded = (chord, name)
-            shown.stringValue = name
-            return nil                                      // the chord is recorded, not acted on
-        }
-        let response = run(alert)
-        if let monitor { NSEvent.removeMonitor(monitor) }
-        guard response == .alertFirstButtonReturn, let (chord, name) = recorded else { return }
-        editor.assign(ActionChoice(name, KeySpec(.shortcut(chord), label: name)))
-        refresh()
-    }
-
-    /// Give the selected key a text to type as it is.
-    @objc private func typeText() {
-        guard editor.selection != nil else { return }
-        let alert = NSAlert()
-        alert.messageText = "Text the key types"
-        alert.informativeText = "Typed exactly as written, whatever the input language."
-        let field = NSTextField(string: "")
-        field.frame = NSRect(x: 0, y: 0, width: 320, height: 28)
-        field.font = .systemFont(ofSize: 15)
-        alert.accessoryView = field
-        alert.addButton(withTitle: "Use")
-        alert.addButton(withTitle: "Cancel")
-        alert.window.initialFirstResponder = field
-        guard run(alert) == .alertFirstButtonReturn, !field.stringValue.isEmpty else { return }
-        let text = field.stringValue
-        editor.assign(ActionChoice(text, KeySpec(.literal(text), label: text)))
-        refresh()
+        let newKey = button("New Key\u{2026}", #selector(newKey), symbol: "plus.rectangle")
+        let buttons = row(keyButtons.dropLast() + [NSView(), newKey, editKey])
+        return column([heading("Keys"), buttons], spacing: 8)
     }
 
     // MARK: - Showing the state
@@ -432,33 +306,40 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate {
         saveButton.isEnabled = editor.hasUnsavedChanges && editor.canSave
         revertButton.isEnabled = editor.hasUnsavedChanges
         keyButtons.forEach { $0.isEnabled = editor.selection != nil }
-        refreshInspector()
+        deleteRowButton.isEnabled = editor.selection != nil
         swapButton.state = swapPending ? .on : .off
+        for (field, label) in geometryValues {
+            let v = editor.value(of: field)
+            label.stringValue = v == v.rounded() ? String(Int(v)) : String(v)
+        }
+        rowsValue.stringValue = String(editor.layout.rows.count)
 
         if editor.layout.isBuiltIn {
             deleteButton.title = "Reset to Factory"
             deleteButton.isEnabled = store.isEdited(editor.layout.id) || editor.hasUnsavedChanges
         } else {
-            deleteButton.title = "Delete…"
+            deleteButton.title = "Delete\u{2026}"
             deleteButton.isEnabled = true
         }
 
         window?.title = "Layout Editor — \(editor.layout.name)" + (editor.hasUnsavedChanges ? " (edited)" : "")
-        statusLabel.stringValue = swapPending ? "Click the key to swap it with."
-            : editor.selection == nil ? "Click a key to select it." : selectedDescription()
-        problemsLabel.stringValue = editor.problems.map(describe).joined(separator: "   ")
+        refreshStatus()
     }
 
     private func selectedDescription() -> String {
         guard let key = editor.selectedKey, let p = editor.selection else { return "" }
-        return "Row \(p.row + 1), key \(p.index + 1): \(key.action.legacyID), width \(key.width)"
+        return "Row \(p.row + 1), key \(p.index + 1): \(KeyEditorDialog.describe(key.action)), width \(key.width)"
     }
 
     private func describe(_ problem: LayoutEditor.Problem) -> String {
         switch problem {
         case .layout(.noKeys): return "The layout has no keys and cannot be saved."
         case .layout(.missing(let key)): return "No \(key.rawValue) key."
-        case .unevenRows: return "Rows are not the same width (see the numbers at the right)."
+        case .unevenRows(let widths):
+            let widest = widths.max() ?? 0
+            let short = widths.enumerated().filter { $0.element < widest }
+                .map { "row \($0.offset + 1) by \(widest - $0.element)" }
+            return "Rows are uneven: short \(short.joined(separator: ", ")) key widths."
         }
     }
 
@@ -599,6 +480,20 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate {
         refresh()
     }
 
+    // MARK: - The keyboard's sizes and rows
+
+    private static let geometryOrder: [LayoutEditor.GeometryField] = [.keyWidth, .keyHeight, .keySpacing, .rowSpacing, .padding]
+
+    @objc private func geometryMinus(_ sender: NSButton) {
+        editor.adjustGeometry(Self.geometryOrder[sender.tag], by: -1); refresh()
+    }
+    @objc private func geometryPlus(_ sender: NSButton) {
+        editor.adjustGeometry(Self.geometryOrder[sender.tag], by: 1); refresh()
+    }
+    /// A row below the selected key's, or at the bottom.
+    @objc private func addRow() { editor.addRow(below: true); refresh() }
+    @objc private func deleteRow() { editor.deleteRow(); refresh() }
+
     // MARK: - Keys
     // Not named moveLeft, keyUp, deleteBackward and the like: NSResponder has those
     // for the arrow and delete keys, and these must not answer them.
@@ -619,15 +514,21 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate {
     @objc private func nudgeUp() { editor.moveToRow(by: -1); refresh() }
     @objc private func nudgeDown() { editor.moveToRow(by: 1); refresh() }
     @objc private func swapKeys() { swapPending.toggle(); refresh() }
-    @objc private func insertLeft() { editor.insertKey(after: false); refresh() }
-    @objc private func insertRight() { editor.insertKey(after: true); refresh() }
     @objc private func deleteSelectedKey() { editor.deleteKey(); refresh() }
-    @objc private func rowAbove() { editor.addRow(below: false); refresh() }
-    @objc private func rowBelow() { editor.addRow(below: true); refresh() }
-    @objc private func deleteRow() { editor.deleteRow(); refresh() }
-}
 
-/// A container that lays out from the top, so a tab's grid starts there.
-private final class FlippedView: NSView {
-    override var isFlipped: Bool { true }
+    /// The selected key in the key dialog; Done replaces it, as one step to undo.
+    @objc private func editKey() {
+        guard let key = editor.selectedKey,
+              let edited = KeyEditorDialog.run(title: "Edit Key", key: key) else { return }
+        editor.replaceSelectedKey(with: edited)
+        refresh()
+    }
+
+    /// A new key from the dialog — starting as a copy of the selected key, or
+    /// blank with none selected — placed right of the selection or at the end.
+    @objc private func newKey() {
+        guard let key = KeyEditorDialog.run(title: "New Key", key: editor.selectedKey ?? KeySpec(.blank)) else { return }
+        editor.addKey(key)
+        refresh()
+    }
 }

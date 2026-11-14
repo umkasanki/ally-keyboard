@@ -742,13 +742,18 @@ class ViewController: NSViewController {
 
     // MARK: - Scaled layout values (base constants live in AppConfig.Layout)
 
-    private var keyWidth:         CGFloat { AppConfig.Layout.keyWidth    * scale }
-    private var keyHeight:        CGFloat { AppConfig.Layout.keyHeight   * scale }
-    private var keySpacing:       CGFloat { AppConfig.Layout.keySpacing  * scale }
-    private var rowSpacing:       CGFloat { AppConfig.Layout.rowSpacing  * scale }
-    private var padding:          CGFloat { AppConfig.Layout.padding     * scale }
-    private var keyFontSizePrimary:   CGFloat { AppConfig.Layout.fontSizePrimary   * scale }
-    private var keyFontSizeSecondary: CGFloat { AppConfig.Layout.fontSizeSecondary * scale }
+    // The layout's own sizes (its file carries them), scaled by the size setting.
+    private var keyWidth:         CGFloat { CGFloat(layout.geometry.keyWidth)   * scale }
+    private var keyHeight:        CGFloat { CGFloat(layout.geometry.keyHeight)  * scale }
+    private var keySpacing:       CGFloat { CGFloat(layout.geometry.keySpacing) * scale }
+    private var rowSpacing:       CGFloat { CGFloat(layout.geometry.rowSpacing) * scale }
+    private var padding:          CGFloat { CGFloat(layout.geometry.padding)    * scale }
+    /// Labels grow with the key: a layout with taller keys gets larger text.
+    private var labelScale: CGFloat {
+        CGFloat(layout.geometry.keyHeight / KeyboardLayout.Geometry().keyHeight)
+    }
+    private var keyFontSizePrimary:   CGFloat { AppConfig.Layout.fontSizePrimary   * scale * labelScale }
+    private var keyFontSizeSecondary: CGFloat { AppConfig.Layout.fontSizeSecondary * scale * labelScale }
     private func keyW(_ key: Key) -> CGFloat {
         key.widthMultiplier == 1.0
             ? keyWidth

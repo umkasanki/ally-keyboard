@@ -28,6 +28,10 @@ public final class LayoutEditor {
         /// Rows of different widths, in key widths: the keyboard is as wide as
         /// its widest row, so the others end short of the right edge.
         case unevenRows([Double])
+
+        /// An error stops the layout from being saved; anything else is a
+        /// warning, shown but not enforced.
+        public var isError: Bool { self == .layout(.noKeys) }
     }
 
     public static let widthRange: ClosedRange<Double> = 0.5...10
@@ -150,6 +154,49 @@ public final class LayoutEditor {
         change { $0.name = name }
     }
 
+    // MARK: - Sizes
+
+    public enum GeometryField: CaseIterable {
+        case keyWidth, keyHeight, keySpacing, rowSpacing, padding
+    }
+
+    public func value(of field: GeometryField) -> Double {
+        let g = layout.geometry
+        switch field {
+        case .keyWidth: return g.keyWidth
+        case .keyHeight: return g.keyHeight
+        case .keySpacing: return g.keySpacing
+        case .rowSpacing: return g.rowSpacing
+        case .padding: return g.padding
+        }
+    }
+
+    /// Set one of the layout's sizes, kept within its range and to whole points.
+    public func setGeometry(_ field: GeometryField, to value: Double) {
+        typealias G = KeyboardLayout.Geometry
+        let range: ClosedRange<Double>
+        switch field {
+        case .keyWidth, .keyHeight: range = G.keySizeRange
+        case .keySpacing, .rowSpacing: range = G.spacingRange
+        case .padding: range = G.paddingRange
+        }
+        let v = min(max(value.rounded(), range.lowerBound), range.upperBound)
+        change {
+            switch field {
+            case .keyWidth: $0.geometry.keyWidth = v
+            case .keyHeight: $0.geometry.keyHeight = v
+            case .keySpacing: $0.geometry.keySpacing = v
+            case .rowSpacing: $0.geometry.rowSpacing = v
+            case .padding: $0.geometry.padding = v
+            }
+        }
+    }
+
+    /// One point up (+1) or down (-1).
+    public func adjustGeometry(_ field: GeometryField, by points: Int) {
+        setGeometry(field, to: value(of: field) + Double(points))
+    }
+
     // MARK: - The selected key
 
     public func setAction(_ action: KeyAction) {
@@ -257,6 +304,37 @@ public final class LayoutEditor {
             $0.rows[p.row][p.index] = $0.rows[other.row][other.index]
             $0.rows[other.row][other.index] = a
         }
+    }
+
+    /// Replace the selected key as a whole — the key dialog's "Done" — in one
+    /// undoable step. Width and font size are kept within their ranges but
+    /// not rounded: the built-ins use sizes such as 0.7 and 1.08, and opening
+    /// a key and pressing Done must not change it.
+    public func replaceSelectedKey(with key: KeySpec) {
+        changeSelected { $0 = Self.clamped(key) }
+    }
+
+    /// Add a key: right of the selected one, or at the end of the last row
+    /// (a first row if there is none); it is selected.
+    public func addKey(_ key: KeySpec) {
+        let key = Self.clamped(key)
+        if let p = selection {
+            change(selecting: KeyPosition(row: p.row, index: p.index + 1)) {
+                $0.rows[p.row].insert(key, at: p.index + 1)
+            }
+        } else if layout.rows.isEmpty {
+            change(selecting: KeyPosition(row: 0, index: 0)) { $0.rows = [[key]] }
+        } else {
+            let row = layout.rows.count - 1
+            change(selecting: KeyPosition(row: row, index: layout.rows[row].count)) { $0.rows[row].append(key) }
+        }
+    }
+
+    private static func clamped(_ key: KeySpec) -> KeySpec {
+        var key = key
+        key.width = min(max(key.width, widthRange.lowerBound), widthRange.upperBound)
+        key.fontScale = min(max(key.fontScale, fontScaleRange.lowerBound), fontScaleRange.upperBound)
+        return key
     }
 
     /// A blank key beside the selected one — to the right if `after` — selected.

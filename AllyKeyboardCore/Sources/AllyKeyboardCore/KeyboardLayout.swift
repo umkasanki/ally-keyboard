@@ -10,22 +10,67 @@
 
 import Foundation
 
-/// A whole keyboard: named rows of keys.
+/// A whole keyboard: named rows of keys, and their sizes.
 public struct KeyboardLayout: Codable, Equatable, Identifiable {
     public var id: UUID
     public var name: String
     public var rows: [[KeySpec]]
+    public var geometry: Geometry
     /// Bumped when the file format changes in a way older builds cannot read.
     public var formatVersion: Int
 
     public static let currentFormatVersion = 1
 
-    public init(id: UUID = UUID(), name: String, rows: [[KeySpec]],
+    public init(id: UUID = UUID(), name: String, rows: [[KeySpec]], geometry: Geometry = Geometry(),
                 formatVersion: Int = KeyboardLayout.currentFormatVersion) {
         self.id = id
         self.name = name
         self.rows = rows
+        self.geometry = geometry
         self.formatVersion = formatVersion
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, name, rows, geometry, formatVersion }
+
+    // Files written before layouts had sizes take today's.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        rows = try c.decode([[KeySpec]].self, forKey: .rows)
+        geometry = try c.decodeIfPresent(Geometry.self, forKey: .geometry) ?? Geometry()
+        formatVersion = try c.decodeIfPresent(Int.self, forKey: .formatVersion) ?? KeyboardLayout.currentFormatVersion
+    }
+
+    /// The sizes a layout is drawn at, in points at 100% keyboard size (the
+    /// size setting scales them all). The defaults are what the keyboard has
+    /// always used.
+    public struct Geometry: Codable, Equatable {
+        /// A standard key — a letter. Wider keys are multiples of it.
+        public var keyWidth: Double = 36
+        public var keyHeight: Double = 32
+        /// Between keys in a row.
+        public var keySpacing: Double = 3
+        /// Between rows.
+        public var rowSpacing: Double = 3
+        /// Around the keys, inside the keyboard's edge.
+        public var padding: Double = 8
+
+        public static let keySizeRange: ClosedRange<Double> = 20...96
+        public static let spacingRange: ClosedRange<Double> = 0...24
+        public static let paddingRange: ClosedRange<Double> = 0...40
+
+        public init() {}
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            let d = Geometry()
+            keyWidth = try c.decodeIfPresent(Double.self, forKey: .keyWidth) ?? d.keyWidth
+            keyHeight = try c.decodeIfPresent(Double.self, forKey: .keyHeight) ?? d.keyHeight
+            keySpacing = try c.decodeIfPresent(Double.self, forKey: .keySpacing) ?? d.keySpacing
+            rowSpacing = try c.decodeIfPresent(Double.self, forKey: .rowSpacing) ?? d.rowSpacing
+            padding = try c.decodeIfPresent(Double.self, forKey: .padding) ?? d.padding
+        }
     }
 }
 

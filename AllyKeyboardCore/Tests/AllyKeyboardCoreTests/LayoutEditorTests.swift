@@ -206,11 +206,89 @@ final class LayoutEditorTests: XCTestCase {
         e.select(p(0, 0)); e.deleteKey()
         XCTAssertFalse(e.canSave)
         XCTAssertTrue(e.problems.contains(.layout(.noKeys)))
+        // The one problem that stops a save is the one called an error.
+        XCTAssertEqual(e.problems.filter(\.isError), [.layout(.noKeys)])
+        XCTAssertFalse(LayoutEditor.Problem.layout(.missing(.space)).isError)
+        XCTAssertFalse(LayoutEditor.Problem.unevenRows([3, 3.5]).isError)
     }
 
     func testTheBuiltInsCanBeEditedWithoutProblems() {
         for layout in KeyboardLayout.builtIns {
             XCTAssertEqual(LayoutEditor(layout: layout).problems, [], layout.name)
         }
+    }
+}
+
+final class LayoutGeometryTests: XCTestCase {
+
+    func testTheDefaultsAreTheKeyboardsSizes() {
+        let g = KeyboardLayout.Geometry()
+        XCTAssertEqual([g.keyWidth, g.keyHeight, g.keySpacing, g.rowSpacing, g.padding], [36, 32, 3, 3, 8])
+        for layout in KeyboardLayout.builtIns { XCTAssertEqual(layout.geometry, g, layout.name) }
+    }
+
+    func testAFileWithoutSizesTakesTheDefaults() throws {
+        let json = #"{"id":"\#(UUID().uuidString)","name":"Old","rows":[[{"action":{"type":"key","value":"Space"}}]]}"#
+        let layout = try JSONDecoder().decode(KeyboardLayout.self, from: Data(json.utf8))
+        XCTAssertEqual(layout.geometry, KeyboardLayout.Geometry())
+        XCTAssertEqual(layout.formatVersion, KeyboardLayout.currentFormatVersion)
+    }
+
+    func testSizesSurviveAFile() throws {
+        var layout = KeyboardLayout.standard
+        layout.geometry.keyHeight = 48
+        layout.geometry.padding = 12
+        XCTAssertEqual(try JSONDecoder().decode(KeyboardLayout.self, from: JSONEncoder().encode(layout)), layout)
+    }
+
+    func testEditingSizesInWholePointsWithinRangeAndUndoable() {
+        let e = LayoutEditor(layout: .standard)
+        e.adjustGeometry(.keyHeight, by: 4)
+        XCTAssertEqual(e.layout.geometry.keyHeight, 36)
+        e.setGeometry(.keySpacing, to: 2.6)
+        XCTAssertEqual(e.layout.geometry.keySpacing, 3)       // whole points
+        e.setGeometry(.padding, to: -5)
+        XCTAssertEqual(e.layout.geometry.padding, 0)          // within range
+        e.setGeometry(.keyWidth, to: 500)
+        XCTAssertEqual(e.layout.geometry.keyWidth, 96)
+        e.undo()
+        XCTAssertEqual(e.layout.geometry.keyWidth, 36)
+        XCTAssertEqual(e.value(of: .keyHeight), 36)
+    }
+
+    func testAddingAKeyRightOfTheSelectedOneOrAtTheEnd() {
+        let a = KeySpec(.character("A")), b = KeySpec(.character("B"))
+        let e = LayoutEditor(layout: KeyboardLayout(name: "T", rows: [[a, b], [a]]))
+        e.addKey(KeySpec(.character("X")))                   // nothing selected: end of the last row
+        XCTAssertEqual(e.layout.rows[1].map(\.action.legacyID), ["A", "X"])
+        XCTAssertEqual(e.selection, KeyPosition(row: 1, index: 1))
+        e.select(KeyPosition(row: 0, index: 0))
+        e.addKey(KeySpec(.character("Y"), width: 40))        // width kept in range
+        XCTAssertEqual(e.layout.rows[0].map(\.action.legacyID), ["A", "Y", "B"])
+        XCTAssertEqual(e.selectedKey?.width, 10)
+        let empty = LayoutEditor(layout: KeyboardLayout(name: "E", rows: []))
+        empty.addKey(KeySpec(.key(.space)))
+        XCTAssertEqual(empty.layout.rows.count, 1)
+    }
+
+    func testDoneOnAnUntouchedBuiltInKeyChangesNothing() {
+        let e = LayoutEditor(layout: .extended)
+        for (r, row) in KeyboardLayout.extended.rows.enumerated() {
+            for i in row.indices {
+                e.select(KeyPosition(row: r, index: i))
+                e.replaceSelectedKey(with: e.selectedKey!)
+            }
+        }
+        XCTAssertEqual(e.layout, .extended)
+        XCTAssertFalse(e.hasUnsavedChanges)
+    }
+
+    func testReplacingTheSelectedKeyIsOneStep() {
+        let e = LayoutEditor(layout: KeyboardLayout(name: "T", rows: [[KeySpec(.character("A"), label: "a")]]))
+        e.select(KeyPosition(row: 0, index: 0))
+        e.replaceSelectedKey(with: KeySpec(.key(.tab), label: "Tab", width: 1.5, fontScale: 0.7))
+        XCTAssertEqual(e.selectedKey, KeySpec(.key(.tab), label: "Tab", width: 1.5, fontScale: 0.7))    // not rounded
+        e.undo()
+        XCTAssertEqual(e.selectedKey, KeySpec(.character("A"), label: "a"))
     }
 }
