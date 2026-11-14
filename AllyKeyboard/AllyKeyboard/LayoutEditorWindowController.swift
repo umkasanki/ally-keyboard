@@ -54,10 +54,12 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
                               backing: .buffered, defer: false)
         window.title = "Layout Editor"
         window.isReleasedWhenClosed = false
-        // Under the keyboard, over other applications' windows: the keyboard
-        // stays at hand above the editor, and the editor's own dialogs go
-        // above both (see `run(_:)` and `KeyEditorDialog`).
-        window.level = .floating
+        // An ordinary window: under the keyboard, and under another app's
+        // window when that is clicked — instructions in a text editor stay
+        // readable beside it (the user's call, 2026-11-14). Layout ▸ Edit
+        // Layouts… brings it forward again. Its dialogs typed into are
+        // ordinary too (`run(_:)`).
+        window.level = AppConfig.Levels.window
         super.init(window: window)
         window.delegate = self
         buildUI()
@@ -373,26 +375,30 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
     // MARK: - Dialogs
 
-    /// Show a dialog over everything but the keyboard's own windows: above the
-    /// keyboard when it is only clicked, just under it when it is typed into
-    /// (`typing`). `runModal` puts an alert at the system's modal level, under
-    /// the keyboard and anything above it; set again once it is up, the level
-    /// stays (checked on the device, 2026-11-14).
-    private func run(_ alert: NSAlert, typing: Bool = false) -> NSApplication.ModalResponse {
-        raiseWhenShown(alert.window, to: typing ? AppConfig.Levels.typingDialog : nil)
+    /// Show a dialog as an ordinary window (`AppConfig.Levels.window`): in
+    /// front of the editor, under the keyboard and under any app clicked over
+    /// it. `runModal` puts it at the modal-panel level, above every app; set
+    /// back once it is up, the level stays (checked on the device, 2026-11-14).
+    private func run(_ alert: NSAlert) -> NSApplication.ModalResponse {
+        settleWhenShown(alert.window)
+        // Kept above the editor, as its child, whatever is clicked meanwhile.
+        let attach = Timer(timeInterval: 0, repeats: false) { [weak self] _ in
+            self?.window?.addChildWindow(alert.window, ordered: .above)
+        }
+        RunLoop.main.add(attach, forMode: .modalPanel)
+        defer { window?.removeChildWindow(alert.window) }
         return alert.runModal()
     }
 
     /// The same for an open or save panel.
     private func run(_ panel: NSSavePanel) -> NSApplication.ModalResponse {
-        raiseWhenShown(panel)
+        settleWhenShown(panel)
         return panel.runModal()
     }
 
-    /// Above the keyboard, or to `level` — a dialog typed into goes under it.
-    private func raiseWhenShown(_ window: NSWindow, to level: NSWindow.Level? = nil) {
+    private func settleWhenShown(_ window: NSWindow) {
         let raise = Timer(timeInterval: 0, repeats: false) { _ in
-            window.level = level ?? NSWindow.Level(rawValue: AppConfig.Levels.keyboard.rawValue + 2)
+            window.level = AppConfig.Levels.window
         }
         RunLoop.main.add(raise, forMode: .modalPanel)
     }
@@ -523,7 +529,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         alert.addButton(withTitle: "Rename")
         alert.addButton(withTitle: "Cancel")
         alert.window.initialFirstResponder = field
-        guard run(alert, typing: true) == .alertFirstButtonReturn else { return }
+        guard run(alert) == .alertFirstButtonReturn else { return }
         // A name another layout has would make two alike in the lists.
         let name = field.stringValue.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty else { return }
@@ -650,7 +656,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     /// The selected key in the key dialog; Done replaces it, as one step to undo.
     @objc private func editKey() {
         guard let key = editor.selectedKey,
-              let edited = KeyEditorDialog.run(title: "Edit Key", key: key) else { return }
+              let edited = KeyEditorDialog.run(title: "Edit Key", key: key, over: window) else { return }
         editor.replaceSelectedKey(with: edited)
         refresh()
     }
@@ -658,7 +664,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     /// A new key from the dialog — starting as a copy of the selected key, or
     /// blank with none selected — placed right of the selection or at the end.
     @objc private func newKey() {
-        guard let key = KeyEditorDialog.run(title: "New Key", key: editor.selectedKey ?? KeySpec(.blank)) else { return }
+        guard let key = KeyEditorDialog.run(title: "New Key", key: editor.selectedKey ?? KeySpec(.blank), over: window) else { return }
         editor.addKey(key)
         refresh()
     }

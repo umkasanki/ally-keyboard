@@ -31,9 +31,12 @@ final class KeyEditorDialog: NSObject {
     private let fontValue = NSTextField(labelWithString: "")
 
     /// Run the dialog; the edited key, or nil if it was cancelled.
-    static func run(title: String, key: KeySpec) -> KeySpec? {
+    /// Kept above `parent` (the editor) as its child window: both are
+    /// ordinary windows, and an app's window clicked over them still goes on
+    /// top of both, but the editor never comes over the dialog.
+    static func run(title: String, key: KeySpec, over parent: NSWindow?) -> KeySpec? {
         let dialog = KeyEditorDialog(title: title, key: key)
-        return dialog.runModal()
+        return dialog.runModal(over: parent)
     }
 
     private init(title: String, key: KeySpec) {
@@ -49,24 +52,23 @@ final class KeyEditorDialog: NSObject {
 
     // MARK: - Running
 
-    private func runModal() -> KeySpec? {
+    private func runModal(over parent: NSWindow?) -> KeySpec? {
         window.center()
-        // Over the editor and other apps, just under the keyboard that types
-        // into it (`AppConfig.Levels.typingDialog`); runModal would otherwise
-        // put it at the system's modal level (as with the editor's alerts).
-        let raise = Timer(timeInterval: 0, repeats: false) { [window] _ in
-            window.level = AppConfig.Levels.typingDialog
+        // An ordinary window, under the keyboard that types into it and under
+        // another app clicked over it (`AppConfig.Levels.window`).
+        // runModal puts it at the modal-panel level, above every app, so it
+        // is set back once shown — and before, so it never opens under the
+        // editor. The app comes forward first, and the dialog with it.
+        let level = Timer(timeInterval: 0, repeats: false) { [window] _ in
+            window.level = AppConfig.Levels.window
         }
-        RunLoop.main.add(raise, forMode: .modalPanel)
-        // The editor can be clicked while the app is not the active one (it
-        // floats over others); a modal session in an inactive app may end at
-        // once, so the app comes forward first, and the dialog with it.
-        // Raised before it shows too, not only after: if the timer were late,
-        // it would open under the floating editor and look like nothing.
-        window.level = AppConfig.Levels.typingDialog
+        RunLoop.main.add(level, forMode: .modalPanel)
+        window.level = AppConfig.Levels.window
         NSApp.activate(ignoringOtherApps: true)
+        parent?.addChildWindow(window, ordered: .above)
         window.makeKeyAndOrderFront(nil)
         NSApp.runModal(for: window)
+        parent?.removeChildWindow(window)
         window.orderOut(nil)
         return done ? draft : nil
     }
@@ -319,12 +321,14 @@ final class KeyEditorDialog: NSObject {
         return symbols.filter { chord.modifiers.contains($0.0) }.map(\.1).joined() + (key ?? "key \(chord.keyCode)")
     }
 
-    /// A dialog above this one — both typed into, so under the keyboard.
+    /// A dialog in front of this one; both ordinary windows, under the keyboard.
     private func run(_ alert: NSAlert) -> NSApplication.ModalResponse {
-        let raise = Timer(timeInterval: 0, repeats: false) { _ in
-            alert.window.level = AppConfig.Levels.typingDialog
+        let raise = Timer(timeInterval: 0, repeats: false) { [window] _ in
+            alert.window.level = AppConfig.Levels.window
+            window.addChildWindow(alert.window, ordered: .above)
         }
         RunLoop.main.add(raise, forMode: .modalPanel)
+        defer { window.removeChildWindow(alert.window) }
         return alert.runModal()
     }
 

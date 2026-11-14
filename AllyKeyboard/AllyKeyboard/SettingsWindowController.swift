@@ -165,7 +165,7 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                               backing: .buffered, defer: false)
         window.title = "AllyKeyboard Settings"
         window.isReleasedWhenClosed = false
-        window.level = AppConfig.Levels.settings   // genuinely above the keyboard
+        window.level = AppConfig.Levels.window   // an ordinary window, under the keyboard
         super.init(window: window)
         // Applied when the window closes, and when it stops being the key
         // window — the user went back to typing elsewhere — so that a word

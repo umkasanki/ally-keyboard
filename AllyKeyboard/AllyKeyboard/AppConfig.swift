@@ -60,20 +60,15 @@ enum AppConfig {
         /// says what the window is *for*, and the system can tell the difference.
         static let keyboard =
             NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)))
-        /// One above the keyboard, so the settings window is reachable while the
-        /// keyboard is up. It used to be `.modalPanel` (8), and the note here used
-        /// to say that put it below the keyboard's 25. Both numbers were wrong:
-        /// the keyboard was really at 3, so `.modalPanel` was already above it.
-        /// Measured at 1501 against the keyboard's 1500 on 2026-10-04.
-        static let settings =
-            NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)) + 1)
-        /// One below the keyboard: the editor's dialogs that are typed into
-        /// (a key, a rename, text for a key, a shortcut to record). Above the
-        /// editor and every other app, and under the keyboard, which is how
-        /// they are typed into — never covered by them (the user's call,
-        /// 2026-11-14). Dialogs only clicked (confirmations) stay above it.
-        static let typingDialog =
-            NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)) - 1)
+        /// Every other window the app has — Settings, the layout editor, its
+        /// dialogs and confirmations, open and save panels: ordinary windows.
+        /// Only the keyboard (with its launcher, suggestions and app
+        /// switcher) is on a level of its own, above everything; the rest sit
+        /// under it and under any app's window clicked over them, so
+        /// instructions open beside them stay readable (the user's call,
+        /// 2026-11-14). `runModal` puts a dialog at the modal-panel level,
+        /// above every app, so dialogs are set back to this once shown.
+        static let window = NSWindow.Level.normal
     }
 
     // MARK: - Feature flags
