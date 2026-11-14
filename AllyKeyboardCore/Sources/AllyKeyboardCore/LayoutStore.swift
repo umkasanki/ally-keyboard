@@ -111,9 +111,7 @@ public final class LayoutStore {
     @discardableResult
     public func save(_ layout: KeyboardLayout) -> Bool {
         guard layout.isUsable else { return false }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(layout) else { return false }
+        guard let data = try? layout.encoded() else { return false }
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return (try? data.write(to: url(for: layout.id), options: .atomic)) != nil
     }

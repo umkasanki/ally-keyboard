@@ -1,8 +1,8 @@
 # Editable layouts — implementation plan
 
-Branch: `feature/editable-layouts`. Status: phases 1–3 done (model, the
-keyboard built from it, several layouts with switching); phase 4, the editor,
-next.
+Branch: `feature/editable-layouts`. Status: phases 1–4 done (model, the
+keyboard built from it, several layouts with switching, the editor); phase 5,
+import/export and polish, in progress.
 
 ## Goal
 

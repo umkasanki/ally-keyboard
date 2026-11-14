@@ -13,8 +13,9 @@
 
 import AppKit
 import AllyKeyboardCore
+import UniformTypeIdentifiers
 
-final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate {
+final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, NSOpenSavePanelDelegate {
 
     private let store: LayoutStore
     /// Told after a layout was saved or deleted, so the keyboard can follow.
@@ -145,6 +146,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate {
                        button("Duplicate", #selector(duplicate)),
                        button("Rename\u{2026}", #selector(rename)),
                        deleteButton,
+                       button("Import\u{2026}", #selector(importLayout)),
+                       button("Export\u{2026}", #selector(exportLayout)),
                        spacer, undoButton, redoButton, revertButton, saveButton])
 
         preview.onClick = { [weak self] position in self?.clicked(position) }
@@ -362,11 +365,29 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate {
     /// could not be reached without moving them; raised again once it is up,
     /// it stays raised (checked on the device, 2026-11-14).
     private func run(_ alert: NSAlert) -> NSApplication.ModalResponse {
+        raiseWhenShown(alert.window)
+        return alert.runModal()
+    }
+
+    /// The same for an open or save panel.
+    private func run(_ panel: NSSavePanel) -> NSApplication.ModalResponse {
+        raiseWhenShown(panel)
+        return panel.runModal()
+    }
+
+    private func raiseWhenShown(_ window: NSWindow) {
         let raise = Timer(timeInterval: 0, repeats: false) { _ in
-            alert.window.level = NSWindow.Level(rawValue: AppConfig.Levels.keyboard.rawValue + 2)
+            window.level = NSWindow.Level(rawValue: AppConfig.Levels.keyboard.rawValue + 2)
         }
         RunLoop.main.add(raise, forMode: .modalPanel)
-        return alert.runModal()
+    }
+
+    private func tell(_ message: String, _ detail: String = "") {
+        let alert = NSAlert()
+        alert.messageText = message
+        alert.informativeText = detail
+        alert.addButton(withTitle: "OK")
+        _ = run(alert)
     }
 
     // MARK: - Choosing what to edit
@@ -478,6 +499,61 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate {
         // A built-in comes back from the factory; a deleted layout gives way to Standard.
         editor = LayoutEditor(layout: store.layout(id: layout.isBuiltIn ? layout.id : KeyboardLayout.standardID))
         refresh()
+    }
+
+    // MARK: - Files
+
+    private static let layoutFileType =
+        UTType(filenameExtension: KeyboardLayout.fileExtension, conformingTo: .json) ?? .json
+
+    /// Read a layout from a file and open it. It is added beside the others,
+    /// never in place of one (`LayoutStore.importLayout`).
+    @objc private func importLayout() {
+        guard confirmLeavingEdits() else { return }
+        let panel = NSOpenPanel()
+        panel.title = "Import a Layout"
+        panel.prompt = "Import"
+        // Chosen by extension (`panel(_:shouldEnable:)`), not by type: the
+        // app declares no type for its files, so macOS knows an exported one
+        // only as "Document", and a type filter left it greyed out.
+        panel.delegate = self
+        panel.allowsMultipleSelection = false
+        guard run(panel) == .OK, let url = panel.url else { return }
+        do {
+            let layout = try store.importLayout(from: try Data(contentsOf: url))
+            editor = LayoutEditor(layout: layout)
+            swapPending = false
+            refresh()
+        } catch let error as KeyboardLayout.ImportError {
+            tell("\u{201C}\(url.lastPathComponent)\u{201D} was not imported.", error.message)
+        } catch {
+            tell("\u{201C}\(url.lastPathComponent)\u{201D} could not be opened.", error.localizedDescription)
+        }
+    }
+
+    func panel(_ sender: Any, shouldEnable url: URL) -> Bool {
+        if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true { return true }
+        return [KeyboardLayout.fileExtension, "json"].contains(url.pathExtension.lowercased())
+    }
+
+    /// Write the layout as it is on screen, unsaved edits included, to a file
+    /// to keep or pass on.
+    @objc private func exportLayout() {
+        guard editor.canSave else {
+            tell("A layout with no keys cannot be exported.")
+            return
+        }
+        let panel = NSSavePanel()
+        panel.title = "Export the Layout"
+        panel.prompt = "Export"
+        panel.allowedContentTypes = [Self.layoutFileType]
+        panel.nameFieldStringValue = editor.layout.name + "." + KeyboardLayout.fileExtension
+        guard run(panel) == .OK, let url = panel.url else { return }
+        do {
+            try editor.layout.encoded().write(to: url, options: .atomic)
+        } catch {
+            tell("The layout could not be exported.", error.localizedDescription)
+        }
     }
 
     // MARK: - The keyboard's sizes and rows

@@ -19,9 +19,45 @@ AllyKeyboard is a clickable on-screen keyboard that stays on top of all windows.
 - **Word prediction** — a docked balloon (above or below, wherever there's room) that also hosts your **saved phrases**; dismisses on outside click.
 - **Right-hand action column** — copy / cut / paste / undo (Material icons) + **Translate** (opens the current selection in Google Translate).
 - Fixed top-row punctuation and `+ − =` keys, navigation keys (Home/End/PgUp/PgDn/arrows), media/volume keys.
+- **Editable layouts** — three built-ins (Standard, Standard Multilingual, Extended) and your own, switched from the menus or a key; a click-only **layout editor** for key sizes, gaps, rows and each key's action and look; layouts shared as files. See [Layouts](#layouts).
 - **Floating launcher** when collapsed — draggable, remembers its position, adjustable width/opacity.
 - **Settings** — keyboard size (%), top/bottom bar heights (+ hide bottom bar), suggestions toggle & saved-phrase editor, launcher width/opacity, launch-at-login, launch-collapsed, and two dark themes (custom / macOS system colors).
 - Dimmed function keys that brighten on hover/press, pointing-hand cursor, menu-bar + right-click control, runs as a **menu-bar accessory** (no Dock icon).
+
+## Layouts
+
+The keys on the keyboard come from a **layout**. Three are built in:
+
+- **Standard** — the default: QWERTY, the number row, editing and media keys.
+- **Standard Multilingual** — Standard with the input-language key (it cycles
+  the input sources enabled in macOS) in place of Screenshot.
+- **Extended** — Standard plus the input-language key and a Home / Page Up /
+  Page Down / End column.
+
+Switch layouts from the menu-bar icon or the right-click menu (**Layout ▸**),
+or with a *Next Layout* key. **Layout ▸ Edit Layouts…** opens the editor:
+
+- the keyboard as a whole — key width and height, the gaps between keys and
+  rows, the padding, the number of rows — each with − / + buttons;
+- keys selected with a click, then moved (◀ ▶ ▲ ▼), swapped or deleted;
+- **New Key…** and **Edit Key…** — a key's action (picked from a palette, a
+  recorded shortcut, or text to type), its label, corner label, icon, width
+  and font size;
+- Undo / Redo, Save / Revert; a status bar with hints, warnings (no Space key,
+  uneven rows) and errors (nothing to save).
+
+Everything is a single click on a large button: no drag and drop, no double
+clicks, nothing that appears only on hover.
+
+Built-in layouts can be edited too; **Reset to Factory** brings the original
+back. Each layout is one JSON file in
+`~/Library/Application Support/AllyKeyboard/Layouts`.
+
+**Sharing.** **Export…** writes the layout on screen to an
+`.allykeyboard-layout` file (the same JSON); **Import…** reads one. An import
+is added beside the layouts already there — never in place of one — and a file
+that cannot be read, comes from a newer version of the app, or has no keys is
+refused with a message saying why.
 
 ## Install
 
@@ -87,6 +123,8 @@ package — no AppKit dependency, so it builds and is unit-tested on Linux (CI) 
   portable implementation (a `NSSpellChecker` adapter plugs in on macOS)
 - `SuggestionApplier` — computes the minimal keystrokes to replace a partial word with a suggestion
 - `Settings` / `SettingsStore` — persisted, lenient-decoding settings model
+- `KeyboardLayout` / `LayoutStore` / `LayoutEditor` — layouts as data, their files, import
+  and export, and every editing operation (undoable)
 
 ```bash
 cd AllyKeyboardCore && swift test
