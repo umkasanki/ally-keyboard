@@ -1,27 +1,34 @@
 //
-//  KeyEditorDialog.swift
+//  KeyEditorPanel.swift
 //  AllyKeyboard
 //
-//  The dialog for one key — what it does and how it looks — opened from the
-//  layout editor by New Key… and Edit Key…. It works on a draft: Done hands
-//  the draft back, Cancel drops it, so a whole edit of a key is one step to
-//  undo in the editor. Above the keyboard, so it can be reached.
+//  One key — what it does and how it looks — edited in a panel that slides
+//  out of the bottom of the layout editor's window (New Key…, Edit Key…), not
+//  in a window of its own: the editor's own picture shows the key as it is
+//  being made, every change at once. It works on a draft: Done hands the
+//  draft back, Cancel drops it, so a whole edit of a key is one step to undo.
 //
 
 import AppKit
 import AllyKeyboardCore
 
-final class KeyEditorDialog: NSObject {
+final class KeyEditorPanel: NSObject {
+
+    /// The panel itself, built once; the editor shows and hides it.
+    let view = NSView()
+    /// Told on every change to the draft, so the editor's picture follows.
+    var onChange: ((KeySpec) -> Void)?
+    /// Told when the panel is done with: the key, or nil for Cancel.
+    var onFinish: ((KeySpec?) -> Void)?
 
     /// The key as edited so far.
-    private(set) var draft: KeySpec
+    private(set) var draft = KeySpec(.blank)
     /// The labels as the key came (or as the palette entry set them): an empty
     /// field keeps an empty one ("show nothing", the spacebar's) instead of
     /// turning it into no label, which shows the action's name.
-    private var givenLabels: (label: String?, corner: String?)
-    private let window: NSWindow
-    private var done = false
+    private var givenLabels: (label: String?, corner: String?) = (nil, nil)
 
+    private let titleLabel = NSTextField(labelWithString: "")
     private let actionValue = NSTextField(wrappingLabelWithString: "")
     private let labelField = NSTextField()
     private let cornerField = NSTextField()
@@ -29,59 +36,31 @@ final class KeyEditorDialog: NSObject {
     private let coloredCheck = NSButton(checkboxWithTitle: "Icon keeps its colours", target: nil, action: nil)
     private let widthValue = NSTextField(labelWithString: "")
     private let fontValue = NSTextField(labelWithString: "")
+    private let tabs = NSTabView()
 
-    /// Run the dialog; the edited key, or nil if it was cancelled.
-    /// Kept above `parent` (the editor) as its child window: both are
-    /// ordinary windows, and an app's window clicked over them still goes on
-    /// top of both, but the editor never comes over the dialog.
-    static func run(title: String, key: KeySpec, over parent: NSWindow?) -> KeySpec? {
-        let dialog = KeyEditorDialog(title: title, key: key)
-        return dialog.runModal(over: parent)
-    }
-
-    private init(title: String, key: KeySpec) {
-        draft = key
-        givenLabels = (key.label, key.secondary)
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1240, height: 420),
-                          styleMask: [.titled], backing: .buffered, defer: false)
-        window.title = title
+    override init() {
         super.init()
         build()
-        show()
     }
 
-    // MARK: - Running
-
-    private func runModal(over parent: NSWindow?) -> KeySpec? {
-        window.center()
-        // An ordinary window, under the keyboard that types into it and under
-        // another app clicked over it (`AppConfig.Levels.window`).
-        // runModal puts it at the modal-panel level, above every app, so it
-        // is set back once shown — and before, so it never opens under the
-        // editor. The app comes forward first, and the dialog with it.
-        let level = Timer(timeInterval: 0, repeats: false) { [window] _ in
-            window.level = AppConfig.Levels.window
-        }
-        RunLoop.main.add(level, forMode: .modalPanel)
-        window.level = AppConfig.Levels.window
-        NSApp.activate(ignoringOtherApps: true)
-        parent?.addChildWindow(window, ordered: .above)
-        window.makeKeyAndOrderFront(nil)
-        NSApp.runModal(for: window)
-        parent?.removeChildWindow(window)
-        window.orderOut(nil)
-        return done ? draft : nil
+    /// Start editing `key`: "New Key" or "Edit Key", on the first tab of
+    /// actions.
+    func begin(title: String, key: KeySpec) {
+        titleLabel.stringValue = title
+        draft = key
+        givenLabels = (key.label, key.secondary)
+        tabs.selectTabViewItem(at: 0)
+        show()
     }
 
     @objc private func finish() {
         // A label still being typed counts, as if Return had been pressed.
         applyFields()
-        done = true
-        NSApp.stopModal()
+        onFinish?(draft)
     }
 
     @objc private func cancel() {
-        NSApp.stopModal()
+        onFinish?(nil)
     }
 
     // MARK: - Layout
@@ -123,8 +102,6 @@ final class KeyEditorDialog: NSObject {
     }
 
     private func build() {
-        guard let content = window.contentView else { return }
-
         for field in [labelField, cornerField] {
             field.font = .systemFont(ofSize: 15)
             field.target = self
@@ -146,6 +123,7 @@ final class KeyEditorDialog: NSObject {
         }
         coloredCheck.target = self
         coloredCheck.action = #selector(coloredToggled)
+        titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
         actionValue.font = .systemFont(ofSize: 14, weight: .medium)
         actionValue.preferredMaxLayoutWidth = 240
         for value in [widthValue, fontValue] {
@@ -159,15 +137,7 @@ final class KeyEditorDialog: NSObject {
                                            button("", #selector(wider), symbol: "plus")])]),
             column([caption("Font size"), row([button("", #selector(smallerFont), symbol: "minus"), fontValue,
                                                button("", #selector(largerFont), symbol: "plus")])]),
-        ], spacing: 32)
-
-        let inspector = column([
-            caption("Action"), actionValue,
-            caption("Label"), labelField,
-            caption("Corner label"), cornerField,
-            caption("Icon"), iconPopup, coloredCheck,
-            sizes,
-        ])
+        ], spacing: 24)
 
         let cancelButton = button("Cancel", #selector(cancel))
         cancelButton.keyEquivalent = "\u{1b}"
@@ -177,25 +147,31 @@ final class KeyEditorDialog: NSObject {
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let footer = row([spacer, cancelButton, doneButton])
 
+        let inspector = column([
+            caption("Action"), actionValue,
+            caption("Label"), labelField,
+            caption("Corner label"), cornerField,
+            caption("Icon"), iconPopup, coloredCheck,
+            sizes, footer,
+        ])
+        footer.widthAnchor.constraint(equalTo: inspector.widthAnchor).isActive = true
+
         let main = row([makePalette(), inspector], spacing: 24)
         main.alignment = .top
-        let stack = column([main, footer], spacing: 18)
-        stack.edgeInsets = NSEdgeInsets(top: 18, left: 18, bottom: 18, right: 18)
+        let stack = column([titleLabel, main], spacing: 8)
         stack.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(stack)
+        view.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: content.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            stack.bottomAnchor.constraint(equalTo: content.bottomAnchor),
-            footer.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -36),
+            stack.topAnchor.constraint(equalTo: view.topAnchor),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor),
+            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
     }
 
     // MARK: - Palette
 
     private func makePalette() -> NSView {
-        let tabs = NSTabView()
         tabs.font = .systemFont(ofSize: 13)
         for group in ActionCatalog.groups {
             var buttons: [NSButton] = group.choices.enumerated().map { i, choice in
@@ -209,12 +185,12 @@ final class KeyEditorDialog: NSObject {
             if group.title == "Text" { buttons.append(wide(button("Type Text\u{2026}", #selector(typeText)))) }
             let item = NSTabViewItem(identifier: group.title)
             item.label = group.title
-            item.view = grid(of: buttons, columns: 9)
+            item.view = grid(of: buttons, columns: 8)
             tabs.addTabViewItem(item)
         }
         tabs.translatesAutoresizingMaskIntoConstraints = false
         tabs.heightAnchor.constraint(equalToConstant: 300).isActive = true
-        tabs.widthAnchor.constraint(equalToConstant: 900).isActive = true
+        tabs.widthAnchor.constraint(equalToConstant: 800).isActive = true
         return tabs
     }
 
@@ -246,6 +222,7 @@ final class KeyEditorDialog: NSObject {
     // MARK: - Editing the draft
 
     private func show() {
+        onChange?(draft)
         actionValue.stringValue = Self.describe(draft.action)
         labelField.stringValue = draft.label ?? ""
         cornerField.stringValue = draft.secondary ?? ""
@@ -345,14 +322,16 @@ final class KeyEditorDialog: NSObject {
         return "key \(code)"
     }
 
-    /// A dialog in front of this one; both ordinary windows, under the keyboard.
+    /// A dialog in front of the editor, as its child; both ordinary windows,
+    /// under the keyboard.
     private func run(_ alert: NSAlert) -> NSApplication.ModalResponse {
-        let raise = Timer(timeInterval: 0, repeats: false) { [window] _ in
+        let host = view.window
+        let raise = Timer(timeInterval: 0, repeats: false) { _ in
             alert.window.level = AppConfig.Levels.window
-            window.addChildWindow(alert.window, ordered: .above)
+            host?.addChildWindow(alert.window, ordered: .above)
         }
         RunLoop.main.add(raise, forMode: .modalPanel)
-        defer { window.removeChildWindow(alert.window) }
+        defer { host?.removeChildWindow(alert.window) }
         return alert.runModal()
     }
 
