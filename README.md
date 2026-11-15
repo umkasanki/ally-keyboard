@@ -19,7 +19,7 @@ AllyKeyboard is a clickable on-screen keyboard that stays on top of all windows.
 - **Word prediction** — a docked balloon (above or below, wherever there's room) that also hosts your **saved phrases** — each phrases key with a list of its own, set in the layout editor; dismisses on outside click.
 - **Right-hand action column** — copy / cut / paste / undo (Material icons) + **Translate** (opens the current selection in Google Translate).
 - Fixed top-row punctuation and `+ − =` keys, navigation keys (Home/End/PgUp/PgDn/arrows), media/volume keys.
-- **Editable layouts** — three built-ins (Standard, Standard Multilingual, Extended) and your own, switched from the menus or a key; a click-only **layout editor** for key sizes, gaps, rows and each key's action and look; layouts shared as files. See [Layouts](#layouts).
+- **Editable layouts** — three built-ins (Standard, Standard Multilingual, Extended) and your own, switched from the menus or a key; a click-only **layout editor** in one window — key sizes, gaps, rows, row alignment, and a key inspector for each key's action (shortcuts, system events, apps, Shortcuts, AppleScript…) and look (icons, a second icon for start / stop keys); layouts shared as files. See [Layouts](#layouts).
 - **Floating launcher** when collapsed — draggable, remembers its position, adjustable width/opacity.
 - **Settings** — keyboard size (%), top/bottom bar heights (+ hide bottom bar), suggestions toggle & learned words, launcher width/opacity, launch-at-login, launch-collapsed, and two dark themes (custom / macOS system colors).
 - Dimmed function keys that brighten on hover/press, pointing-hand cursor, menu-bar + right-click control, runs as a **menu-bar accessory** (no Dock icon).
@@ -35,32 +35,86 @@ The keys on the keyboard come from a **layout**. Three are built in:
   Page Down / End column.
 
 Switch layouts from the menu-bar icon or the right-click menu (**Layout ▸**),
-or with a *Next Layout* key. **Layout ▸ Edit Layouts…** opens the editor:
+or with a *Next Layout* key. **Layout ▸ Edit Layouts…** opens the editor.
 
-- the keyboard as a whole — key width and height, the gaps between keys and
-  rows, the padding, the number of rows — each with − / + buttons;
-- keys selected with a click, then moved (◀ ▶ ▲ ▼), swapped or deleted;
-- **New ▸** an almost empty layout, or Apple's **Magic Keyboard** or **Magic
-  Keyboard with Numeric Keypad** to start from (as near as an on-screen
-  keyboard can come: fn switches the input source; Screenshot, the app
-  switcher and Hide Keyboard stand where Dictation, Do Not Disturb and Touch ID
-  are);
-- **Add Group…** — a number row, a media row (brightness, Mission Control,
-  music, sound) or a Home / Page Up / Page Down / End column, put in at once;
-- **Add Key…** and **Edit Key…** — the key in an inspector, as Apple's Panel
-  Editor has one: its Action (a character, text to type, a key, a modifier,
-  chords to press in turn, a system event — sound, brightness, music, Mission
-  Control, Spotlight, Launchpad, the input source —, one of the keyboard's
-  own commands, an app to open, one of your Shortcuts to run, an
-  AppleScript, empty space), its label, corner
-  label, icon, width and font size; every change shows at once and is undone
-  with Undo. A layout file whose keys run AppleScript asks before it is
-  imported;
-- Undo / Redo, Save / Revert; a status bar with hints, warnings (no Space key,
-  uneven rows) and errors (nothing to save).
+### The editor
 
-Everything is a single click on a large button: no drag and drop, no double
-clicks, nothing that appears only on hover.
+One window. The keyboard is drawn large on the left; on the right is a column
+for the keyboard as a whole, which becomes the **key inspector** while a key
+is edited. Everything is a single click on a large button: no drag and drop,
+no double clicks, nothing that appears only on hover. Undo and Redo take back
+any change; nothing is written to disk until **Save** (**Revert** drops the
+edits).
+
+- **Top bar** — the layout being edited, **New ▸** (an almost empty layout, or
+  Apple's **Magic Keyboard** or **Magic Keyboard with Numeric Keypad**),
+  Duplicate, Rename, Delete (**Reset to Factory** for a built-in), Import,
+  Export; Undo, Redo, Revert, Save.
+- **The keyboard as a whole** — key width and height, the gaps between keys
+  and rows, the padding and the number of rows, each with − / +; **Align
+  rows** Left, Centre or Stretch (stretched keys grow, the gaps stay). Each
+  row's width is written at its right edge, so uneven rows show; a row
+  shorter than the longest has its empty places drawn dashed. Centre turns
+  into Left by itself once rows are of different widths.
+- **Keys** — click a key to select it, then ◀ ▶ ▲ ▼ (a key moves through
+  empty room as well as past other keys), **Swap** (then click the other key),
+  **Delete Key**; **Add Group…** puts in a number row, a media row
+  (brightness, Mission Control, music, sound) or a Home / Page Up / Page Down
+  / End column at once.
+- **Add Key…** and **Edit Key…** open the inspector in the right-hand column.
+  Every change shows on the key at once and is one Undo step; clicking
+  another key moves the inspector to it; **Done** goes back to the keyboard
+  column.
+- **Status bar** at the bottom — the hint for what is on screen, warnings
+  (no Space key, uneven rows) and errors (nothing to save).
+
+### The key inspector
+
+**Action** — what the key does:
+
+| Action | |
+|---|---|
+| None | does nothing |
+| Character | a letter, digit or symbol; follows the input source |
+| Type Text | types the text as it is, whatever the input source |
+| Key | Space, Return, Tab, Delete, the arrows, Home / End, F-keys… |
+| Modifier | ⇧ ⌃ ⌥ ⌘, held for the next key |
+| Press Keyboard Shortcut | one or more shortcuts, pressed in turn |
+| System Event | sound, brightness, music, Mission Control, Spotlight, Launchpad, the input source |
+| Keyboard | one of AllyKeyboard's own commands — hide, screenshot, the app switcher, translate, **Show Phrases**, next or chosen layout, settings |
+| Open App | an app chosen with **Choose…** |
+| Run Command from Shortcuts App | one of your Shortcuts, picked from a list |
+| AppleScript | a script, run in the background |
+| Empty Space | a gap that keeps the rows lined up |
+
+A **Show Phrases** key has its own list of phrases, one a line, so several
+keys can offer different ones.
+
+**Shortcuts** for *Press Keyboard Shortcut* are recorded with **Record…**,
+picked from **Common**, or written in the field:
+
+- `⌘C`, `⇧⌘5`, `⌘→`, `⌘Space`, `F13` — modifiers as symbols, then the key;
+- `cmd+shift+5`, `ctrl+alt+delete` — or as words joined by `+`;
+- `⌘H, ⇧⌘5` — several shortcuts, pressed one after another, separated by
+  commas (spaces optional);
+- `⌘⌘` or `⌘, ⌘` — a modifier on its own is pressed and let go by itself:
+  this is Command pressed twice, macOS's shortcut for Dictation. **Add Tap**
+  adds one without typing (the on-screen ⌘ only arms the next key, so a tap
+  cannot be recorded from it);
+- the comma key is written `Comma`; letters always by the US layout, whatever
+  the input source.
+
+Text the field cannot read turns red and changes nothing.
+
+**Look** — the label, the corner label, the font size, the width and the
+**icon**: bundled images and SF Symbols, listed A to Z, with a search field
+above the list. **Second icon, every other press** (folded away until
+opened) gives a key a second icon it switches to on each press and back on
+the next — for a shortcut that starts and stops something, such as a
+microphone key for Dictation (`mic`, then `mic.slash`). The keyboard counts
+presses: it cannot tell whether the thing was stopped in another way.
+
+### Files
 
 Built-in layouts can be edited too; **Reset to Factory** brings the original
 back. Each layout is one JSON file in

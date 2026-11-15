@@ -207,6 +207,21 @@ steppers — and Undo for every change.
   selection, and Edit Key…). Short rows are drawn centred, as the keyboard
   draws them; a status bar at the bottom shows the hint, errors and warnings.
 
+- **4e — one window again** (the user's call, 2026-11-15): the key dialog
+  gave way to an inspector in the window's right-hand column, as Apple's
+  Panel Editor has one. Add Key… and Edit Key… open it; every change shows
+  at once and is one Undo step; clicking another key moves it there; Done
+  goes back to the keyboard column. Its Action list follows Apple's: None,
+  Character, Type Text, Key, Modifier, Press Keyboard Shortcut (chords in
+  turn, recorded or written — "⌘H, ⇧⌘5", "⌘⌘" for a modifier tapped on its
+  own), System Event, Keyboard, Open App, Run Command from Shortcuts App,
+  AppleScript (asked about on import), Empty Space. Show Phrases keys keep a
+  list each. Icons are listed A to Z with a search; a second icon, shown on
+  every other press, marks keys that start and stop something. Rows can be
+  aligned left, centred or stretched; their empty places are drawn dashed,
+  and keys move through them. Add Group… and the Magic Keyboard templates
+  came with it.
+
 ### 7. Import and export
 
 Plain JSON (`.allykeyboard-layout`), versioned; import validates and refuses a
