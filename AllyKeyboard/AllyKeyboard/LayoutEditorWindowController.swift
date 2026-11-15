@@ -405,6 +405,9 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         alignPicker.font = .systemFont(ofSize: 13)
         alignPicker.target = self
         alignPicker.action = #selector(alignmentPicked)
+        // The chosen alignment a lighter grey, not the accent blue: it is a
+        // state to read, not the thing to press next.
+        alignPicker.selectedSegmentBezelColor = NSColor(white: 1, alpha: 0.28)
         rows.append(row([caption("Align rows"), alignPicker]))
         return column(rows, spacing: 8)
     }
