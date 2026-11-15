@@ -70,6 +70,7 @@ enum KeySender {
         case "PlayPause":      sendMediaKey(16)
         case "Next":           sendMediaKey(17)
         case "Previous":       sendMediaKey(18)
+        case "Eject":          sendMediaKey(14)
         case "fn", "Ctrl", "Alt", "Cmd", "CapsLock":
             break // modifier-only keys — no action yet
         case "Hi":

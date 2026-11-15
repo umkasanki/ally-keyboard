@@ -4,8 +4,8 @@
 //
 //  The layout editor's window: the keyboard as a whole. Its sizes and rows
 //  are edited here, and keys are moved, swapped and deleted; one key's
-//  action and look are edited in a panel that slides out under them
-//  (`KeyEditorPanel`), opened by Add Key… and Edit Key…. Every edit goes
+//  action and look are edited in an inspector that takes the right-hand
+//  column (`KeyInspector`), opened by Add Key… and Edit Key…. Every edit goes
 //  through `LayoutEditor` (Core, tested). Everything is a single click on a large button — no drag
 //  and drop, no double clicks, nothing shown only on hover — since it is used
 //  with a head mouse. See docs/layouts-plan.md, "Editor".
@@ -23,9 +23,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     private let onDeleted: (UUID) -> Void
 
     /// Replaced when another layout is opened, made, imported, deleted or
-    /// reset: the key panel's draft belonged to the last one, so it closes —
-    /// before anything is drawn with it.
-    private var editor: LayoutEditor { didSet { closeKeyPanel() } }
+    /// reset: the key inspector showed a key of the last one, so it closes.
+    private var editor: LayoutEditor { didSet { closeInspector() } }
     /// Swap was pressed: the next key clicked is swapped with the selected
     /// one. Kept with the layout and selection it was pressed on, and dropped
     /// as soon as either changes (Undo, Delete Key, a new row…), so a click
@@ -34,16 +33,14 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     private var swapPending: Bool { swapFrom != nil }
 
     private let layoutPopup = NSPopUpButton()
-    /// One key's action and look, slid out under the keys (`beginKeyEdit`).
-    private let keyPanel = KeyEditorPanel()
-    /// The key being edited in it: which button opened the panel, the layout
-    /// it belongs to, the draft, and how Done puts it into the layout.
-    private var keyEdit: (isNew: Bool, draft: KeySpec, apply: (LayoutEditor, KeySpec) -> Void)?
+    /// One key's action and look, in the right-hand column in place of the
+    /// keyboard's sizes while a key is edited (Edit Key…, Add Key…); every
+    /// change goes in at once, one step to undo (the user's calls, 2026-11-15).
+    private let inspector = KeyInspector()
+    private var inspecting = false
     private var keyboardPanel: NSView!, keysPanel: NSView!
     private var newKeyButton: NSButton!, editKeyButton: NSButton!, deleteKeyButton: NSButton!, addRowButton: NSButton!
     private var addGroupButton: NSButton!
-    /// The line between the Keys buttons and the key panel, out with it.
-    private let keyPanelRule = NSBox()
     /// Everything above the status bar, in a scroll view: the window grows
     /// with it up to the screen's visible height (above the Dock), and
     /// scrolls past that (the user's call, 2026-11-14).
@@ -188,7 +185,17 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         // is, however small the picture (an empty new layout's is a dot).
         let middleSpacer = NSView()
         middleSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let middle = row([preview, middleSpacer, keyboardPanel], spacing: 24)
+        inspector.view.isHidden = true
+        inspector.onChange = { [weak self] key in
+            guard let self else { return }
+            self.editor.replaceSelectedKey(with: key)
+            self.refresh()
+        }
+        inspector.onDone = { [weak self] in
+            self?.closeInspector()
+            self?.refresh()
+        }
+        let middle = row([preview, middleSpacer, keyboardPanel, inspector.view], spacing: 24)
         middle.setCustomSpacing(0, after: preview)          // the spacer adds no gap of its own
         // The picture in the middle of the sizes' column, which is taller:
         // the same space above it as below it, down to the keys.
@@ -297,7 +304,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     }
 
     private func refreshStatus() {
-        let hint = keyEdit != nil ? "The picture shows the key as it will be. Done, or a click on another key to edit it next, puts it in; Cancel leaves it out."
+        let hint = inspecting ? "Changes go in at once \u{2014} Undo takes them back, Save keeps them. Click another key to edit it; Done returns to the keyboard."
             : swapPending ? "Click the key to swap it with."
             : editor.selection == nil ? "Click a key to select it." : selectedDescription()
         var lines = [statusLine(hint, symbol: "info.circle", color: .secondaryLabelColor)]
@@ -419,18 +426,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         editKeyButton = editKey
         addGroupButton = button("Add Group\u{2026}", #selector(addGroup(_:)), symbol: "square.grid.3x1.below.line.grid.1x2")
         let buttons = row(keyButtons.dropLast() + [NSView(), addGroupButton, newKey, editKey])
-        // The key panel slides out inside this block, under its buttons: it
-        // goes on from them.
-        keyPanel.view.isHidden = true
-        keyPanelRule.boxType = .separator
-        keyPanelRule.isHidden = true
-        let panel = column([heading("Keys"), buttons, keyPanelRule, keyPanel.view], spacing: 8)
-        // Room above and below the line, so the panel does not run into the buttons.
-        panel.setCustomSpacing(18, after: buttons)
-        panel.setCustomSpacing(16, after: keyPanelRule)
-        keyPanelRule.widthAnchor.constraint(equalTo: panel.widthAnchor, constant: -20).isActive = true
-        // As wide as the buttons above, so its Done lines up under Edit Key….
-        keyPanel.view.widthAnchor.constraint(equalTo: panel.widthAnchor, constant: -20).isActive = true
+        let panel = column([heading("Keys"), buttons], spacing: 8)
         // On the keyboard picture's own background, so the block's edge reads
         // where the picture's does — in line with the top bar.
         panel.wantsLayer = true
@@ -446,9 +442,13 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     private func refresh() {
         if let from = swapFrom, from.layout != editor.layout || from.selection != editor.selection { swapFrom = nil }
         reloadPopup()
-        let shown = layoutWithDraft() ?? (editor.layout, editor.selection)
-        preview.layout = shown.layout
-        preview.selection = shown.selection
+        preview.layout = editor.layout
+        preview.selection = editor.selection
+        // The inspector follows the selection — another key clicked, a move,
+        // Undo — and closes when there is none.
+        if inspecting {
+            if let key = editor.selectedKey { inspector.show(key) } else { closeInspector() }
+        }
         undoButton.isEnabled = editor.canUndo
         redoButton.isEnabled = editor.canRedo
         saveButton.isEnabled = editor.hasUnsavedChanges && editor.canSave
@@ -463,9 +463,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
             label.stringValue = v == v.rounded() ? String(Int(v)) : String(v)
         }
         rowsValue.stringValue = String(editor.layout.rows.count)
-        // As the picture has it: with the key panel out, what Done will leave
-        // (a key that changes the rows' widths turns Centre into Left).
-        alignPicker.selectedSegment = Self.alignments.firstIndex { $0.alignment == shown.layout.geometry.rowAlignment } ?? 1
+        alignPicker.selectedSegment = Self.alignments.firstIndex { $0.alignment == editor.layout.geometry.rowAlignment } ?? 1
 
         if editor.layout.isBuiltIn {
             deleteButton.title = "Reset to Factory"
@@ -475,18 +473,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
             deleteButton.isEnabled = true
         }
 
-        // While the key panel is out: the button that opened it is dimmed, and
-        // so is whatever would move the selection off the key being edited —
-        // Done would put it elsewhere (the user's call, 2026-11-14) — and Swap,
-        // whose second click the picture does not take then. The arrows stay:
-        // the selection goes with the key.
-        newKeyButton.isEnabled = keyEdit?.isNew != true
-        if let edit = keyEdit {
-            if !edit.isNew { editKeyButton.isEnabled = false }
-            for b in [deleteKeyButton, deleteRowButton, addRowButton, addGroupButton, swapButton, undoButton, redoButton, revertButton] {
-                b?.isEnabled = false
-            }
-        }
+        // Edit Key… is what the inspector already is.
+        if inspecting { editKeyButton.isEnabled = false }
 
         window?.title = "Layout Editor — \(editor.layout.name)" + (editor.hasUnsavedChanges ? " (edited)" : "")
         refreshStatus()
@@ -494,7 +482,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
     private func selectedDescription() -> String {
         guard let key = editor.selectedKey, let p = editor.selection else { return "" }
-        return "Row \(p.row + 1), key \(p.index + 1): \(KeyEditorPanel.describe(key.action)), width \(key.width)"
+        return "Row \(p.row + 1), key \(p.index + 1): \(KeyInspector.describe(key.action)), width \(key.width)"
     }
 
     private func describe(_ problem: LayoutEditor.Problem) -> String {
@@ -577,19 +565,6 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
     /// Save, discard, or stay. False means stay.
     private func confirmLeavingEdits() -> Bool {
-        // A key half made comes first: put it in, drop it, or stay.
-        if keyEdit != nil {
-            let alert = NSAlert()
-            alert.messageText = "Put the key you are editing into \u{201C}\(editor.layout.name)\u{201D}?"
-            alert.addButton(withTitle: "Put It In")
-            alert.addButton(withTitle: "Discard")
-            alert.addButton(withTitle: "Cancel")
-            switch run(alert) {
-            case .alertFirstButtonReturn: keyPanel.commit()
-            case .alertSecondButtonReturn: endKeyEdit(with: nil)
-            default: return false
-            }
-        }
         guard editor.hasUnsavedChanges else { return true }
         let alert = NSAlert()
         guard editor.canSave else {
@@ -624,7 +599,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     /// layout on screen unless it has edits of its own to keep.
     func layoutsChangedElsewhere() {
         // A key half made counts as an edit to keep, as unsaved changes do.
-        if !editor.hasUnsavedChanges && keyEdit == nil {
+        if !editor.hasUnsavedChanges {
             editor = LayoutEditor(layout: store.layout(id: editor.layout.id))
             swapFrom = nil
         }
@@ -761,7 +736,20 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         panel.allowsMultipleSelection = false
         guard run(panel) == .OK, let url = panel.url else { return }
         do {
-            let layout = try store.importLayout(from: try Data(contentsOf: url))
+            let data = try Data(contentsOf: url)
+            // Scripts run with the user's rights: asked about first, so a file
+            // from someone else cannot slip one in unseen.
+            if let incoming = try? KeyboardLayout.decodeForImport(data), incoming.scriptKeyCount > 0 {
+                let alert = NSAlert()
+                let n = incoming.scriptKeyCount
+                alert.messageText = "\u{201C}\(incoming.name)\u{201D} has \(n) \(n == 1 ? "key" : "keys") that \(n == 1 ? "runs" : "run") AppleScript."
+                alert.informativeText = "A script can do whatever your Mac lets you do: open, change or delete files, control other apps. Import it only if you trust where it came from."
+                alert.alertStyle = .warning
+                alert.addButton(withTitle: "Import")
+                alert.addButton(withTitle: "Cancel")
+                guard run(alert) == .alertFirstButtonReturn else { return }
+            }
+            let layout = try store.importLayout(from: data)
             editor = LayoutEditor(layout: layout)
             swapFrom = nil
             refresh()
@@ -820,18 +808,6 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     // for the arrow and delete keys, and these must not answer them.
 
     private func clicked(_ position: KeyPosition?) {
-        if keyEdit != nil {
-            // Another key clicked with the key panel out: this one goes in,
-            // as with Done, and that one opens — several keys edited in turn,
-            // each its own step to undo (the user's call, 2026-11-15). The
-            // picture already shows the layout as Done leaves it, so its
-            // positions are the editor's once the key is in.
-            guard let position, position != preview.selection else { return }
-            keyPanel.commit()
-            editor.select(position)
-            editKey()
-            return
-        }
         if swapPending, let position {
             swapFrom = nil
             editor.swapSelected(with: position)
@@ -875,64 +851,36 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         refresh()
     }
 
-    /// The selected key in the key panel; Done replaces it, as one step to undo.
+    /// The selected key, in the inspector.
     @objc private func editKey() {
-        guard let key = editor.selectedKey else { return }
-        beginKeyEdit(title: "Edit Key", key: key, isNew: false) { $0.replaceSelectedKey(with: $1) }
+        guard editor.selectedKey != nil else { return }
+        openInspector()
     }
 
-    /// A new key from the key panel — starting as a copy of the selected key,
-    /// or blank with none selected — placed right of the selection, or in the
-    /// first row with room for it.
+    /// A new key, put in at once — a copy of the selected key, or blank with
+    /// none selected, right of the selection or in the first row with room —
+    /// and opened in the inspector.
     @objc private func newKey() {
-        beginKeyEdit(title: "Add Key", key: editor.selectedKey ?? KeySpec(.blank), isNew: true) { $0.addKey($1) }
+        editor.addKey(editor.selectedKey ?? KeySpec(.blank))
+        openInspector()
     }
 
-    /// Slide the key panel out, inside the Keys block, under its buttons;
-    /// the rest of the window stays as it is, and scrolls when it no longer
-    /// fits the screen. While the panel is out the picture shows the layout
-    /// as Done would leave it, redrawn on every change. Done puts the key in
-    /// at the selection of the moment — the key itself, for Edit Key, which
-    /// the selection follows when it is moved.
-    private func beginKeyEdit(title: String, key: KeySpec, isNew: Bool,
-                              apply: @escaping (LayoutEditor, KeySpec) -> Void) {
-        swapFrom = nil                      // Swap is dimmed while the panel is out
-        keyEdit = (isNew, key, apply)
-        keyPanel.view.isHidden = false
-        keyPanelRule.isHidden = false
-        keyPanel.onChange = { [weak self] draft in
-            guard let self, self.keyEdit != nil else { return }
-            self.keyEdit?.draft = draft
-            self.refresh()
-        }
-        keyPanel.onFinish = { [weak self] key in self?.endKeyEdit(with: key) }
-        keyPanel.begin(title: title, key: key)
-        fitWindowToContent()
-        window?.contentView?.layoutSubtreeIfNeeded()
-        keyPanel.view.scrollToVisible(keyPanel.view.bounds)
-    }
-
-    /// Done (a key) or Cancel (nil): the panel slides back in.
-    private func endKeyEdit(with key: KeySpec?) {
-        guard let edit = keyEdit else { return }
-        if let key { edit.apply(editor, key) }
-        closeKeyPanel()
+    /// The right-hand column shows the selected key instead of the
+    /// keyboard's sizes.
+    private func openInspector() {
+        swapFrom = nil
+        inspecting = true
+        keyboardPanel.isHidden = true
+        inspector.view.isHidden = false
         refresh()
+        fitWindowToContent()
     }
 
-    private func closeKeyPanel() {
-        keyEdit = nil
-        keyPanel.view.isHidden = true
-        keyPanelRule.isHidden = true
-    }
-
-    /// The layout as the key panel's draft would leave it, worked out on a
-    /// copy of the editor: what the picture shows while the panel is out.
-    private func layoutWithDraft() -> (layout: KeyboardLayout, selection: KeyPosition?)? {
-        guard let edit = keyEdit else { return nil }
-        let copy = LayoutEditor(layout: editor.layout)
-        copy.select(editor.selection)
-        edit.apply(copy, edit.draft)
-        return (copy.layout, copy.selection)
+    /// Back to the keyboard's sizes.
+    private func closeInspector() {
+        guard inspecting else { return }
+        inspecting = false
+        inspector.view.isHidden = true
+        keyboardPanel.isHidden = false
     }
 }

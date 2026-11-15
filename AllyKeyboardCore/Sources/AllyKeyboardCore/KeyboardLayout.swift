@@ -180,8 +180,20 @@ public struct KeySpec: Codable, Equatable {
     }
 
     /// The text on the key when it has no icon. A blank key without a label
-    /// shows nothing — not its action's name.
-    public var title: String { label ?? (action == .blank ? "" : action.legacyID) }
+    /// shows nothing — not its action's name; an app shows its name, a
+    /// script "Script", chords "Keys".
+    public var title: String {
+        if let label { return label }
+        switch action {
+        case .blank: return ""
+        case .openApp(let path):
+            return path.isEmpty ? "App" : URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
+        case .appleScript: return "Script"
+        case .runShortcut(let name): return name.isEmpty ? "Shortcut" : name
+        case .keySequence: return "Keys"
+        default: return action.legacyID
+        }
+    }
 
     // Readable files: defaults are left out, and missing keys take them.
     private enum CodingKeys: String, CodingKey {
@@ -226,10 +238,18 @@ public enum KeyAction: Hashable {
     case modifier(Modifier)
     /// A key chord, such as ⌘C.
     case shortcut(Shortcut)
+    /// Several chords pressed one after another, such as ⌘H, ⇧⌘5.
+    case keySequence([Shortcut])
     /// A media key.
     case media(MediaKey)
     /// Something the keyboard itself does.
     case command(Command)
+    /// Opens an application, by its path ("/Applications/Safari.app").
+    case openApp(String)
+    /// Runs an AppleScript, given as its source.
+    case appleScript(String)
+    /// Runs one of the user's Shortcuts (the Shortcuts app), by its name.
+    case runShortcut(String)
     /// A key that does nothing — a placeholder.
     case blank
     /// No key at all: an empty gap that keeps rows aligned.
@@ -245,8 +265,12 @@ public enum KeyAction: Hashable {
         case .key(let k):        return k.rawValue
         case .modifier(let m):   return m.rawValue
         case .shortcut(let s):   return s.legacyID
+        case .keySequence(let s): return "Keys:" + s.map(\.legacyID).joined(separator: ",")
         case .media(let m):      return m.rawValue
         case .command(let c):    return c.rawValue
+        case .openApp(let path): return "OpenApp:" + path
+        case .appleScript(let s): return "AppleScript:" + s
+        case .runShortcut(let name): return "RunShortcut:" + name
         case .blank:             return "Blank"
         case .spacer:            return "__spacer__"
         }
@@ -270,7 +294,7 @@ public enum Modifier: String, Codable, CaseIterable {
 public enum MediaKey: String, Codable, CaseIterable {
     case mute = "Mute", volumeDown = "VolumeDown", volumeUp = "VolumeUp",
          brightnessDown = "BrightnessDown", brightnessUp = "BrightnessUp",
-         previous = "Previous", playPause = "PlayPause", next = "Next"
+         previous = "Previous", playPause = "PlayPause", next = "Next", eject = "Eject"
 }
 
 public enum Command: String, Codable, CaseIterable {
@@ -279,7 +303,8 @@ public enum Command: String, Codable, CaseIterable {
          languageSwitch = "LangSwitch",
          resizeWidth = "ResizeWidth", resizeHeight = "ResizeHeight",
          nextLayout = "NextLayout", chooseLayout = "ChooseLayout",
-         openSettings = "OpenSettings", missionControl = "MissionControl"
+         openSettings = "OpenSettings", missionControl = "MissionControl",
+         spotlight = "Spotlight", launchpad = "Launchpad"
 }
 
 /// A chord: a virtual key code with modifiers held.
@@ -343,8 +368,10 @@ extension KeyAction: Codable {
     private enum CodingKeys: String, CodingKey { case type, value, keyCode, modifiers }
 
     private enum Kind: String, Codable {
-        case character, literal, key, modifier, shortcut, media, command, blank, spacer
+        case character, literal, key, modifier, shortcut, keySequence, media, command, openApp, appleScript, runShortcut,
+             blank, spacer
     }
+    private struct Chord: Codable { var keyCode: Int; var modifiers: [Modifier] }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -355,6 +382,15 @@ extension KeyAction: Codable {
         case .modifier:  self = .modifier(try c.decode(Modifier.self, forKey: .value))
         case .media:     self = .media(try c.decode(MediaKey.self, forKey: .value))
         case .command:   self = .command(try c.decode(Command.self, forKey: .value))
+        case .openApp:   self = .openApp(try c.decode(String.self, forKey: .value))
+        case .keySequence:
+            let chords = try c.decode([Chord].self, forKey: .value)
+            guard chords.allSatisfy({ Shortcut.keyCodeRange.contains($0.keyCode) }) else {
+                throw DecodingError.dataCorruptedError(forKey: .value, in: c, debugDescription: "A key code no key has")
+            }
+            self = .keySequence(chords.map { Shortcut(keyCode: $0.keyCode, modifiers: $0.modifiers) })
+        case .appleScript: self = .appleScript(try c.decode(String.self, forKey: .value))
+        case .runShortcut: self = .runShortcut(try c.decode(String.self, forKey: .value))
         case .shortcut:
             let code = try c.decode(Int.self, forKey: .keyCode)
             guard Shortcut.keyCodeRange.contains(code) else {
@@ -376,6 +412,12 @@ extension KeyAction: Codable {
         case .modifier(let m):  try c.encode(Kind.modifier, forKey: .type);  try c.encode(m, forKey: .value)
         case .media(let m):     try c.encode(Kind.media, forKey: .type);     try c.encode(m, forKey: .value)
         case .command(let x):   try c.encode(Kind.command, forKey: .type);   try c.encode(x, forKey: .value)
+        case .openApp(let p):   try c.encode(Kind.openApp, forKey: .type);   try c.encode(p, forKey: .value)
+        case .keySequence(let s):
+            try c.encode(Kind.keySequence, forKey: .type)
+            try c.encode(s.map { Chord(keyCode: $0.keyCode, modifiers: $0.modifiers) }, forKey: .value)
+        case .appleScript(let s): try c.encode(Kind.appleScript, forKey: .type); try c.encode(s, forKey: .value)
+        case .runShortcut(let n): try c.encode(Kind.runShortcut, forKey: .type); try c.encode(n, forKey: .value)
         case .shortcut(let s):
             try c.encode(Kind.shortcut, forKey: .type)
             try c.encode(s.keyCode, forKey: .keyCode)

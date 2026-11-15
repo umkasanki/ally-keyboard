@@ -14,6 +14,12 @@ import Foundation
 
 extension KeyboardLayout {
 
+    /// How many keys run an AppleScript — asked about before a file is
+    /// imported: a script can do whatever the user's Mac lets it.
+    public var scriptKeyCount: Int {
+        rows.flatMap { $0 }.filter { if case .appleScript = $0.action { return true }; return false }.count
+    }
+
     /// The file extension for exported layouts.
     public static let fileExtension = "allykeyboard-layout"
 

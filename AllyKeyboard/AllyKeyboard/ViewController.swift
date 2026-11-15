@@ -1285,6 +1285,45 @@ class ViewController: NSViewController {
         refreshSuggestions()
     }
 
+    /// One of the user's Shortcuts, by `shortcuts run`, off the main thread.
+    private static func runShortcut(_ name: String) {
+        guard !name.isEmpty else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/shortcuts")
+            process.arguments = ["run", name]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            do { try process.run(); process.waitUntilExit() }
+            catch { NSLog("AllyKeyboard: shortcut could not start: %@", error.localizedDescription) }
+        }
+    }
+
+    /// A key's AppleScript, by `osascript`, off the main thread: a script that
+    /// waits (a dialog, an app slow to answer) must not freeze the keyboard.
+    /// What it reports back is not shown; errors go to the log.
+    private static func runAppleScript(_ source: String) {
+        guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = ["-e", source]
+            let errors = Pipe()
+            process.standardError = errors
+            process.standardOutput = FileHandle.nullDevice
+            do {
+                try process.run()
+                process.waitUntilExit()
+                if process.terminationStatus != 0,
+                   let text = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) {
+                    NSLog("AllyKeyboard: AppleScript failed: %@", text)
+                }
+            } catch {
+                NSLog("AllyKeyboard: AppleScript could not start: %@", error.localizedDescription)
+            }
+        }
+    }
+
     /// The keys that are commands rather than keystrokes: done here, and true;
     /// false for a key that types. Never asked about a key that types text
     /// (`literalChar`), whose text may be a command's name.
@@ -1376,6 +1415,29 @@ class ViewController: NSViewController {
             return true
         }
 
+        // Actions that carry what they do: an app to open, a script to run,
+        // chords to press in turn.
+        switch actionsByID[key] {
+        case .openApp(let path)?:
+            if !path.isEmpty { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
+            return true
+        case .appleScript(let source)?:
+            Self.runAppleScript(source)
+            return true
+        case .runShortcut(let name)?:
+            Self.runShortcut(name)
+            return true
+        case .keySequence(let chords)?:
+            let extra = eventFlags(from: activeModifiers)
+            for chord in chords { KeySender.sendShortcut(chord, adding: extra) }
+            textTracker.discard()
+            clearOneShotModifiers()
+            refreshSuggestions()
+            return true
+        default:
+            break
+        }
+
         // A chord written into a layout that the keyboard has no key id for.
         // It ends the word, which it may have deleted (⌥⌫, ⌘Z): dropped
         // uncounted, and the suggestions for it go with it.
@@ -1384,6 +1446,19 @@ class ViewController: NSViewController {
             textTracker.discard()
             clearOneShotModifiers()
             refreshSuggestions()
+            return true
+        }
+
+        if key == Command.spotlight.rawValue {
+            KeySender.sendShortcut(Shortcut(keyCode: 49, modifiers: [.command]), adding: [])   // ⌘Space
+            clearOneShotModifiers()
+            return true
+        }
+        if key == Command.launchpad.rawValue {
+            // Launchpad became "Apps" in macOS 26; whichever this Mac has.
+            let apps = URL(fileURLWithPath: "/System/Applications/Apps.app")
+            let launchpad = URL(fileURLWithPath: "/System/Applications/Launchpad.app")
+            NSWorkspace.shared.open(FileManager.default.fileExists(atPath: apps.path) ? apps : launchpad)
             return true
         }
 

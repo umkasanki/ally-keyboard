@@ -69,7 +69,7 @@ extension KeyboardLayout {
         KeySpec(.media(.brightnessDown), icon: "sun.min"),
         KeySpec(.media(.brightnessUp), icon: "sun.max"),
         KeySpec(.command(.missionControl), icon: "rectangle.3.group"),
-        KeySpec(.shortcut(Shortcut(keyCode: 49, modifiers: [.command])), icon: "magnifyingglass"),   // Spotlight
+        KeySpec(.command(.spotlight), icon: "magnifyingglass"),
         KeySpec(.command(.screenshot), icon: "camera"),             // in place of Dictation
         KeySpec(.command(.appSwitcher), icon: "square.grid.2x2"),   // in place of Do Not Disturb
         KeySpec(.media(.previous), icon: "backward.fill"),

@@ -47,9 +47,15 @@ or with a *Next Layout* key. **Layout ▸ Edit Layouts…** opens the editor:
   are);
 - **Add Group…** — a number row, a media row (brightness, Mission Control,
   music, sound) or a Home / Page Up / Page Down / End column, put in at once;
-- **Add Key…** and **Edit Key…** — a key's action (picked from a palette, a
-  recorded shortcut, or text to type), its label, corner label, icon, width
-  and font size;
+- **Add Key…** and **Edit Key…** — the key in an inspector, as Apple's Panel
+  Editor has one: its Action (a character, text to type, a key, a modifier,
+  chords to press in turn, a system event — sound, brightness, music, Mission
+  Control, Spotlight, Launchpad, the input source —, one of the keyboard's
+  own commands, an app to open, one of your Shortcuts to run, an
+  AppleScript, empty space), its label, corner
+  label, icon, width and font size; every change shows at once and is undone
+  with Undo. A layout file whose keys run AppleScript asks before it is
+  imported;
 - Undo / Redo, Save / Revert; a status bar with hints, warnings (no Space key,
   uneven rows) and errors (nothing to save).
 

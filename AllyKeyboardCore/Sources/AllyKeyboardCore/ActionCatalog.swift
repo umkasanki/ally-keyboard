@@ -41,7 +41,7 @@ public enum ActionCatalog {
 
     /// Keys of the input layout, by their US names; they show what the
     /// active language puts there, as on the keyboard.
-    static let lettersAndDigits = ActionGroup(title: "Letters & Digits", choices:
+    public static let lettersAndDigits = ActionGroup(title: "Letters & Digits", choices:
         "QWERTYUIOPASDFGHJKLZXCVBNM".map { character(String($0), String($0).lowercased()) }
         + [("1", "!"), ("2", "@"), ("3", "#"), ("4", "$"), ("5", "%"), ("6", "^"), ("7", "&"),
            ("8", "*"), ("9", "("), ("0", ")"), ("-", "_"), ("=", "+"), ("[", "{"), ("]", "}"),
@@ -50,11 +50,11 @@ public enum ActionCatalog {
         + [character("`", "~", "`")])
 
     /// Characters typed as they are, whatever the input language.
-    static let text = ActionGroup(title: "Text", choices:
+    public static let text = ActionGroup(title: "Text", choices:
         ["@", "!", "?", ".", ",", "-", "+", "=", ":", ";", "\"", "'", "(", ")", "/", "*", "#", "$", "%", "&", "_"]
             .map { ActionChoice($0, KeySpec(.literal($0), label: $0)) })
 
-    static let editing = ActionGroup(title: "Editing", choices: [
+    public static let editing = ActionGroup(title: "Editing", choices: [
         ActionChoice("Space", KeySpec(.key(.space), label: "")),
         ActionChoice("Backspace", KeySpec(.key(.backspace), icon: "delete.backward")),
         ActionChoice("Delete", KeySpec(.key(.delete), icon: "delete.forward")),
@@ -63,7 +63,7 @@ public enum ActionCatalog {
         ActionChoice("Esc", KeySpec(.key(.escape), label: "Esc")),
     ])
 
-    static let navigation = ActionGroup(title: "Navigation", choices: [
+    public static let navigation = ActionGroup(title: "Navigation", choices: [
         ActionChoice("Left", KeySpec(.key(.arrowLeft), icon: "arrow.left")),
         ActionChoice("Right", KeySpec(.key(.arrowRight), icon: "arrow.right")),
         ActionChoice("Up", KeySpec(.key(.arrowUp), icon: "arrow.up")),
@@ -74,7 +74,7 @@ public enum ActionCatalog {
         ActionChoice("Page Down", KeySpec(.key(.pageDown), label: "PgDn")),
     ])
 
-    static let modifiers = ActionGroup(title: "Modifiers", choices: [
+    public static let modifiers = ActionGroup(title: "Modifiers", choices: [
         ActionChoice("Shift", KeySpec(.modifier(.shift), icon: "shift")),
         ActionChoice("Caps Lock", KeySpec(.modifier(.capsLock), label: "Caps")),
         ActionChoice("Control", KeySpec(.modifier(.control), label: "^")),
@@ -89,7 +89,7 @@ public enum ActionCatalog {
     }
 
     /// Common chords; any other is recorded ("Record Shortcut…" in the window).
-    static let shortcuts = ActionGroup(title: "Shortcuts", choices: [
+    public static let shortcuts = ActionGroup(title: "Shortcuts", choices: [
         chord("Copy", 8, [.command], icon: "copy-icon"),
         chord("Paste", 9, [.command], icon: "paste-icon"),
         chord("Cut", 7, [.command], icon: "cut-icon"),
@@ -102,7 +102,7 @@ public enum ActionCatalog {
         chord("Close", 13, [.command], label: "\u{2318}W"),
     ])
 
-    static let media = ActionGroup(title: "Media", choices: [
+    public static let media = ActionGroup(title: "Media", choices: [
         ActionChoice("Mute", KeySpec(.media(.mute), icon: "volume-off-icon", colored: true)),
         ActionChoice("Volume Down", KeySpec(.media(.volumeDown), icon: "volume-down-icon", colored: true)),
         ActionChoice("Volume Up", KeySpec(.media(.volumeUp), icon: "volume-up-icon", colored: true)),
@@ -111,15 +111,18 @@ public enum ActionCatalog {
         ActionChoice("Previous", KeySpec(.media(.previous), icon: "backward.fill")),
         ActionChoice("Play / Pause", KeySpec(.media(.playPause), icon: "playpause.fill")),
         ActionChoice("Next", KeySpec(.media(.next), icon: "forward.fill")),
+        ActionChoice("Eject", KeySpec(.media(.eject), icon: "eject.fill")),
     ])
 
-    static let keyboard = ActionGroup(title: "Keyboard", choices: [
+    public static let keyboard = ActionGroup(title: "Keyboard", choices: [
         ActionChoice("Hide Keyboard", KeySpec(.command(.hideKeyboard), icon: "keyboard-glyph")),
         ActionChoice("Screenshot", KeySpec(.command(.screenshot), icon: "camera")),
         ActionChoice("App Switcher", KeySpec(.command(.appSwitcher), icon: "square.grid.2x2")),
         ActionChoice("Mission Control", KeySpec(.command(.missionControl), icon: "rectangle.3.group")),
+        ActionChoice("Spotlight", KeySpec(.command(.spotlight), icon: "magnifyingglass")),
+        ActionChoice("Launchpad", KeySpec(.command(.launchpad), icon: "square.grid.3x3")),
         ActionChoice("Translate", KeySpec(.command(.translate), icon: "translate-icon", colored: true)),
-        ActionChoice("Phrases", KeySpec(.command(.phrases), icon: "list.bullet")),
+        ActionChoice("Show Phrases", KeySpec(.command(.phrases), icon: "list.bullet")),
         ActionChoice("Language", KeySpec(.command(.languageSwitch), label: "\u{1F310}")),
         ActionChoice("Next Layout", KeySpec(.command(.nextLayout), icon: "rectangle.2.swap")),
         ActionChoice("Choose Layout", KeySpec(.command(.chooseLayout), icon: "keyboard.badge.ellipsis")),
@@ -128,8 +131,8 @@ public enum ActionCatalog {
         ActionChoice("Window Height", KeySpec(.command(.resizeHeight), icon: "resize-height-icon")),
     ])
 
-    static let gaps = ActionGroup(title: "Gaps", choices: [
-        ActionChoice("Gap", KeySpec(.spacer)),
+    public static let gaps = ActionGroup(title: "Empty", choices: [
+        ActionChoice("Empty Space", KeySpec(.spacer)),
         ActionChoice("Blank Key", KeySpec(.blank)),
     ])
 
@@ -149,6 +152,7 @@ public enum ActionCatalog {
         "scissors", "arrow.uturn.backward", "arrow.uturn.forward", "speaker.slash", "speaker.wave.1",
         "speaker.wave.3", "keyboard", "rectangle.2.swap", "star", "heart",
         "sun.min", "sun.max", "backward.fill", "playpause.fill", "forward.fill", "rectangle.3.group",
+        "eject.fill", "square.grid.3x3",
     ]
 
     // MARK: - Groups of keys
