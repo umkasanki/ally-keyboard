@@ -273,11 +273,52 @@ public final class LayoutEditor {
     // MARK: - Structure
 
     /// Move the selected key one place left (-1) or right (+1) in its row.
+    ///
+    /// Through empty room too, one key's width at a time: rightwards past the
+    /// end of a row that is shorter than the widest — a gap opens before the
+    /// key — or through a gap beside it, which moves to its other side a key
+    /// at a time; leftwards, a gap before it narrows. A row never grows past
+    /// the widest (the user's call, 2026-11-15).
     public func moveAlongRow(by offset: Int) {
-        guard let p = selection else { return }
-        let target = KeyPosition(row: p.row, index: p.index + offset)
-        guard isValid(target) else { return }
-        change(selecting: target) { $0.rows[p.row].swapAt(p.index, target.index) }
+        guard let p = selection, offset != 0 else { return }
+        let row = layout.rows[p.row]
+        let right = offset > 0
+        let neighbour = p.index + (right ? 1 : -1)
+        let isGap = { (i: Int) in row.indices.contains(i) && row[i].action == .spacer }
+        // A key beside it, not a gap: the two change places, as ever.
+        if row.indices.contains(neighbour), !isGap(neighbour) {
+            change(selecting: KeyPosition(row: p.row, index: neighbour)) { $0.rows[p.row].swapAt(p.index, neighbour) }
+            return
+        }
+        if right {
+            let widest = rowWidths.max() ?? 0
+            let throughGap = isGap(neighbour)
+            // Off the end, only into room the row has.
+            guard throughGap || rowWidths[p.row] + 1 <= widest + 1e-9 else { return }
+            var keys = row
+            var index = p.index
+            if throughGap {                                     // the gap after gives up a key's width
+                keys[neighbour].width -= 1
+                if keys[neighbour].width <= 1e-9 { keys.remove(at: neighbour) }
+            }
+            if index > 0, keys[index - 1].action == .spacer {   // the gap before takes it
+                keys[index - 1].width += 1
+            } else {
+                keys.insert(KeySpec(.spacer), at: index)
+                index += 1
+            }
+            change(selecting: KeyPosition(row: p.row, index: index)) { $0.rows[p.row] = keys }
+        } else {
+            guard isGap(neighbour) else { return }              // nothing to the left
+            var keys = row
+            var index = p.index
+            keys[neighbour].width -= 1
+            if keys[neighbour].width <= 1e-9 {
+                keys.remove(at: neighbour)
+                index -= 1
+            }
+            change(selecting: KeyPosition(row: p.row, index: index)) { $0.rows[p.row] = keys }
+        }
     }
 
     /// Move the selected key to the row above (-1) or below (+1), to where it

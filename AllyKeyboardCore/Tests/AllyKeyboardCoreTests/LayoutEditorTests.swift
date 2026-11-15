@@ -75,6 +75,61 @@ final class LayoutEditorTests: XCTestCase {
 
     // MARK: Structure
 
+    // A short row: [A] under [A B C D] — three places of room to its right.
+    private func shortRow() -> LayoutEditor {
+        let d = KeySpec(.character("D"))
+        var l = KeyboardLayout(name: "T", rows: [[a, b, c, d], [a]])
+        l.geometry.rowAlignment = .left
+        let e = LayoutEditor(layout: l)
+        e.select(p(1, 0))
+        return e
+    }
+
+    private func widths(_ e: LayoutEditor, _ row: Int) -> [String] {
+        e.layout.rows[row].map { $0.action == .spacer ? "gap\($0.width)" : $0.action.legacyID }
+    }
+
+    func testAKeyMovesRightIntoTheRoomOfItsRow() {
+        let e = shortRow()
+        e.moveAlongRow(by: 1)
+        XCTAssertEqual(widths(e, 1), ["gap1.0", "A"])
+        XCTAssertEqual(e.selection, p(1, 1))
+        e.moveAlongRow(by: 1); e.moveAlongRow(by: 1)
+        XCTAssertEqual(widths(e, 1), ["gap3.0", "A"])           // one gap, grown
+        e.moveAlongRow(by: 1)                                    // no more room: stays
+        XCTAssertEqual(widths(e, 1), ["gap3.0", "A"])
+        XCTAssertEqual(e.layout.rowWidths[1], e.layout.rowWidths[0], accuracy: 1e-9)
+    }
+
+    func testAKeyMovesBackLeftThroughItsGap() {
+        let e = shortRow()
+        e.moveAlongRow(by: 1); e.moveAlongRow(by: 1)
+        e.moveAlongRow(by: -1)
+        XCTAssertEqual(widths(e, 1), ["gap1.0", "A"])
+        XCTAssertEqual(e.selection, p(1, 1))
+        e.moveAlongRow(by: -1)
+        XCTAssertEqual(widths(e, 1), ["A"])                     // the gap is gone
+        XCTAssertEqual(e.selection, p(1, 0))
+        e.moveAlongRow(by: -1)                                   // nothing to the left
+        XCTAssertEqual(widths(e, 1), ["A"])
+    }
+
+    func testAGapAfterTheKeyPassesToItsOtherSideAKeyAtATime() {
+        let gap = KeySpec(.spacer, width: 2)
+        var l = KeyboardLayout(name: "T", rows: [[a, gap, b]])
+        l.geometry.rowAlignment = .left
+        let e = LayoutEditor(layout: l)
+        e.select(p(0, 0))
+        e.moveAlongRow(by: 1)
+        XCTAssertEqual(widths(e, 0), ["gap1.0", "A", "gap1.0", "B"])
+        XCTAssertEqual(e.selection, p(0, 1))
+        e.moveAlongRow(by: 1)
+        XCTAssertEqual(widths(e, 0), ["gap2.0", "A", "B"])
+        XCTAssertEqual(e.layout.rowWidths[0], 4, accuracy: 1e-9)   // the row keeps its width
+        e.moveAlongRow(by: 1)                                    // next to B now: they swap
+        XCTAssertEqual(widths(e, 0), ["gap2.0", "B", "A"])
+    }
+
     func testMovingAlongARowCarriesTheSelection() {
         let e = editor(); e.select(p(0, 0))
         e.moveAlongRow(by: 1)
