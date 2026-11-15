@@ -841,6 +841,15 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         let learnCheck = NSButton(checkboxWithTitle: "Learn the words you type",
                                   target: self, action: #selector(learnWordsToggled(_:)))
         learnCheck.state = learnWords ? .on : .off
+        let nextCheck = NSButton(checkboxWithTitle: "Suggest the next word",
+                                 target: self, action: #selector(nextWordToggled(_:)))
+        nextCheck.state = (keyboard?.currentSuggestNextWord ?? true) ? .on : .off
+        let forgetPairs = NSButton(title: "Forget Word Pairs\u{2026}", target: self, action: #selector(forgetWordPairs))
+        forgetPairs.bezelStyle = .rounded
+        pairCountLabel.stringValue = Self.pairCountText(keyboard?.learnedPairCount ?? 0)
+        pairCountLabel.textColor = .secondaryLabelColor
+        let pairsRow = NSStackView(views: [forgetPairs, pairCountLabel])
+        pairsRow.spacing = 10
         let (wordsView, wordsScroll) = textArea(learnedWords, height: 110)
         learnedWordsView = wordsView
         appliedLearnedWords = learnedWords
@@ -850,6 +859,13 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
             .note("With it on, punctuation ( . , ! ? : ; ), Enter or Tab typed next takes "
                   + "the space back. Off, the word stays open: type on, or end it yourself."),
             .wide(learnCheck),
+            .wide(nextCheck),
+            .note("After a word and a space, before a letter of the next is typed, the "
+                  + "words you usually write after it — pick one, then the next, to finish "
+                  + "a phrase you use often. A pair is offered after two uses, and fades "
+                  + "when you stop using it. Not across the end of a sentence, nor from a "
+                  + "password field."),
+            .wide(pairsRow),
             .gap,
             .tall("Learned words", wordsScroll),
             .note("Words you use often come first in suggestions, from the first letter. "
@@ -1015,6 +1031,38 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
 
     @objc private func learnWordsToggled(_ sender: NSButton) {
         onLearnWordsChange(sender.state == .on)
+    }
+
+    // MARK: - Next words
+
+    /// The keyboard, for the next-word options: asked directly rather than
+    /// through another pair of init arguments.
+    private var keyboard: ViewController? {
+        NSApp.windows.first(where: { $0 is KeyboardPanel })?.contentViewController as? ViewController
+    }
+
+    private let pairCountLabel = NSTextField(labelWithString: "")
+
+    private static func pairCountText(_ n: Int) -> String {
+        n == 1 ? "1 pair learned" : "\(n) pairs learned"
+    }
+
+    @objc private func nextWordToggled(_ sender: NSButton) {
+        keyboard?.applySuggestNextWord(sender.state == .on)
+    }
+
+    @objc private func forgetWordPairs() {
+        let alert = NSAlert()
+        alert.messageText = "Forget every word pair learned?"
+        alert.informativeText = "Next-word suggestions start again from nothing. This cannot be undone."
+        alert.addButton(withTitle: "Forget")
+        alert.addButton(withTitle: "Cancel")
+        guard let window else { return }
+        alert.beginSheetModal(for: window) { [weak self] response in
+            guard response == .alertFirstButtonReturn, let self else { return }
+            self.keyboard?.forgetWordPairs()
+            self.pairCountLabel.stringValue = Self.pairCountText(0)
+        }
     }
 
     /// Two text views share this delegate — the learned words and the list of

@@ -28,6 +28,40 @@ public final class TextTracker {
     /// open (see `adopt(_:)`). `discard()` reports nothing at all.
     public var onWordCompleted: ((_ word: String, _ wasSecret: Bool) -> Void)?
 
+    /// Called with a finished word and the word just before it, when the two
+    /// were typed one after the other in the same sentence — for learning
+    /// which word follows which. Not for a secret word on either side.
+    public var onWordFollowed: ((_ previous: String, _ word: String) -> Void)?
+
+    /// The last word finished, while the next one may still follow it: not
+    /// after a sentence ends (. ! ? …), a Backspace into the text before, a
+    /// secret word, `reset()` or `discard()`.
+    public private(set) var previousWord: String?
+
+    /// The word the next one would follow, with nothing of that one typed
+    /// yet — a finished word, or a picked one waiting behind its space; nil
+    /// while a word is being typed or after a break.
+    public var contextWord: String? {
+        if pickAwaitsNextKey { return currentWordIsSecret ? nil : currentWord }
+        // Right after a space, not after a comma: a word picked there would
+        // be glued to it.
+        return currentWord.isEmpty && afterSpace ? previousWord : nil
+    }
+
+    /// The last key was a space, Return or Tab.
+    private var afterSpace = false
+
+    /// Characters that end a sentence: what comes after starts afresh.
+    static let sentenceEnds: Set<Character> = [".", "!", "?", "\u{2026}"]
+
+    /// Count a picked word waiting behind its space now, as the next key would
+    /// — before another word is picked to follow it.
+    public func finishPendingPick() {
+        guard pickAwaitsNextKey else { return }
+        pickAwaitsNextKey = false
+        completeWord()
+    }
+
     /// Whether any part of the current word was typed somewhere secret.
     /// Cleared when the word ends, by `reset()` and `discard()`, and when a new
     /// one starts.
@@ -101,6 +135,7 @@ public final class TextTracker {
 
     /// Update the buffer for one keystroke.
     public func handle(_ input: KeyInput) {
+        afterSpace = input == .wordBoundary
         if pickAwaitsNextKey {
             pickAwaitsNextKey = false
             // The Backspace erased the space after the picked word, not a letter
@@ -116,10 +151,13 @@ public final class TextTracker {
             } else {
                 // Punctuation/symbol terminates the current word.
                 completeWord()
+                if Self.sentenceEnds.contains(char) { previousWord = nil }
             }
         case .backspace:
             if !currentWord.isEmpty {
                 currentWord.removeLast()
+            } else {
+                previousWord = nil              // into the text before: what follows what is unknown
             }
             if let picked = adoptedWord, currentWord.count < picked.count { adoptedWord = nil }
         case .wordBoundary:
@@ -137,7 +175,15 @@ public final class TextTracker {
     private func completeWord() {
         let word = currentWord
         currentWord = ""
-        if !word.isEmpty { onWordCompleted?(word, currentWordIsSecret) }
+        if !word.isEmpty {
+            onWordCompleted?(word, currentWordIsSecret)
+            if currentWordIsSecret {
+                previousWord = nil
+            } else {
+                if let previous = previousWord { onWordFollowed?(previous, word) }
+                previousWord = word
+            }
+        }
         currentWordIsSecret = false
         adoptedWord = nil
     }
@@ -174,6 +220,7 @@ public final class TextTracker {
     /// Drop the word without counting it, even a picked one: for a shortcut
     /// that may have deleted it (see `shortcutMayDeleteWord`).
     public func discard() {
+        previousWord = nil
         pickAwaitsNextKey = false
         adoptedWord = nil
         currentWord = ""
@@ -187,7 +234,9 @@ public final class TextTracker {
         pickAwaitsNextKey = false
         if let picked = adoptedWord {
             onWordCompleted?(picked, currentWordIsSecret)
+            if !currentWordIsSecret, let previous = previousWord { onWordFollowed?(previous, picked) }
         }
+        previousWord = nil
         adoptedWord = nil
         currentWord = ""
         currentWordIsSecret = false

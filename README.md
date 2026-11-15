@@ -16,7 +16,7 @@ AllyKeyboard is a clickable on-screen keyboard that stays on top of all windows.
 - **Floating, non-activating** window — always on top, clicking keys doesn't steal focus.
 - Full QWERTY + number row with symbol variants; **multilingual** layout switching (types and relabels per the active input source).
 - **Modifier chords** — sticky Shift / Ctrl / Alt / Cmd (active keys highlight red).
-- **Word prediction** — a docked balloon (above or below, wherever there's room) that also hosts your **saved phrases** — each phrases key with a list of its own, set in the layout editor; dismisses on outside click.
+- **Word prediction** and **next-word suggestions** — after a word and a space, the words you usually write next (learned from your own typing, on your Mac only), so a frequent phrase can be finished word by word; a docked balloon (above or below, wherever there's room) that also hosts your **saved phrases** — each phrases key with a list of its own, set in the layout editor; dismisses on outside click.
 - **Right-hand action column** — copy / cut / paste / undo (Material icons) + **Translate** (opens the current selection in Google Translate).
 - Fixed top-row punctuation and `+ − =` keys, navigation keys (Home/End/PgUp/PgDn/arrows), media/volume keys.
 - **Editable layouts** — three built-ins (Standard, Standard Multilingual, Extended) and your own, switched from the menus or a key; a click-only **layout editor** in one window — key sizes, gaps, rows, row alignment, and a key inspector for each key's action (shortcuts, system events, apps, Shortcuts, AppleScript…) and look (icons, a second icon for start / stop keys); layouts shared as files. See [Layouts](#layouts).

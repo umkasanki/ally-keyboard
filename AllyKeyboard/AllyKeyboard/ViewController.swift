@@ -670,6 +670,25 @@ class ViewController: NSViewController {
         guard vocabularyLoaded else { return }
         vocabulary.forgetFaded()
         vocabularyStore.save(vocabulary.persisted())
+        nextWords.forgetFaded()
+        nextWordsStore.save(nextWords.persisted())
+    }
+
+    var currentSuggestNextWord: Bool { settings.suggestNextWord }
+
+    func applySuggestNextWord(_ on: Bool) {
+        settings.suggestNextWord = on
+        settingsStore.save(settings)
+    }
+
+    /// How many word pairs are offered now, for Settings.
+    var learnedPairCount: Int { nextWords.offeredCount() }
+
+    /// Forget every word pair learned — at once, on disk too.
+    func forgetWordPairs() {
+        nextWords = NextWords()
+        nextWordsStore.save(nextWords)
+        refreshSuggestions()
     }
 
     var currentSavedPhrases: [String] { settings.savedPhrases }
@@ -988,6 +1007,12 @@ class ViewController: NSViewController {
         .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("AllyKeyboard/vocabulary.json"))
     private var vocabulary = UserVocabulary()
+    /// Which word the user writes after which (`NextWords`); saved with the
+    /// vocabulary, on the same clock.
+    private let nextWordsStore = JSONFileStore<NextWords>(fileURL: FileManager.default
+        .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("AllyKeyboard/next-words.json"))
+    private var nextWords = NextWords()
     private var vocabularySave: Timer?
     /// A suggestion was just picked with its space, and nothing that may move
     /// the caret has happened since — no key but Shift, Caps Lock, a modifier
@@ -1030,8 +1055,13 @@ class ViewController: NSViewController {
         vocabulary = vocabularyStore.load()
         vocabulary.forgetFaded()
         vocabularyLoaded = true
+        nextWords = nextWordsStore.load() ?? NextWords()
+        nextWords.forgetFaded()
         textTracker.onWordCompleted = { [weak self] word, wasSecret in
             self?.learn(word, wasSecret: wasSecret)
+        }
+        textTracker.onWordFollowed = { [weak self] previous, word in
+            self?.learnPair(previous, word)
         }
         AppConfig.Colors.theme = AppConfig.Theme(rawValue: settings.theme) ?? .darkSystem
         view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.darkCGColor   // theme now known
@@ -1721,7 +1751,18 @@ class ViewController: NSViewController {
     }
 
     private func refreshSuggestions() {
-        guard settings.showSuggestions, textTracker.hasPartialWord else { hideSuggestions(); return }
+        guard settings.showSuggestions else { hideSuggestions(); return }
+        guard textTracker.hasPartialWord else {
+            // Nothing of the next word typed yet: the words that usually
+            // follow the one before, if any have been learned.
+            if settings.suggestNextWord, let previous = textTracker.contextWord {
+                showBalloon(nextWords.suggestions(after: previous, limit: suggestionBarSlots),
+                            prefixLength: 0, widthFactor: 0.32, greetings: false)
+            } else {
+                hideSuggestions()
+            }
+            return
+        }
         speller.language = InputSourceSwitcher.currentLanguageCode()
         let partial = textTracker.currentWord
         let words = UserVocabulary.merge(
@@ -1953,12 +1994,25 @@ class ViewController: NSViewController {
         scheduleVocabularySave()
     }
 
+    /// Count `word` once after `previous`, as `learn` counts a word — not in
+    /// a password field, not with learning off.
+    private func learnPair(_ previous: String, _ word: String) {
+        guard settings.learnWords, !KeySender.isSecretInput() else { return }
+        nextWords.record(word, after: previous)
+        scheduleVocabularySave()
+    }
+
     /// Replace the partial word with the chosen suggestion — then a space, or,
     /// with that off in Settings, nothing: the word stays open to be typed on.
     private func applySuggestion(_ word: String) {
         let withSpace = settings.spaceAfterSuggestion
-        let plan = SuggestionApplier.plan(currentWord: textTracker.currentWord, suggestion: word,
-                                          appendSpace: withSpace)
+        // A next word, picked with nothing of it typed: the word before is
+        // finished — counted now if it was a pick waiting behind its space —
+        // and nothing is erased.
+        let isNextWord = !textTracker.hasPartialWord
+        if isNextWord { textTracker.finishPendingPick() }
+        let plan = SuggestionApplier.plan(currentWord: isNextWord ? "" : textTracker.currentWord,
+                                          suggestion: word, appendSpace: withSpace)
         for _ in 0..<plan.backspaces { KeySender.send("Backspace") }
         KeySender.sendText(plan.textToInsert)
         hideSuggestions()
@@ -1969,6 +2023,7 @@ class ViewController: NSViewController {
             // the space back and reopens the word to be typed on.
             textTracker.pickWithSpace(word)
             autoSpacePending = true
+            refreshSuggestions()                    // the words that may follow it
         } else {
             textTracker.adopt(word)
             refreshSuggestions()                    // open: type on, or end it
