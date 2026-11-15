@@ -15,7 +15,7 @@ import AppKit
 import AllyKeyboardCore
 import UniformTypeIdentifiers
 
-final class KeyInspector: NSObject, NSTextViewDelegate {
+final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
 
     /// The column itself, built once; the editor shows and hides it.
     let view = NSView()
@@ -30,7 +30,10 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
     private let actionPopup = NSPopUpButton()
     private let choicePopup = NSPopUpButton()
     private let textField = NSTextField()
-    private let keysValue = NSTextField(wrappingLabelWithString: "")
+    /// The chords as text, editable: "⌘H, ⇧⌘5", "⌘⌘", "cmd+shift+5".
+    private let keysValue = NSTextField()
+    /// Set while the chords typed in `keysValue` go in.
+    private var typingChords = false
     private let appValue = NSTextField(labelWithString: "")
     private let scriptView = NSTextView()
     private var scriptScroll: NSScrollView!
@@ -48,6 +51,19 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
     private let labelField = NSTextField()
     private let cornerField = NSTextField()
     private let iconPopup = NSPopUpButton()
+    /// The icon after every other press, for a key that starts and stops something.
+    private let secondIconPopup = NSPopUpButton()
+    private let iconSearch = NSSearchField()
+    private let secondIconSearch = NSSearchField()
+    /// The second icon's search and list, folded away until wanted.
+    private let secondIconToggle = NSButton()
+    private var secondIconBox: NSView!
+    /// Open or folded; it opens by itself for a key with a second icon.
+    private var secondIconOpened = false
+    private var shownSecondIcon: String?
+    /// Every icon, by name A to Z.
+    private static let allIcons = (ActionCatalog.bundledIcons + ActionCatalog.symbolIcons)
+        .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     private let coloredCheck = NSButton(checkboxWithTitle: "Icon keeps its colours", target: nil, action: nil)
     private let widthValue = NSTextField(labelWithString: "")
     private let fontValue = NSTextField(labelWithString: "")
@@ -85,10 +101,13 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
         if case .literal(let text) = key.action, view.window?.firstResponder != textField.currentEditor() {
             textField.stringValue = text
         }
-        switch key.action {
-        case .shortcut(let s): keysValue.stringValue = Self.chordName(s)
-        case .keySequence(let s): keysValue.stringValue = s.isEmpty ? "None yet" : s.map { Self.chordName($0) }.joined(separator: ", ")
-        default: break
+        // The field follows Record, Clear, a tap or a preset even while the
+        // cursor is in it; only the change typed in it leaves it as typed.
+        // Its unfinished edit is dropped, not sent: it would put back the old chords.
+        if !typingChords, let chords = Self.chords(of: key.action) {
+            keysValue.abortEditing()
+            keysValue.stringValue = Shortcut.text(of: chords)
+            keysValue.textColor = .labelColor
         }
         if case .openApp(let path) = key.action {
             appValue.stringValue = path.isEmpty ? "None chosen" : URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
@@ -98,17 +117,12 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
         }
         if view.window?.firstResponder != labelField.currentEditor() { labelField.stringValue = key.label ?? "" }
         if view.window?.firstResponder != cornerField.currentEditor() { cornerField.stringValue = key.secondary ?? "" }
-        if let icon = key.icon {
-            if let i = iconPopup.itemArray.firstIndex(where: { ($0.representedObject as? String) == icon }) {
-                iconPopup.selectItem(at: i)
-            } else {
-                iconPopup.addItem(withTitle: icon)
-                iconPopup.lastItem?.representedObject = icon
-                iconPopup.select(iconPopup.lastItem)
-            }
-        } else {
-            iconPopup.selectItem(at: 0)
-        }
+        Self.select(key.icon, in: iconPopup)
+        Self.select(key.secondIcon, in: secondIconPopup)
+        if key.secondIcon != nil, key.secondIcon != shownSecondIcon { secondIconOpened = true }
+        shownSecondIcon = key.secondIcon
+        secondIconToggle.state = secondIconOpened ? .on : .off
+        secondIconBox.isHidden = !secondIconOpened
         coloredCheck.state = key.colored ? .on : .off
         widthValue.stringValue = String(key.width)
         fontValue.stringValue = String(key.fontScale)
@@ -159,6 +173,29 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
         return s
     }
 
+    /// "▸ Second icon, every other press": the triangle or the words open it.
+    private func secondIconHeader() -> NSView {
+        secondIconToggle.bezelStyle = .disclosure
+        secondIconToggle.setButtonType(.pushOnPushOff)
+        secondIconToggle.title = ""
+        secondIconToggle.target = self
+        secondIconToggle.action = #selector(secondIconToggled)
+        let words = caption("Second icon, every other press")
+        words.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(secondIconWordsClicked)))
+        return row([secondIconToggle, words], spacing: 4)
+    }
+
+    @objc private func secondIconWordsClicked() {
+        secondIconToggle.state = secondIconToggle.state == .on ? .off : .on
+        secondIconToggled()
+    }
+
+    /// Folding it away leaves the second icon as it is.
+    @objc private func secondIconToggled() {
+        secondIconOpened = secondIconToggle.state == .on
+        secondIconBox.isHidden = !secondIconOpened
+    }
+
     private func caption(_ text: String) -> NSTextField {
         let t = NSTextField(labelWithString: text)
         t.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -199,8 +236,9 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
         field(textField, placeholder: "The text this key types", #selector(textEdited))
         textRow = textField
 
+        field(keysValue, placeholder: "\u{2318}C, or \u{2318}H, \u{21E7}\u{2318}5", #selector(chordsEdited))
         keysValue.font = .systemFont(ofSize: 15, weight: .medium)
-        keysValue.preferredMaxLayoutWidth = 260
+        keysValue.delegate = self
         let presets = NSPopUpButton()
         presets.pullsDown = true
         presets.addItem(withTitle: "Common")
@@ -208,8 +246,15 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
         presets.target = self
         presets.action = #selector(presetPicked(_:))
         presets.controlSize = .large
-        keysRow = column([keysValue, row([button("Record\u{2026}", #selector(recordChord)),
-                                          button("Clear", #selector(clearChords)), presets])], spacing: 6)
+        let taps = NSPopUpButton()
+        taps.pullsDown = true
+        taps.addItems(withTitles: ["Add Tap", "\u{2318} Command", "\u{2325} Option", "\u{2303} Control", "\u{21E7} Shift"])
+        taps.target = self
+        taps.action = #selector(addTap(_:))
+        taps.controlSize = .large
+        keysRow = column([keysValue, caption("Comma between shortcuts; \u{2318}\u{2318} is \u{2318} twice"),
+                          row([button("Record\u{2026}", #selector(recordChord)), button("Clear", #selector(clearChords))]),
+                          row([taps, presets])], spacing: 6)
 
         popup(shortcutPopup, #selector(shortcutPicked))
         shortcutRow = column([shortcutPopup, button("Open Shortcuts", #selector(openShortcutsApp))], spacing: 6)
@@ -240,14 +285,19 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
         field(labelField, placeholder: "The action's own name", #selector(labelsEdited))
         field(cornerField, placeholder: "None", #selector(labelsEdited))
         popup(iconPopup, #selector(iconChosen))
-        iconPopup.addItem(withTitle: "No icon")
-        for name in ActionCatalog.bundledIcons + ActionCatalog.symbolIcons {
-            iconPopup.addItem(withTitle: name)
-            let image = NSImage(named: name) ?? NSImage(systemSymbolName: name, accessibilityDescription: nil)
-            image?.size = NSSize(width: 18, height: 18)
-            iconPopup.lastItem?.image = image
-            iconPopup.lastItem?.representedObject = name
+        popup(secondIconPopup, #selector(iconChosen))
+        secondIconBox = column([secondIconSearch, secondIconPopup], spacing: 6)
+        secondIconBox.isHidden = true
+        for search in [iconSearch, secondIconSearch] {
+            search.placeholderString = "Find an icon"
+            search.font = .systemFont(ofSize: 15)
+            search.controlSize = .large
+            search.sendsSearchStringImmediately = true
+            search.target = self
+            search.action = #selector(iconSearched(_:))
+            search.widthAnchor.constraint(equalToConstant: 260).isActive = true
         }
+        fillIcons()
         coloredCheck.target = self
         coloredCheck.action = #selector(coloredToggled)
         for value in [widthValue, fontValue] {
@@ -267,7 +317,8 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
             caption("Action"), actionPopup, choiceRow, phrasesRow, textRow, keysRow, appRow, shortcutRow, scriptRow,
             caption("Label"), labelField,
             caption("Corner label"), cornerField,
-            caption("Icon"), iconPopup, coloredCheck,
+            caption("Icon"), iconSearch, iconPopup,
+            secondIconHeader(), secondIconBox, coloredCheck,
             sizes,
         ], spacing: 6)
         stack.setCustomSpacing(12, after: header)
@@ -362,9 +413,54 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
         emit(new)
     }
 
+    /// Each list: "No icon" and the icons whose name has its own search
+    /// field's text, A to Z; the key's own icon stays in it.
+    private func fillIcons() {
+        for (popup, search, current, none) in [(iconPopup, iconSearch, key.icon, "No icon"),
+                                               (secondIconPopup, secondIconSearch, key.secondIcon, "None")] {
+            let query = search.stringValue.trimmingCharacters(in: .whitespaces)
+            popup.removeAllItems()
+            popup.addItem(withTitle: none)
+            for name in Self.allIcons where query.isEmpty || name.localizedCaseInsensitiveContains(query) || name == current {
+                popup.addItem(withTitle: name)
+                let image = NSImage(named: name) ?? NSImage(systemSymbolName: name, accessibilityDescription: nil)
+                image?.size = NSSize(width: 18, height: 18)
+                popup.lastItem?.image = image
+                popup.lastItem?.representedObject = name
+            }
+            Self.select(current, in: popup)
+        }
+    }
+
+    /// The icon's item, added if the list has none (an icon written into the file by hand).
+    private static func select(_ icon: String?, in popup: NSPopUpButton) {
+        guard let icon else { popup.selectItem(at: 0); return }
+        if let item = popup.itemArray.first(where: { ($0.representedObject as? String) == icon }) {
+            popup.select(item)
+        } else {
+            popup.addItem(withTitle: icon)
+            popup.lastItem?.representedObject = icon
+            popup.select(popup.lastItem)
+        }
+    }
+
+    /// The list narrows as the name is typed; Return takes the first match.
+    @objc private func iconSearched(_ sender: NSSearchField) {
+        fillIcons()
+        let popup = sender === secondIconSearch ? secondIconPopup : iconPopup
+        let query = sender.stringValue.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty, NSApp.currentEvent?.keyCode == 36 || NSApp.currentEvent?.keyCode == 76,
+              let first = popup.itemArray.dropFirst().first(where: {
+                  ($0.representedObject as? String)?.localizedCaseInsensitiveContains(query) == true
+              }) else { return }
+        popup.select(first)
+        iconChosen()
+    }
+
     @objc private func iconChosen() {
         var new = key
         new.icon = iconPopup.selectedItem?.representedObject as? String
+        new.secondIcon = secondIconPopup.selectedItem?.representedObject as? String
         emit(new)
     }
 
@@ -387,28 +483,69 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
     /// pressed in turn after the ones before ("⌘H, ⇧⌘5").
     @objc private func recordChord() {
         guard let (chord, _) = recorded() else { return }
+        append(chord)
+    }
+
+    /// One more modifier tap — ⌘ ⌥ ⌃ ⇧ alone — at the end. The on-screen ⌘
+    /// only arms the next key and sends nothing by itself, so a tap cannot be
+    /// recorded from it; this is how "⌘, ⌘" is made with a head mouse.
+    @objc private func addTap(_ sender: NSPopUpButton) {
+        let codes = [55, 58, 59, 56]                        // ⌘ ⌥ ⌃ ⇧, the left ones
+        let i = sender.indexOfSelectedItem - 1              // the first item is the pull-down's title
+        guard codes.indices.contains(i) else { return }
+        append(Shortcut(keyCode: codes[i], modifiers: []))
+    }
+
+    /// A chord at the end: the first makes a shortcut, each after it is
+    /// pressed in turn after the ones before ("⌘H, ⇧⌘5", "⌘, ⌘").
+    private func append(_ chord: Shortcut) {
+        setChords((Self.chords(of: key.action) ?? []) + [chord])
+    }
+
+    @objc private func clearChords() { setChords([]) }
+
+    /// The chords typed in the field; what is not understood turns red and
+    /// changes nothing.
+    @objc private func chordsEdited() {
+        guard let chords = Shortcut.parseSequence(keysValue.stringValue) else {
+            keysValue.textColor = .systemRed
+            NSSound.beep()
+            return
+        }
+        keysValue.textColor = .labelColor
+        guard chords != Self.chords(of: key.action) else { return }
+        typingChords = true
+        defer { typingChords = false }
+        setChords(chords)
+    }
+
+    func controlTextDidChange(_ obj: Notification) {
+        if (obj.object as? NSTextField) === keysValue { keysValue.textColor = .labelColor }
+    }
+
+    /// One chord is a shortcut, more are pressed in turn, none is "None yet".
+    /// The label follows the chords unless it was written by hand.
+    private func setChords(_ chords: [Shortcut]) {
         var new = key
-        switch key.action {
-        case .shortcut(let first): new.action = .keySequence([first, chord])
-        case .keySequence(let chords): new.action = chords.isEmpty ? .shortcut(chord) : .keySequence(chords + [chord])
-        default: new.action = .shortcut(chord)
+        new.action = chords.count == 1 ? .shortcut(chords[0]) : .keySequence(chords)
+        let oldAuto = Self.chords(of: key.action).map(Self.label(for:))
+        if key.label == nil || key.label == "" || key.label == oldAuto || Self.chords(of: key.action) == nil {
+            new.label = chords.isEmpty ? nil : Self.label(for: chords)
+            new.icon = nil
         }
-        let chords: [Shortcut]
-        switch new.action {
-        case .shortcut(let s): chords = [s]
-        case .keySequence(let s): chords = s
-        default: chords = []
-        }
-        new.label = chords.map { Self.chordName($0) }.joined(separator: " ")
-        new.icon = nil
         emit(new)
     }
 
-    @objc private func clearChords() {
-        var new = key
-        new.action = .keySequence([])
-        new.label = nil
-        emit(new)
+    private static func chords(of action: KeyAction) -> [Shortcut]? {
+        switch action {
+        case .shortcut(let s): return [s]
+        case .keySequence(let s): return s
+        default: return nil
+        }
+    }
+
+    private static func label(for chords: [Shortcut]) -> String {
+        chords.map { chordName($0) }.joined(separator: " ")
     }
 
     @objc private func chooseApp() {
@@ -541,7 +678,7 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
     private func recorded() -> (Shortcut, String)? {
         let alert = NSAlert()
         alert.messageText = "Record a shortcut"
-        alert.informativeText = "Press it now: choose the modifiers on the keyboard (\u{2318} \u{2325} \u{2303} \u{21E7}), then the key."
+        alert.informativeText = "Press it now: choose the modifiers on the keyboard (\u{2318} \u{2325} \u{2303} \u{21E7}), then the key. A modifier pressed and let go alone (\u{2318} on a real keyboard) records as a tap of it."
         let shown = NSTextField(labelWithString: "Waiting\u{2026}")
         shown.font = .systemFont(ofSize: 22, weight: .medium)
         shown.frame = NSRect(x: 0, y: 0, width: 320, height: 34)
@@ -549,7 +686,11 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
         alert.addButton(withTitle: "Use")
         alert.addButton(withTitle: "Cancel")
         var result: (Shortcut, String)?
+        // A modifier pressed and let go with nothing in between: a tap of it.
+        // Any key pressed meanwhile makes it a chord's modifier instead.
+        var downModifier: UInt16?
         let monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            downModifier = nil
             var mods: [Modifier] = []
             if event.modifierFlags.contains(.control) { mods.append(.control) }
             if event.modifierFlags.contains(.option) { mods.append(.option) }
@@ -561,8 +702,23 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
             shown.stringValue = name
             return nil                                      // recorded, not acted on
         }
+        let flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+            let code = Int(event.keyCode)
+            guard Shortcut.modifierKeyCodes.contains(code) else { return event }
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if flags.isEmpty, downModifier == event.keyCode {
+                let chord = Shortcut(keyCode: code, modifiers: [])
+                result = (chord, Self.chordName(chord))
+                shown.stringValue = Self.chordName(chord)
+                downModifier = nil
+            } else if !flags.isEmpty {
+                downModifier = event.keyCode
+            }
+            return event
+        }
         let response = run(alert)
         if let monitor { NSEvent.removeMonitor(monitor) }
+        if let flagsMonitor { NSEvent.removeMonitor(flagsMonitor) }
         return response == .alertFirstButtonReturn ? result : nil
     }
 }

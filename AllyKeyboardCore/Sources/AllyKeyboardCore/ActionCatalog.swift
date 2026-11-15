@@ -153,6 +153,8 @@ public enum ActionCatalog {
         "speaker.wave.3", "keyboard", "rectangle.2.swap", "star", "heart",
         "sun.min", "sun.max", "backward.fill", "playpause.fill", "forward.fill", "rectangle.3.group",
         "eject.fill", "square.grid.3x3",
+        "mic", "mic.fill", "mic.slash", "record.circle", "stop.fill", "stop.circle", "pause.fill",
+        "pause.circle", "play.fill", "video", "video.fill", "waveform",
     ]
 
     // MARK: - Groups of keys

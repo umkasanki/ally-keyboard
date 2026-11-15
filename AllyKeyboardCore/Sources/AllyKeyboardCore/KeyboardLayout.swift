@@ -161,6 +161,10 @@ public struct KeySpec: Codable, Equatable {
     public var secondary: String?
     /// An SF Symbol or a bundled image; shown instead of the label.
     public var icon: String?
+    /// The icon after every other press — a key whose shortcut starts
+    /// something and, pressed again, stops it (record, then stop). Shown in
+    /// red; nil keeps one icon.
+    public var secondIcon: String?
     /// 1 is a standard key; 1.5 is one and a half keys, gap included.
     public var width: Double
     /// The label's size against the standard one.
@@ -173,7 +177,7 @@ public struct KeySpec: Codable, Equatable {
 
     public init(_ action: KeyAction, label: String? = nil, secondary: String? = nil,
                 icon: String? = nil, width: Double = 1, fontScale: Double = 1, colored: Bool = false,
-                phrases: [String]? = nil) {
+                phrases: [String]? = nil, secondIcon: String? = nil) {
         self.action = action
         self.label = label
         self.secondary = secondary
@@ -182,6 +186,7 @@ public struct KeySpec: Codable, Equatable {
         self.fontScale = fontScale
         self.colored = colored
         self.phrases = phrases
+        self.secondIcon = secondIcon
     }
 
     /// The text on the key when it has no icon. A blank key without a label
@@ -202,7 +207,7 @@ public struct KeySpec: Codable, Equatable {
 
     // Readable files: defaults are left out, and missing keys take them.
     private enum CodingKeys: String, CodingKey {
-        case action, label, secondary, icon, width, fontScale, colored, phrases
+        case action, label, secondary, icon, secondIcon, width, fontScale, colored, phrases
     }
 
     public init(from decoder: Decoder) throws {
@@ -211,6 +216,7 @@ public struct KeySpec: Codable, Equatable {
         label = try c.decodeIfPresent(String.self, forKey: .label)
         secondary = try c.decodeIfPresent(String.self, forKey: .secondary)
         icon = try c.decodeIfPresent(String.self, forKey: .icon)
+        secondIcon = try c.decodeIfPresent(String.self, forKey: .secondIcon)
         width = (try c.decodeIfPresent(Double.self, forKey: .width) ?? 1).clamped(to: LayoutEditor.widthRange)
         fontScale = (try c.decodeIfPresent(Double.self, forKey: .fontScale) ?? 1).clamped(to: LayoutEditor.fontScaleRange)
         colored = try c.decodeIfPresent(Bool.self, forKey: .colored) ?? false
@@ -223,6 +229,7 @@ public struct KeySpec: Codable, Equatable {
         try c.encodeIfPresent(label, forKey: .label)
         try c.encodeIfPresent(secondary, forKey: .secondary)
         try c.encodeIfPresent(icon, forKey: .icon)
+        try c.encodeIfPresent(secondIcon, forKey: .secondIcon)
         if width != 1 { try c.encode(width, forKey: .width) }
         if fontScale != 1 { try c.encode(fontScale, forKey: .fontScale) }
         if colored { try c.encode(colored, forKey: .colored) }
@@ -359,7 +366,17 @@ public struct Shortcut: Hashable {
         98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12",
         105: "F13", 107: "F14", 113: "F15", 106: "F16", 64: "F17", 79: "F18", 80: "F19", 90: "F20",
         114: "Help", 71: "\u{2327}",                                             // ⌧ Clear
+        // A modifier on its own — a tap of it, as for "press ⌘ twice".
+        55: "\u{2318}", 54: "right \u{2318}", 58: "\u{2325}", 61: "right \u{2325}",
+        59: "\u{2303}", 62: "right \u{2303}", 56: "\u{21E7}", 60: "right \u{21E7}", 63: "fn",
     ]
+
+    /// The modifier keys' own codes: a chord of one of them and nothing else
+    /// is a tap of that modifier alone.
+    public static let modifierKeyCodes: Set<Int> = [55, 54, 58, 61, 59, 62, 56, 60, 63]
+
+    /// A modifier pressed and let go on its own, as "press ⌘ twice" wants.
+    public var isModifierTap: Bool { modifiers.isEmpty && Self.modifierKeyCodes.contains(keyCode) }
 
     /// A named chord's name; any other is spelled out.
     public var legacyID: String {

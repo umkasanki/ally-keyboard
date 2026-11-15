@@ -190,6 +190,10 @@ enum KeySender {
     /// A chord from a layout file: its key code with its modifiers, plus any
     /// one-shot modifiers the user armed on the keyboard.
     static func sendShortcut(_ chord: Shortcut, adding extra: CGEventFlags) {
+        if chord.isModifierTap, let code = CGKeyCode(exactly: chord.keyCode) {
+            tapModifier(code)
+            return
+        }
         var flags = extra
         for m in chord.modifiers {
             switch m {
@@ -347,6 +351,23 @@ enum KeySender {
     }
 
     /// A modifier key changing state: a flags-changed event, as the hardware sends.
+    /// A modifier pressed and let go on its own — what "press ⌘ twice" and
+    /// the like listen for.
+    private static func tapModifier(_ code: CGKeyCode) {
+        let flag: CGEventFlags
+        switch code {
+        case 55, 54: flag = .maskCommand
+        case 59, 62: flag = .maskControl
+        case 58, 61: flag = .maskAlternate
+        case 56, 60: flag = .maskShift
+        default:     flag = .maskSecondaryFn
+        }
+        deliver(modifierEvent(code, down: true, flags: flag))
+        settle()
+        deliver(modifierEvent(code, down: false, flags: []))
+        settle()
+    }
+
     private static func modifierEvent(_ code: CGKeyCode, down isDown: Bool, flags: CGEventFlags) -> CGEvent? {
         let event = CGEvent(keyboardEventSource: eventSource, virtualKey: code, keyDown: isDown)
         event?.type = .flagsChanged

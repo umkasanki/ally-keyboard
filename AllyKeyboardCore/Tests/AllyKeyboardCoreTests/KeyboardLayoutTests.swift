@@ -166,5 +166,30 @@ final class KeyboardLayoutTests: XCTestCase {
         XCTAssertEqual(Shortcut.keyNames[0x72], "Help")         // kVK_Help
         XCTAssertEqual(Shortcut.keyNames[0x47], "\u{2327}")     // kVK_ANSI_KeypadClear
         XCTAssertNil(Shortcut.keyNames[1])                     // S types a character
+        // A modifier alone: kVK_Command 0x37, kVK_RightCommand 0x36, kVK_Option 0x3A.
+        XCTAssertEqual(Shortcut.keyNames[0x37], "\u{2318}")
+        XCTAssertEqual(Shortcut.keyNames[0x36], "right \u{2318}")
+        XCTAssertTrue(Shortcut(keyCode: 0x3A, modifiers: []).isModifierTap)
+        XCTAssertFalse(Shortcut(keyCode: 0x37, modifiers: [.shift]).isModifierTap)
+        XCTAssertFalse(Shortcut(keyCode: 8, modifiers: []).isModifierTap)
+    }
+}
+
+final class SecondIconTests: XCTestCase {
+    /// The second icon is written and read back; a key without one writes nothing for it.
+    func testSecondIconRoundTrips() throws {
+        let key = KeySpec(.shortcut(Shortcut(keyCode: 15, modifiers: [.shift, .command])), icon: "mic", secondIcon: "stop.fill")
+        let data = try JSONEncoder().encode(key)
+        XCTAssertEqual(try JSONDecoder().decode(KeySpec.self, from: data), key)
+        XCTAssertTrue(String(decoding: data, as: UTF8.self).contains("\"secondIcon\":\"stop.fill\""))
+        let plain = try JSONEncoder().encode(KeySpec(.character("q"), icon: "mic"))
+        XCTAssertFalse(String(decoding: plain, as: UTF8.self).contains("secondIcon"))
+        XCTAssertNil(try JSONDecoder().decode(KeySpec.self, from: plain).secondIcon)
+    }
+
+    func testMicrophoneIsOffered() {
+        for name in ["mic", "mic.fill", "stop.fill", "pause.fill", "record.circle"] {
+            XCTAssertTrue(ActionCatalog.symbolIcons.contains(name), name)
+        }
     }
 }

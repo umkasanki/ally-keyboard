@@ -224,6 +224,10 @@ final class KeyButton: NSButton {
     var literalChar: String?
     /// A Show Phrases key's own list; nil shows the list kept in Settings.
     var phrases: [String]?
+    /// A key with a second icon: both faces, and where on the keyboard it is,
+    /// so the face it shows outlasts the keyboard being built again.
+    var faces: (first: (NSView, CGFloat), second: (NSView, CGFloat))?
+    var place = ""
 
     /// The text glyph, when the glyph is text — see `setKeyText`.
     private(set) var glyphLabel: NSTextField?
@@ -439,6 +443,8 @@ class ViewController: NSViewController {
         var action: KeyAction?
         /// A Show Phrases key's own list (nil: the list kept in Settings).
         var phrases: [String]?
+        /// The icon after every other press (`KeySpec.secondIcon`).
+        var secondImage: String?
 
         init(_ id: String,
              title: String? = nil,
@@ -473,6 +479,7 @@ class ViewController: NSViewController {
                       fixed: isLiteral, colored: spec.colored)
             action = spec.action
             phrases = spec.phrases
+            secondImage = spec.secondIcon
         }
     }
 
@@ -851,6 +858,8 @@ class ViewController: NSViewController {
             frame.origin.y = min(max(frame.minY, visible.minY), visible.maxY - frame.height)
         }
         window.setFrame(frame, display: true)
+        // Another layout's keys start on their first icon.
+        flippedKeys = []
         // A one-shot ⇧ or ⌘ armed on the old keys would act, unlit, on the new.
         clearOneShotModifiers()
         // The suggestion bar took its font from the old keys' height.
@@ -1082,6 +1091,39 @@ class ViewController: NSViewController {
 
     // MARK: - Keyboard layout
 
+    /// An icon as a key's glyph and its resting brightness: an SF Symbol in
+    /// the tint, or a bundled image — its own colours if the key keeps them.
+    private func iconFace(_ name: String, key: Key, symbolSize: CGFloat, tint: NSColor) -> (NSView, CGFloat)? {
+        if let sym = NSImage(systemSymbolName: name, accessibilityDescription: nil) {
+            let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize * key.fontScale, weight: .regular)
+            let iv = NSImageView()
+            iv.image = sym.withSymbolConfiguration(cfg)
+            iv.contentTintColor = tint
+            return (iv, Self.dimAlpha)
+        }
+        guard let asset = NSImage(named: name) else { return nil }
+        let h = keyHeight * (key.colored ? 0.55 : 0.4) * key.fontScale
+        let sized = (asset.copy() as! NSImage)
+        sized.isTemplate = !key.colored          // colored assets keep their own colors
+        sized.size = NSSize(width: h * asset.size.width / max(asset.size.height, 1), height: h)
+        let iv = NSImageView()
+        iv.image = sized
+        iv.contentTintColor = tint
+        return (iv, key.colored ? Self.coloredDimAlpha : Self.dimAlpha)
+    }
+
+    /// Keys with a second icon now showing it, by `KeyButton.place`.
+    private var flippedKeys: Set<String> = []
+
+    /// A key with a second icon shows the other one: started, then stopped.
+    private func flipFace(_ button: KeyButton) {
+        guard let faces = button.faces else { return }
+        let showSecond = !flippedKeys.contains(button.place)
+        if showSecond { flippedKeys.insert(button.place) } else { flippedKeys.remove(button.place) }
+        let face = showSecond ? faces.second : faces.first
+        button.installGlyph(face.0, restAlpha: face.1)
+    }
+
     private func buildKeyboard() {
         view.subviews.forEach { $0.removeFromSuperview() }
         shiftButtons = []
@@ -1130,24 +1172,14 @@ class ViewController: NSViewController {
                 btn.movesWindowOnDrag = settings.dragToMove   // drag a key to move the keyboard
 
                 if let imageName = key.image,
-                   let sym = NSImage(systemSymbolName: imageName, accessibilityDescription: nil) {
-                    let cfg = NSImage.SymbolConfiguration(pointSize: symbolSize * key.fontScale, weight: .regular)
-                    let img = sym.withSymbolConfiguration(cfg)
-                    let iv = NSImageView()
-                    iv.image = img
-                    iv.contentTintColor = .white
-                    btn.installGlyph(iv, restAlpha: Self.dimAlpha)
-                } else if let imageName = key.image, let asset = NSImage(named: imageName) {
-                    asset.isTemplate = !key.colored          // colored assets keep their own colors
-                    let h = keyHeight * (key.colored ? 0.55 : 0.4) * key.fontScale
-                    let sized = (asset.copy() as! NSImage)
-                    sized.isTemplate = !key.colored
-                    sized.size = NSSize(width: h * asset.size.width / max(asset.size.height, 1), height: h)
-                    let iv = NSImageView()
-                    iv.image = sized
-                    iv.contentTintColor = .white
-                    btn.installGlyph(iv, restAlpha: key.colored ? Self.coloredDimAlpha
-                                                                : Self.dimAlpha)
+                   let face = iconFace(imageName, key: key, symbolSize: symbolSize, tint: .white) {
+                    btn.installGlyph(face.0, restAlpha: face.1)
+                    if let second = key.secondImage,
+                       let other = iconFace(second, key: key, symbolSize: symbolSize, tint: .systemRed) {
+                        btn.faces = (face, other)
+                        btn.place = "\(rowIndex):\(keyIndex):\(imageName):\(second)"
+                        if flippedKeys.contains(btn.place) { btn.installGlyph(other.0, restAlpha: other.1) }
+                    }
                 } else {
                     // Single letters look heavier than digits at the same weight (more ink),
                     // so give the letter keys a lighter weight to match the number row.
@@ -1245,6 +1277,7 @@ class ViewController: NSViewController {
             assertionFailure("Key button missing identifier — fix buildKeyboard()")
             return
         }
+        if let button = sender as? KeyButton { flipFace(button) }
 
         // Taken here, before any key returns early: AppSwitcher, Hi, Translate
         // and the rest may move the caret or the focus, and then the space is
