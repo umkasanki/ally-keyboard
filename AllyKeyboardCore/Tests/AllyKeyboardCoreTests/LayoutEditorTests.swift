@@ -595,4 +595,73 @@ final class LayoutGeometryTests: XCTestCase {
         XCTAssertEqual(e.layout.geometry.rowAlignment, .center)
     }
 
+
+    // MARK: Review, 2026-11-15
+
+    private let a = KeySpec(.character("A")), b = KeySpec(.character("B")), c = KeySpec(.character("C"))
+
+    private func gaps(_ e: LayoutEditor, _ row: Int) -> [String] {
+        e.layout.rows[row].map { $0.action == .spacer ? "gap\($0.width)" : $0.action.legacyID }
+    }
+
+    /// Through a gap narrower than a key: the key passes it whole, and the
+    /// row keeps its width.
+    func testAKeyPassesANarrowGapWithoutWideningTheRow() {
+        var l = KeyboardLayout(name: "T", rows: [[a, KeySpec(.spacer, width: 0.5), b], [a, b, c]])
+        l.geometry.rowAlignment = .left
+        let e = LayoutEditor(layout: l)
+        e.select(KeyPosition(row: 0, index: 0))
+        let before = e.layout.rowWidths[0]
+        e.moveAlongRow(by: 1)
+        XCTAssertEqual(gaps(e, 0), ["gap0.5", "A", "B"])
+        XCTAssertEqual(e.layout.rowWidths[0], before, accuracy: 1e-9)
+    }
+
+    /// Leftwards through a gap, the keys after it stay where they stood.
+    func testMovingLeftLeavesTheKeysAfterInPlace() {
+        var l = KeyboardLayout(name: "T", rows: [[a, KeySpec(.spacer, width: 2), b, c]])
+        l.geometry.rowAlignment = .left
+        let e = LayoutEditor(layout: l)
+        e.select(KeyPosition(row: 0, index: 2))
+        let cBefore = e.layout.placements(inRow: 0)[3].x
+        e.moveAlongRow(by: -1)
+        XCTAssertEqual(gaps(e, 0), ["A", "gap1.0", "B", "gap1.0", "C"])
+        XCTAssertEqual(e.layout.placements(inRow: 0)[4].x, cBefore, accuracy: 1e-9)
+        e.moveAlongRow(by: 1)                                    // and back
+        XCTAssertEqual(gaps(e, 0), ["A", "gap2.0", "B", "C"])
+    }
+
+    func testRevertPutsBackTheSavedAlignment() {
+        let e = LayoutEditor(layout: shortOverLong(.center))
+        e.select(KeyPosition(row: 0, index: 0))
+        e.addKey(KeySpec(.character("N")))
+        e.setRowAlignment(.center)
+        e.revert()
+        XCTAssertEqual(e.layout.geometry.rowAlignment, .center)
+        XCTAssertFalse(e.hasUnsavedChanges)
+    }
+
+    /// Rows that stay even keep Centre: it looks the same as Left.
+    func testEvenRowsKeepCentre() {
+        var l = KeyboardLayout(name: "T", rows: [[a, b], [b, c], [c, a]])
+        l.geometry.rowAlignment = .center
+        let e = LayoutEditor(layout: l)
+        e.select(KeyPosition(row: 2, index: 0))
+        e.deleteRow()
+        XCTAssertEqual(e.layout.geometry.rowAlignment, .center)
+    }
+
+    /// The last key of the widest row goes left and comes back: the
+    /// keyboard keeps its width.
+    func testTheWidestRowsLastKeyComesBack() {
+        var l = KeyboardLayout(name: "T", rows: [[a, KeySpec(.spacer, width: 2), b], [a, b, c]])
+        l.geometry.rowAlignment = .left
+        let e = LayoutEditor(layout: l)
+        e.select(KeyPosition(row: 0, index: 2))
+        e.moveAlongRow(by: -1)
+        XCTAssertEqual(gaps(e, 0), ["A", "gap1.0", "B", "gap1.0"])
+        XCTAssertEqual(e.layout.rowWidths[0], 4, accuracy: 1e-9)
+        e.moveAlongRow(by: 1)
+        XCTAssertEqual(gaps(e, 0), ["A", "gap2.0", "B"])
+    }
 }

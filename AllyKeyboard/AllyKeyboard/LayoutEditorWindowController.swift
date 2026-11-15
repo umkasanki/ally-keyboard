@@ -107,7 +107,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
     /// `name` is what an image-only button is called to VoiceOver and Voice Control.
     private func button(_ title: String, _ action: Selector, symbol: String? = nil, name: String? = nil) -> NSButton {
-        let b = NSButton(title: title, target: self, action: action)
+        let b = NSButton(title: title, target: self, action: #selector(buttonClicked(_:)))
+        buttonActions[ObjectIdentifier(b)] = action
         if let name { b.setAccessibilityLabel(name) }
         b.bezelStyle = .rounded
         b.controlSize = .large
@@ -438,6 +439,27 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         return panel
     }
 
+    // MARK: - Typing in the inspector
+
+    /// What each button does; they all come through `buttonClicked` first.
+    private var buttonActions: [ObjectIdentifier: Selector] = [:]
+
+    @objc private func buttonClicked(_ sender: NSButton) {
+        endTyping()
+        guard let action = buttonActions[ObjectIdentifier(sender)] else { return }
+        NSApp.sendAction(action, to: self, from: sender)
+    }
+
+    /// A field of the inspector still being typed in gives up what it has,
+    /// to the key it was typed for — before anything else changes. A click
+    /// on the picture or on a button does not take the cursor from it, so
+    /// without this the text would go to whatever key is selected later,
+    /// or miss a Save.
+    private func endTyping() {
+        guard inspecting, let window, window.firstResponder is NSText else { return }
+        window.makeFirstResponder(nil)
+    }
+
     // MARK: - Showing the state
 
     private func refresh() {
@@ -448,7 +470,11 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         // The inspector follows the selection — another key clicked, a move,
         // Undo — and closes when there is none.
         if inspecting {
-            if let key = editor.selectedKey { inspector.show(key) } else { closeInspector() }
+            if let key = editor.selectedKey, let place = editor.selection {
+                inspector.show(key, at: place)
+            } else {
+                closeInspector()
+            }
         }
         undoButton.isEnabled = editor.canUndo
         redoButton.isEnabled = editor.canRedo
@@ -560,12 +586,14 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     }
 
     @objc private func layoutChosen() {
+        endTyping()
         guard let id = layoutPopup.selectedItem?.representedObject as? UUID, id != editor.layout.id else { return }
         open(id)
     }
 
     /// Save, discard, or stay. False means stay.
     private func confirmLeavingEdits() -> Bool {
+        endTyping()
         guard editor.hasUnsavedChanges else { return true }
         let alert = NSAlert()
         guard editor.canSave else {
@@ -599,7 +627,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     /// Duplicate, Reset to Factory, Reload). The list follows; so does the
     /// layout on screen unless it has edits of its own to keep.
     func layoutsChangedElsewhere() {
-        // A key half made counts as an edit to keep, as unsaved changes do.
+        endTyping()
         if !editor.hasUnsavedChanges {
             editor = LayoutEditor(layout: store.layout(id: editor.layout.id))
             swapFrom = nil
@@ -809,6 +837,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     // for the arrow and delete keys, and these must not answer them.
 
     private func clicked(_ position: KeyPosition?) {
+        endTyping()
         if swapPending, let position {
             swapFrom = nil
             editor.swapSelected(with: position)
@@ -848,6 +877,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     }
 
     @objc private func groupChosen(_ item: NSMenuItem) {
+        endTyping()
         editor.insertGroup(ActionCatalog.keyGroups[item.tag])
         refresh()
     }
@@ -870,6 +900,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     /// keyboard's sizes.
     private func openInspector() {
         swapFrom = nil
+        inspector.forgetShownKey()
         inspecting = true
         keyboardPanel.isHidden = true
         inspector.view.isHidden = false

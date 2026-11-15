@@ -39,6 +39,12 @@ final class ShortcutTextTests: XCTestCase {
         XCTAssertNil(parse("\u{2318}\u{0436}"))
         XCTAssertNil(parse("⌘H,,⌘S"))
         XCTAssertNil(parse("cmd+banana"))
+        XCTAssertNil(parse("\u{2318}+"))            // not a tap of ⌘
+        XCTAssertNil(parse("cmd+"))
+        XCTAssertNil(parse("+cmd"))
+        XCTAssertNil(parse("cmd++c"))
+        XCTAssertNil(parse("\u{2318}\u{2318}C"))     // not ⌘C
+        XCTAssertNil(parse("cmd+cmd+c"))
         XCTAssertEqual(parse(""), [])
     }
 

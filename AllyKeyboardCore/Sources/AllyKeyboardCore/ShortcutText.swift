@@ -96,7 +96,9 @@ extension Shortcut {
     private static func parseChord(_ part: String) -> [Shortcut]? {
         // Words joined by "+": "cmd+shift+5", "ctrl", "cmd+cmd".
         if part.contains("+") || modifierWords[part.lowercased()] != nil {
-            let words = part.split(separator: "+").map { $0.trimmingCharacters(in: .whitespaces) }
+            // "cmd+" and "cmd++c" have an empty word: refused, not read as less.
+            let words = part.split(separator: "+", omittingEmptySubsequences: false)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
             guard !words.isEmpty, !words.contains(where: \.isEmpty) else { return nil }
             var mods: [Modifier] = []
             var key: Int?
@@ -109,7 +111,10 @@ extension Shortcut {
                     return nil
                 }
             }
-            if let key { return [Shortcut(keyCode: key, modifiers: mods)] }
+            if let key {
+                guard Set(mods).count == mods.count else { return nil }    // "cmd+cmd+c"
+                return [Shortcut(keyCode: key, modifiers: mods)]
+            }
             return mods.map { Shortcut(keyCode: tapCodes[$0]!, modifiers: []) }
         }
         // Symbols: "⇧⌘5", "⌘→", "⌘⌘", "right ⌘".
@@ -121,6 +126,8 @@ extension Shortcut {
             rest = rest.dropFirst()
         }
         let name = rest.trimmingCharacters(in: .whitespaces)
+        // A modifier twice before a key ("⌘⌘C") says nothing a chord can hold.
+        if !name.isEmpty, Set(mods).count != mods.count { return nil }
         if name.isEmpty {
             guard !mods.isEmpty else { return nil }
             return mods.map { Shortcut(keyCode: tapCodes[$0]!, modifiers: []) }

@@ -111,7 +111,10 @@ extension KeyboardLayout {
         ch("N", "n"), ch("M", "m"), ch(",", secondary: "<"), ch(".", secondary: ">"), ch("/", secondary: "?"),
     ]
 
-    /// ↑ stands over ↓: a gap after it, over →.
+    /// ↑ stands over ↓: a gap after it, over →. Apple's arrows are half
+    /// height and sit below the Shift row; full-size keys need ↑ in it, so
+    /// both Shifts are narrower than Apple's 2.25 and 2.75, and Z…/ start
+    /// half a key further left.
     private static let shiftRowCompact: [KeySpec] =
         [KeySpec(.modifier(.shift), icon: "shift", width: 1.75)] + letters +
         [KeySpec(.modifier(.shift), icon: "shift", width: 1.25),

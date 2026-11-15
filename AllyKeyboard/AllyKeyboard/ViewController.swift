@@ -1333,8 +1333,15 @@ class ViewController: NSViewController {
             process.arguments = ["run", name]
             process.standardOutput = FileHandle.nullDevice
             process.standardError = FileHandle.nullDevice
-            do { try process.run(); process.waitUntilExit() }
-            catch { NSLog("AllyKeyboard: shortcut could not start: %@", error.localizedDescription) }
+            do {
+                try process.run()
+                process.waitUntilExit()
+                if process.terminationStatus != 0 {
+                    NSLog("AllyKeyboard: shortcut \u{201C}%@\u{201D} failed (status %d)", name, process.terminationStatus)
+                }
+            } catch {
+                NSLog("AllyKeyboard: shortcut could not start: %@", error.localizedDescription)
+            }
         }
     }
 
@@ -1352,10 +1359,12 @@ class ViewController: NSViewController {
             process.standardOutput = FileHandle.nullDevice
             do {
                 try process.run()
+                // Read to the end before waiting: a script that writes more
+                // than the pipe holds would otherwise wait on it for ever.
+                let output = errors.fileHandleForReading.readDataToEndOfFile()
                 process.waitUntilExit()
-                if process.terminationStatus != 0,
-                   let text = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) {
-                    NSLog("AllyKeyboard: AppleScript failed: %@", text)
+                if process.terminationStatus != 0 {
+                    NSLog("AllyKeyboard: AppleScript failed: %@", String(decoding: output, as: UTF8.self))
                 }
             } catch {
                 NSLog("AllyKeyboard: AppleScript could not start: %@", error.localizedDescription)
@@ -1460,7 +1469,11 @@ class ViewController: NSViewController {
         // chords to press in turn.
         switch actionsByID[key] {
         case .openApp(let path)?:
-            if !path.isEmpty { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
+            // "~/Applications/…" in a file written by hand means the home folder.
+            let full = (path as NSString).expandingTildeInPath
+            if !path.isEmpty, !NSWorkspace.shared.open(URL(fileURLWithPath: full)) {
+                NSLog("AllyKeyboard: could not open %@", full)
+            }
             return true
         case .appleScript(let source)?:
             Self.runAppleScript(source)
@@ -1469,8 +1482,9 @@ class ViewController: NSViewController {
             Self.runShortcut(name)
             return true
         case .keySequence(let chords)?:
-            let extra = eventFlags(from: activeModifiers)
-            for chord in chords { KeySender.sendShortcut(chord, adding: extra) }
+            // Pressed as written: an armed ⇧ or ⌘ is not added to each of
+            // them (it would turn Tab, Tab into ⌘Tab, ⌘Tab); it is let go.
+            for chord in chords { KeySender.sendShortcut(chord, adding: []) }
             textTracker.discard()
             clearOneShotModifiers()
             refreshSuggestions()
@@ -1504,8 +1518,8 @@ class ViewController: NSViewController {
         }
 
         if key == Command.missionControl.rawValue {
-            // No key code or system event reaches it: the app itself is opened,
-            // as the Mission Control key does.
+            // The app itself, which does not depend on the ⌃↑ shortcut being
+            // left as it ships.
             NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Mission Control.app"))
             return true
         }

@@ -48,6 +48,7 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
     /// The user's Shortcuts, as `shortcuts list` gives them; read once, when
     /// first wanted.
     private var shortcutNames: [String]?
+    private var loadingShortcuts = false
     private let labelField = NSTextField()
     private let cornerField = NSTextField()
     private let iconPopup = NSPopUpButton()
@@ -60,7 +61,15 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
     private var secondIconBox: NSView!
     /// Open or folded; it opens by itself for a key with a second icon.
     private var secondIconOpened = false
-    private var shownSecondIcon: String?
+    /// Where the key shown stands, and the chords its field was last given.
+    private var shownPlace: KeyPosition?
+    private var shownChords: [Shortcut]?
+
+    /// The inspector opens afresh: the next key shown is a new one to it.
+    func forgetShownKey() {
+        shownPlace = nil
+        shownChords = nil
+    }
     /// Every icon, by name A to Z.
     private static let allIcons = (ActionCatalog.bundledIcons + ActionCatalog.symbolIcons)
         .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
@@ -73,10 +82,16 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
         build()
     }
 
-    /// Show `key` in the fields — the selected key, after any change from
-    /// anywhere (Undo, a move, another key clicked).
-    func show(_ key: KeySpec) {
+    /// Show `key`, at `place`, in the fields — the selected key, after any
+    /// change from anywhere (Undo, a move, another key clicked).
+    func show(_ key: KeySpec, at place: KeyPosition) {
         self.key = key
+        // Another key: the second icon's section opens for one that has a
+        // second icon and folds for one that has none.
+        if place != shownPlace {
+            shownPlace = place
+            secondIconOpened = key.secondIcon != nil
+        }
         let kind = ActionKind.of(key.action)
         actionPopup.selectItem(at: ActionKind.allCases.firstIndex(of: kind) ?? 0)
         choiceRow.isHidden = kind.choices.isEmpty || kind == .keys
@@ -103,12 +118,14 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
         }
         // The field follows Record, Clear, a tap or a preset even while the
         // cursor is in it; only the change typed in it leaves it as typed.
-        // Its unfinished edit is dropped, not sent: it would put back the old chords.
-        if !typingChords, let chords = Self.chords(of: key.action) {
+        // Its unfinished edit is dropped, not sent: it would put back the old
+        // chords. A change to anything else leaves what is being typed alone.
+        if !typingChords, let chords = Self.chords(of: key.action), chords != shownChords {
             keysValue.abortEditing()
             keysValue.stringValue = Shortcut.text(of: chords)
             keysValue.textColor = .labelColor
         }
+        shownChords = Self.chords(of: key.action)
         if case .openApp(let path) = key.action {
             appValue.stringValue = path.isEmpty ? "None chosen" : URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
         }
@@ -117,10 +134,7 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
         }
         if view.window?.firstResponder != labelField.currentEditor() { labelField.stringValue = key.label ?? "" }
         if view.window?.firstResponder != cornerField.currentEditor() { cornerField.stringValue = key.secondary ?? "" }
-        Self.select(key.icon, in: iconPopup)
-        Self.select(key.secondIcon, in: secondIconPopup)
-        if key.secondIcon != nil, key.secondIcon != shownSecondIcon { secondIconOpened = true }
-        shownSecondIcon = key.secondIcon
+        fillIcons()
         secondIconToggle.state = secondIconOpened ? .on : .off
         secondIconBox.isHidden = !secondIconOpened
         coloredCheck.state = key.colored ? .on : .off
@@ -390,6 +404,7 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
 
     func textDidEndEditing(_ notification: Notification) {
         if (notification.object as? NSTextView) === phrasesView {
+            guard key.action == .command(.phrases) else { return }
             let lines = phrasesView.string.split(separator: "\n")
                 .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
             guard lines != (key.phrases ?? defaultPhrases) else { return }
@@ -423,7 +438,10 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
             popup.addItem(withTitle: none)
             for name in Self.allIcons where query.isEmpty || name.localizedCaseInsensitiveContains(query) || name == current {
                 popup.addItem(withTitle: name)
-                let image = NSImage(named: name) ?? NSImage(systemSymbolName: name, accessibilityDescription: nil)
+                // A copy: `NSImage(named:)` is shared, and the keyboard sizes
+                // its icons from the image's own size.
+                let image = (NSImage(named: name)?.copy() as? NSImage)
+                    ?? NSImage(systemSymbolName: name, accessibilityDescription: nil)
                 image?.size = NSSize(width: 18, height: 18)
                 popup.lastItem?.image = image
                 popup.lastItem?.representedObject = name
@@ -507,6 +525,9 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
     /// The chords typed in the field; what is not understood turns red and
     /// changes nothing.
     @objc private func chordsEdited() {
+        // The key no longer presses shortcuts (another action picked while
+        // the field had the cursor): what was typed is not for it.
+        guard Self.chords(of: key.action) != nil else { return }
         guard let chords = Shortcut.parseSequence(keysValue.stringValue) else {
             keysValue.textColor = .systemRed
             NSSound.beep()
@@ -531,7 +552,6 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
         let oldAuto = Self.chords(of: key.action).map(Self.label(for:))
         if key.label == nil || key.label == "" || key.label == oldAuto || Self.chords(of: key.action) == nil {
             new.label = chords.isEmpty ? nil : Self.label(for: chords)
-            new.icon = nil
         }
         emit(new)
     }
@@ -554,10 +574,8 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
         panel.prompt = "Choose"
         panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
-        let host = view.window
         let raise = Timer(timeInterval: 0, repeats: false) { _ in panel.level = AppConfig.Levels.window }
         RunLoop.main.add(raise, forMode: .modalPanel)
-        _ = host
         guard panel.runModal() == .OK, let url = panel.url else { return }
         var new = key
         new.action = .openApp(url.path)
@@ -571,7 +589,20 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
     /// The list of the user's Shortcuts, the key's own selected — added if it
     /// is not (renamed or deleted since, or from someone else's file).
     private func showShortcuts(selecting name: String) {
-        if shortcutNames == nil { shortcutNames = Self.listShortcuts() }
+        // Read in the background — `shortcuts list` can take a second or
+        // more — and shown when it comes, if this key still runs a shortcut.
+        if shortcutNames == nil, !loadingShortcuts {
+            loadingShortcuts = true
+            DispatchQueue.global(qos: .userInitiated).async {
+                let names = Self.listShortcuts()
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.loadingShortcuts = false
+                    self.shortcutNames = names
+                    if case .runShortcut(let current) = self.key.action { self.showShortcuts(selecting: current) }
+                }
+            }
+        }
         shortcutPopup.removeAllItems()
         shortcutPopup.addItem(withTitle: "Choose a shortcut\u{2026}")
         shortcutPopup.addItems(withTitles: shortcutNames ?? [])

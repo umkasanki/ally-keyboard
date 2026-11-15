@@ -105,7 +105,7 @@ public final class LayoutEditor {
     /// Drop every edit since the last save.
     public func revert() {
         guard hasUnsavedChanges else { return }
-        change { $0 = saved }
+        change(keepingAlignment: true) { $0 = saved }
         select(selection)
     }
 
@@ -127,16 +127,19 @@ public final class LayoutEditor {
 
     /// Apply an edit as one undoable step; an edit that changes nothing is
     /// not recorded.
-    private func change(selecting newSelection: KeyPosition?? = .none,
+    private func change(selecting newSelection: KeyPosition?? = .none, keepingAlignment: Bool = false,
                         _ edit: (inout KeyboardLayout) -> Void) {
         var edited = layout
         edit(&edited)
-        // A centred keyboard whose rows change width — a key added, removed,
-        // moved to another row or resized — turns left-aligned, in the same
-        // step: centring re-spreads every short row and a new key lands
-        // nowhere in particular. Centre can be set again once the keys are
-        // in place (the user's call, 2026-11-15).
-        if edited.geometry.rowAlignment == .center, layout.geometry.rowAlignment == .center,
+        // A centred keyboard whose rows change width and are left uneven — a
+        // key added, removed, moved to another row or resized — turns
+        // left-aligned, in the same step: centring re-spreads every short row
+        // and a new key lands nowhere in particular. Even rows look the same
+        // either way, so they keep Centre. Centre can be set again once the
+        // keys are in place (the user's call, 2026-11-15). Revert puts back
+        // the saved layout as it was.
+        if !keepingAlignment, edited.rowsAreUneven,
+           edited.geometry.rowAlignment == .center, layout.geometry.rowAlignment == .center,
            edited.rowWidths != layout.rowWidths {
             edited.geometry.rowAlignment = .left
         }
@@ -313,29 +316,48 @@ public final class LayoutEditor {
             change(selecting: KeyPosition(row: p.row, index: neighbour)) { $0.rows[p.row].swapAt(p.index, neighbour) }
             return
         }
+        // The width that passes from one side of the key to the other: a key's
+        // width, or less where the gap or the room is narrower.
         if right {
             let widest = rowWidths.max() ?? 0
             let throughGap = isGap(neighbour)
             // Off the end, only into room the row has.
-            guard throughGap || rowWidths[p.row] + 1 <= widest + 1e-9 else { return }
+            let step = throughGap ? min(1, row[neighbour].width) : min(1, widest - rowWidths[p.row])
+            guard step > 1e-9 else { return }
             var keys = row
             var index = p.index
-            if throughGap {                                     // the gap after gives up a key's width
-                keys[neighbour].width -= 1
+            if throughGap {                                     // the gap after gives it up
+                keys[neighbour].width -= step
                 if keys[neighbour].width <= 1e-9 { keys.remove(at: neighbour) }
             }
             if index > 0, keys[index - 1].action == .spacer {   // the gap before takes it
-                keys[index - 1].width += 1
+                keys[index - 1].width += step
             } else {
-                keys.insert(KeySpec(.spacer), at: index)
+                keys.insert(KeySpec(.spacer, width: step), at: index)
                 index += 1
             }
             change(selecting: KeyPosition(row: p.row, index: index)) { $0.rows[p.row] = keys }
         } else {
             guard isGap(neighbour) else { return }              // nothing to the left
+            let step = min(1, row[neighbour].width)
             var keys = row
             var index = p.index
-            keys[neighbour].width -= 1
+            // The keys after it stay where they are: the gap after takes what
+            // the gap before gives. The last key's room is the row's end —
+            // unless its row is the widest, whose end is the keyboard's edge:
+            // a gap keeps it there, and the key can come back.
+            let othersWidest = rowWidths.enumerated().filter { $0.offset != p.row }.map(\.element).max() ?? 0
+            let isWidest = rowWidths[p.row] > othersWidest + 1e-9
+            if keys.indices.contains(index + 1) || isWidest {
+                if !keys.indices.contains(index + 1) {
+                    keys.append(KeySpec(.spacer, width: step))
+                } else if keys[index + 1].action == .spacer {
+                    keys[index + 1].width += step
+                } else {
+                    keys.insert(KeySpec(.spacer, width: step), at: index + 1)
+                }
+            }
+            keys[neighbour].width -= step
             if keys[neighbour].width <= 1e-9 {
                 keys.remove(at: neighbour)
                 index -= 1

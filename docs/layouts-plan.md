@@ -313,3 +313,45 @@ dimmed (the user's call), and closing or quitting asks whether to put the
 key in. Deferred: a menu Reset or Reload during a key edit keeps the
 editor's copy, as it does for unsaved edits.
 
+
+## Review to zero, third round (2026-11-15)
+
+The fifteen commits after v1.7.0 (empty places, moves through them, groups,
+Magic Keyboard templates, the key inspector, its actions, written shortcuts,
+modifier taps, the second icon). Passes found 27, 9 and 0.
+
+- **Pass 1** (three reviewers: Core, the editor, the keyboard). Fixed:
+  typing in an inspector field went to whatever key was selected next and
+  missed Save, Undo and Revert — every editor action now ends the typing
+  first, for the key it was typed for (checked on the device); a shortcut
+  field edit, a phrases list or chords left over from a key that no longer
+  has them were written into it; "⌘+", "cmd+", "cmd++c" and "⌘⌘C" were read
+  as something else instead of refused (pinned); a key passing a gap
+  narrower than a key widened the row, and moving left pulled the keys
+  after it along (pinned); Centre turned Left on Revert and on rows that
+  stayed even (pinned); the inspector resized the shared bundled images,
+  squaring the keyboard's icons; osascript could wait for ever on a full
+  pipe; `shortcuts list` blocked the editor; a key's icon was dropped when
+  its chords changed; the icon lists collected stray entries; the second
+  icon's section did not open for every key with one; an armed modifier was
+  added to every chord of a sequence; `~` in an app path; failures of
+  shortcuts and apps went unlogged; stale comments. Withdrawn: ⌘⌘ as a
+  synthetic tap (Dictation starts from it on the device); a warning on
+  importing Open App keys (they open only what is already on the Mac, and
+  bring no code, unlike a script). Deferred: the icon flips even when its
+  action failed (the keyboard cannot know; README says so); chords between
+  them are not paced for an app slow to open; a hand-written chord with
+  Caps Lock, or a modifier key with modifiers, does not read back from the
+  field; an automatic label made under another input source stops
+  following; the numeric-keypad template's Touch ID place is unverified.
+- **Pass 2** (the fixes). One grade 2: the last key of the widest row could
+  not come back after a step left — the keyboard narrowed (pinned).
+  "cmd+cmd+c" refused as "⌘⌘C" is (pinned); the Centre rule uses
+  `rowsAreUneven`. Grade 3, recorded: the second icon's section is keyed by
+  place, so a move refolds it; red text typed for one key can stay in the
+  next key's field when both have the same chords; Undo with text being
+  typed takes back that text; a single unnamed shortcut still takes an armed
+  modifier, a sequence does not; an empty Shortcuts list is not read again.
+- **Pass 3** (the last fix): 3,000 random layouts, 20 random moves each —
+  no row past the widest, no empty gap left, the selection never on a gap.
+  Nothing found. Closed.

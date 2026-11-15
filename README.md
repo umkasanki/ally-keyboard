@@ -77,7 +77,7 @@ edits).
 | None | does nothing |
 | Character | a letter, digit or symbol; follows the input source |
 | Type Text | types the text as it is, whatever the input source |
-| Key | Space, Return, Tab, Delete, the arrows, Home / End, F-keys… |
+| Key | Space, Return, Tab, Delete, Esc, the arrows, Home / End, Page Up / Down |
 | Modifier | ⇧ ⌃ ⌥ ⌘, held for the next key |
 | Press Keyboard Shortcut | one or more shortcuts, pressed in turn |
 | System Event | sound, brightness, music, Mission Control, Spotlight, Launchpad, the input source |
@@ -93,7 +93,8 @@ keys can offer different ones.
 **Shortcuts** for *Press Keyboard Shortcut* are recorded with **Record…**,
 picked from **Common**, or written in the field:
 
-- `⌘C`, `⇧⌘5`, `⌘→`, `⌘Space`, `F13` — modifiers as symbols, then the key;
+- `⌘C`, `⇧⌘5`, `⌘→`, `⌘Space`, `F13` — modifiers as symbols, then the key
+  (F-keys are pressed this way);
 - `cmd+shift+5`, `ctrl+alt+delete` — or as words joined by `+`;
 - `⌘H, ⇧⌘5` — several shortcuts, pressed one after another, separated by
   commas (spaces optional);

@@ -63,8 +63,7 @@ enum KeySender {
         case "Mute":       sendMediaKey(7)
         case "VolumeDown": sendMediaKey(1)
         case "VolumeUp":   sendMediaKey(0)
-        // The same system events a Mac keyboard's top row sends (NX_KEYTYPE_*):
-        // brightness acts on the built-in display only.
+        // The same system events a Mac keyboard's top row sends (NX_KEYTYPE_*).
         case "BrightnessUp":   sendMediaKey(2)
         case "BrightnessDown": sendMediaKey(3)
         case "PlayPause":      sendMediaKey(16)
