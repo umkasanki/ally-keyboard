@@ -439,4 +439,28 @@ final class LayoutGeometryTests: XCTestCase {
             }
         }
     }
+
+    // MARK: Empty places
+
+    func testAShortRowShowsPlacesForTheKeysItLacks() {
+        // 4 keys over 10, 39 a unit: left-aligned, six places after the keys.
+        XCTAssertEqual(shortOverLong(.left).emptySlots(inRow: 0), (4..<10).map { Double($0) * 39 })
+        // Centred, three on each side, a gap from the keys.
+        let centre = shortOverLong(.center).emptySlots(inRow: 0)
+        XCTAssertEqual(centre.count, 6)
+        let first = shortOverLong(.center).placements(inRow: 0)[0].x
+        XCTAssertEqual(centre[2], first - 39, accuracy: 1e-9)
+        // Full and stretched rows have none.
+        XCTAssertEqual(shortOverLong(.center).emptySlots(inRow: 1), [])
+        XCTAssertEqual(shortOverLong(.stretch).emptySlots(inRow: 0), [])
+    }
+
+    func testLessThanAKeyOfRoomIsNoPlace() {
+        // One key short, centred: half a key each side — nothing whole fits.
+        var l = shortOverLong(.center)
+        l.rows[0] = Array(l.rows[1].prefix(9))
+        XCTAssertEqual(l.emptySlots(inRow: 0), [])
+        l.geometry.rowAlignment = .left
+        XCTAssertEqual(l.emptySlots(inRow: 0), [9 * 39])
+    }
 }

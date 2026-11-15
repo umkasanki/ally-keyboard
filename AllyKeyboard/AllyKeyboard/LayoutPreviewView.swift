@@ -8,7 +8,8 @@
 //  weights, symbols white — scaled to fit the room given; each key a click
 //  target. A click selects a key; the selected one is outlined. When rows
 //  differ in width, each row's width stands at its right, red where it falls
-//  short; when they are even, nothing. Not drawn: the keyboard's dimming and
+//  short; when they are even, nothing. The room left in a short row shows
+//  as faint dashed places for keys. Not drawn: the keyboard's dimming and
 //  its top and bottom bars.
 //
 
@@ -79,6 +80,7 @@ final class LayoutPreviewView: NSView {
         let widths = layout.rowWidths
         let widest = widths.max() ?? 0
         let uneven = rowsAreUneven
+        drawEmptyPlaces()
         for (r, rowFrames) in frames().enumerated() {
             for (i, frame) in rowFrames.enumerated() {
                 drawKey(layout.rows[r][i], in: frame, selected: selection == KeyPosition(row: r, index: i))
@@ -89,6 +91,25 @@ final class LayoutPreviewView: NSView {
             let color: NSColor = abs(widths[r] - widest) < 1e-6 ? .secondaryLabelColor : .systemRed
             (label as NSString).draw(at: NSPoint(x: picture.maxX + 10, y: first.midY - 9),
                                      withAttributes: [.font: NSFont.systemFont(ofSize: 14), .foregroundColor: color])
+        }
+    }
+
+    /// Where a letter key would fit in a short row: a faint dashed outline
+    /// each (`emptySlots(inRow:)`), so the room reads as room for keys. The
+    /// editor's picture only — the keyboard leaves it empty.
+    private func drawEmptyPlaces() {
+        let g = layout.geometry, s = scale, pad = CGFloat(g.padding) * s
+        let width = CGFloat(g.keyWidth) * s, height = CGFloat(g.keyHeight) * s
+        let rowStep = CGFloat(g.keyHeight + g.rowSpacing) * s
+        NSColor(white: 1, alpha: 0.14).setStroke()
+        for r in layout.rows.indices {
+            for x in layout.emptySlots(inRow: r) {
+                let rect = NSRect(x: pad + CGFloat(x) * s, y: pad + CGFloat(r) * rowStep, width: width, height: height)
+                let path = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
+                path.setLineDash([3, 4], count: 2, phase: 0)
+                path.lineWidth = 1
+                path.stroke()
+            }
         }
     }
 

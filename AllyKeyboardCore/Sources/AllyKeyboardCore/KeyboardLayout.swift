@@ -127,6 +127,29 @@ public struct KeyboardLayout: Codable, Equatable, Identifiable {
             return (x, w)
         }
     }
+
+    /// The empty room in a row, cut into one-key places — where a letter key
+    /// would fit, for the editor to show. From the row's keys outwards, a gap
+    /// apart, whole places only; none in a full or stretched row. Left edges
+    /// at 100%, as `placements(inRow:)` gives them.
+    public func emptySlots(inRow row: Int) -> [Double] {
+        let g = geometry, unit = g.keyWidth + g.keySpacing
+        let full = rows.indices.map { r in placements(inRow: r).last.map { $0.x + $0.width } ?? 0 }.max() ?? 0
+        let places = placements(inRow: row)
+        let tolerance = 1e-6
+        var slots: [Double] = []
+        guard let first = places.first, let last = places.last else {
+            // An empty row: places across the whole width.
+            var x = 0.0
+            while x + g.keyWidth <= full + tolerance { slots.append(x); x += unit }
+            return slots
+        }
+        var x = first.x - g.keySpacing - g.keyWidth            // leftwards
+        while x >= -tolerance { slots.append(x); x -= unit }
+        x = last.x + last.width + g.keySpacing                 // rightwards
+        while x + g.keyWidth <= full + tolerance { slots.append(x); x += unit }
+        return slots.sorted()
+    }
 }
 
 /// One key: what it does, its label or icon, and its size.
