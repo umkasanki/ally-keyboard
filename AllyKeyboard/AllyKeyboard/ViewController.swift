@@ -208,6 +208,8 @@ final class KeyButton: NSButton {
 
     private var isHovered = false
     var isActive = false { didSet { updateBackground() } }
+    /// Chosen with the arrow keys (a suggestion row): lit as under the pointer.
+    var isPicked = false { didSet { updateBackground() } }
     /// Overrides the resting background (e.g. suggestion rows blend into the keyboard bg).
     var normalColorOverride: NSColor? { didSet { updateBackground() } }
     /// Told when the pointer comes onto the key (true) and leaves it (false) —
@@ -403,7 +405,7 @@ final class KeyButton: NSButton {
 
     private func updateBackground() {
         let normal = normalColorOverride ?? AppConfig.Colors.keyNormal
-        let bg = isActive ? AppConfig.Colors.keyActive : isHovered ? AppConfig.Colors.keyHover : normal
+        let bg = isActive ? AppConfig.Colors.keyActive : (isHovered || isPicked) ? AppConfig.Colors.keyHover : normal
         layer?.backgroundColor = bg.darkCGColor
     }
 
@@ -1312,6 +1314,9 @@ class ViewController: NSViewController {
         // Taken here, before any key returns early: AppSwitcher, Hi, Translate
         // and the rest may move the caret or the focus, and then the space is
         // no longer the character before it.
+        // ↑ ↓ and Return choose among the suggestions while they are up.
+        if handleSuggestionKey(key) { return }
+
         let autoSpaceWasPending = autoSpacePending
         if (sender as? KeyButton)?.literalChar != nil || !Self.keysKeepingAutoSpace.contains(key) {
             autoSpacePending = false
@@ -1833,6 +1838,8 @@ class ViewController: NSViewController {
         let bodyHeight = CGFloat(n) * suggestionRowHeight + CGFloat(n - 1) * suggestionSpacing
         let size = NSSize(width: keyboard.frame.width * widthFactor, height: bodyHeight + tailHeight)
         let tailOnTop = positionSuggestionPanel(panel, relativeTo: keyboard, size: size)
+        balloonBelow = tailOnTop
+        pickedSuggestion = nil
         (panel.contentView as? SuggestionBarView)?.setSuggestions(
             items, prefixLength: prefixLength,
             tailOnTop: tailOnTop, tailHeight: tailHeight,
@@ -1841,6 +1848,50 @@ class ViewController: NSViewController {
     }
 
     /// Handle a click on a balloon row: insert a phrase as-is, or apply a word prediction.
+    /// The row of the balloon chosen with the arrow keys, if any.
+    private var pickedSuggestion: Int?
+    /// The balloon hangs below the keyboard (its tail on top).
+    private var balloonBelow = true
+
+    /// ↑ and ↓ walk the balloon's rows while it is up, from the one nearest
+    /// the keyboard outwards and round again; the other arrow walks back, and
+    /// past the nearest row lets go. Return puts in the row chosen. With no
+    /// row chosen the arrows and Return do what they always do, and so do
+    /// they with a modifier armed. True when the key was used here.
+    private func handleSuggestionKey(_ key: String) -> Bool {
+        guard !currentSuggestions.isEmpty, suggestionPanel?.isVisible == true,
+              activeModifiers.isEmpty, !isShifted,
+              let bar = suggestionPanel?.contentView as? SuggestionBarView else { return false }
+        let n = bar.rowCount
+        guard n > 0 else { return false }
+        switch key {
+        case "ArrowDown", "ArrowUp":
+            let outwards = (key == "ArrowDown") == balloonBelow
+            let nearest = balloonBelow ? 0 : n - 1
+            let step = balloonBelow ? 1 : -1
+            if let i = pickedSuggestion {
+                if outwards {
+                    pickedSuggestion = ((i + step) % n + n) % n
+                } else {
+                    let back = i - step
+                    pickedSuggestion = (0..<n).contains(back) && i != nearest ? back : nil
+                }
+            } else if outwards {
+                pickedSuggestion = nearest
+            } else {
+                return false
+            }
+            bar.pick(pickedSuggestion)
+            return true
+        case "Return":
+            guard let i = pickedSuggestion, currentSuggestions.indices.contains(i) else { return false }
+            balloonSelected(currentSuggestions[i])
+            return true
+        default:
+            return false
+        }
+    }
+
     private func balloonSelected(_ item: String) {
         if balloonIsGreetings {
             KeySender.sendText(item)
@@ -1852,6 +1903,7 @@ class ViewController: NSViewController {
     }
 
     private func hideSuggestions() {
+        pickedSuggestion = nil
         currentSuggestions = []
         suggestionPanel?.orderOut(nil)
     }

@@ -36,6 +36,7 @@ final class SuggestionBarView: NSView {
     func setSuggestions(_ words: [String], prefixLength: Int, tailOnTop: Bool, tailHeight: CGFloat, cornerRadius: CGFloat) {
         buttons.forEach { $0.removeFromSuperview() }
         buttons = []
+        titles = []
 
         let bodyRect = applyBalloonMask(tailOnTop: tailOnTop, tailHeight: tailHeight, cornerRadius: cornerRadius)
 
@@ -73,7 +74,11 @@ final class SuggestionBarView: NSView {
             hover.addAttribute(.foregroundColor, value: NSColor.white,
                                range: NSRange(location: 0, length: ns.length))
             btn.attributedTitle = rest
-            btn.onHoverChange = { [weak btn] on in btn?.attributedTitle = on ? hover : rest }
+            btn.onHoverChange = { [weak btn] on in
+                guard let btn, !btn.isPicked else { return }
+                btn.attributedTitle = on ? hover : rest
+            }
+            titles.append((rest, hover))
             btn.normalColorOverride = AppConfig.Colors.keyboardBg
             btn.layer?.cornerRadius = 0
             btn.target = self
@@ -115,6 +120,20 @@ final class SuggestionBarView: NSView {
         layer?.mask = mask
         layer?.backgroundColor = AppConfig.Colors.keyboardBg.darkCGColor
         return bodyRect
+    }
+
+    /// The rows shown.
+    var rowCount: Int { buttons.count }
+
+    /// Each row's title at rest and lit.
+    private var titles: [(rest: NSAttributedString, lit: NSAttributedString)] = []
+
+    /// Light the row chosen with the arrow keys, as the pointer lights one.
+    func pick(_ index: Int?) {
+        for (i, button) in buttons.enumerated() {
+            button.isPicked = i == index
+            button.attributedTitle = i == index ? titles[i].lit : titles[i].rest
+        }
     }
 
     @objc private func tapped(_ sender: NSButton) {
