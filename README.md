@@ -40,6 +40,11 @@ or with a *Next Layout* key. **Layout ▸ Edit Layouts…** opens the editor:
 - the keyboard as a whole — key width and height, the gaps between keys and
   rows, the padding, the number of rows — each with − / + buttons;
 - keys selected with a click, then moved (◀ ▶ ▲ ▼), swapped or deleted;
+- **New ▸** an almost empty layout, or Apple's **Magic Keyboard** or **Magic
+  Keyboard with Numeric Keypad** to start from (as near as an on-screen
+  keyboard can come: fn switches the input source; Screenshot, the app
+  switcher and Hide Keyboard stand where Dictation, Do Not Disturb and Touch ID
+  are);
 - **Add Group…** — a number row, a media row (brightness, Mission Control,
   music, sound) or a Home / Page Up / Page Down / End column, put in at once;
 - **Add Key…** and **Edit Key…** — a key's action (picked from a palette, a

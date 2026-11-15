@@ -172,7 +172,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let topControls: [NSView] = [layoutPopup,
-                       button("New", #selector(newLayout)),
+                       button("New", #selector(newLayoutMenu(_:))),
                        button("Duplicate", #selector(duplicate)),
                        button("Rename\u{2026}", #selector(rename)),
                        deleteButton,
@@ -651,14 +651,35 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     @objc private func undo() { editor.undo(); refresh() }
     @objc private func redo() { editor.redo(); refresh() }
 
-    @objc private func newLayout() {
+    /// New ▸ an almost empty layout, or one of Apple's keyboards to start
+    /// from (`KeyboardLayout.magicKeyboard`).
+    @objc private func newLayoutMenu(_ sender: NSButton) {
+        let menu = NSMenu()
+        for (i, title) in ["Empty Layout", "Magic Keyboard", "Magic Keyboard with Numeric Keypad"].enumerated() {
+            let item = NSMenuItem(title: title, action: #selector(newLayout(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = i
+            menu.addItem(item)
+        }
+        menu.font = .systemFont(ofSize: 15)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
+    }
+
+    @objc private func newLayout(_ item: NSMenuItem) {
         guard confirmLeavingEdits() else { return }
-        // A start that can already type a little: Backspace, Space, Return.
-        let layout = KeyboardLayout(name: uniqueName("New Layout"), rows: [[
-            KeySpec(.key(.backspace), icon: "delete.backward", width: 1.5),
-            KeySpec(.key(.space), label: "", width: 4),
-            KeySpec(.key(.returnKey), icon: "return", width: 1.5),
-        ]])
+        var layout: KeyboardLayout
+        switch item.tag {
+        case 1: layout = .magicKeyboard(numericKeypad: false)
+        case 2: layout = .magicKeyboard(numericKeypad: true)
+        default:
+            // A start that can already type a little: Backspace, Space, Return.
+            layout = KeyboardLayout(name: "New Layout", rows: [[
+                KeySpec(.key(.backspace), icon: "delete.backward", width: 1.5),
+                KeySpec(.key(.space), label: "", width: 4),
+                KeySpec(.key(.returnKey), icon: "return", width: 1.5),
+            ]])
+        }
+        layout.name = uniqueName(layout.name)
         store.save(layout)
         editor = LayoutEditor(layout: layout)
         refresh()
