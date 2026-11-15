@@ -21,11 +21,11 @@ public enum ActionKind: String, CaseIterable {
         case .text: return "Type Text"
         case .key: return "Key"
         case .modifier: return "Modifier"
-        case .keys: return "Press Keys"
+        case .keys: return "Press Keyboard Shortcut"
         case .system: return "System Event"
         case .keyboard: return "Keyboard"
         case .openApp: return "Open App"
-        case .runShortcut: return "Run Shortcut"
+        case .runShortcut: return "Run Command from Shortcuts App"
         case .appleScript: return "AppleScript"
         case .gap: return "Empty Space"
         }
