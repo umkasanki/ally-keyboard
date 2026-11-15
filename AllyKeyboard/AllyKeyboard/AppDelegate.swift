@@ -250,7 +250,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         sub.addItem(.separator())
         sub.addItem(withTitle: "Edit Layouts\u{2026}", action: #selector(openLayoutEditor), keyEquivalent: "").target = self
-        sub.addItem(withTitle: "Next Layout", action: #selector(nextLayout), keyEquivalent: "").target = self
         sub.addItem(withTitle: "Duplicate Current Layout", action: #selector(duplicateLayout), keyEquivalent: "").target = self
         sub.addItem(.separator())
         sub.addItem(withTitle: "Open Layouts Folder", action: #selector(openLayoutsFolder), keyEquivalent: "").target = self
@@ -266,7 +265,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func chooseLayout(_ item: NSMenuItem) {
         if let id = item.representedObject as? UUID { keyboardViewController()?.switchLayout(to: id) }
     }
-    @objc private func nextLayout() { keyboardViewController()?.switchToNextLayout() }
 
     /// The layout editor, opened on the layout on screen. One window: asked
     /// again, it comes forward as it is.
