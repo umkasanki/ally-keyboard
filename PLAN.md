@@ -4,7 +4,10 @@ macOS virtual keyboard for head tracker / headmouse users.
 Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (Windows).
 
 **Stack:** Swift + AppKit, CGEvent, AXUIElement  
-**Dev workflow:** Edit in WSL (PhpStorm + Claude Code) → git push → MacInCloud (Xcode, weekends)
+**Dev workflow:** Edit and build on a Mac (Claude Code, Xcode); releases from a tag, by GitHub Actions.
+
+**Status: complete (2026-11-15), released as v1.9.0.** Every item below is done or dropped
+with its reason. New wishes are taken up as features of their own, not added to this plan.
 
 ---
 
@@ -145,7 +148,8 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
   — dropped 2026-11-15: a layout without the number row does it (the layout editor).
 - [-] **7.4** Punctuation panel (secondary layout with . , ! ? @ etc.)
   — dropped 2026-11-15: a punctuation layout can be made in the layout editor.
-- [ ] **7.5** Prolonged real-world testing with head tracker
+- [x] **7.5** Prolonged real-world testing with head tracker
+  — done 2026-11-15: two weeks of daily use, all working.
 
 ---
 
@@ -194,8 +198,9 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 
 ## Current state
 
-**Released: v1.2.1** — [GitHub release](https://github.com/umkasanki/ally-keyboard/releases/tag/v1.2.1)
-(.dmg + .zip, signed with a stable self-signed identity; notarization skipped — no Developer ID).
+**Released: v1.9.0** — [GitHub release](https://github.com/umkasanki/ally-keyboard/releases/tag/v1.9.0)
+(.dmg + .zip, signed with a stable self-signed identity; notarization skipped — no Developer ID),
+installed with Homebrew (`umkasanki/tap`).
 
 ### App switcher review — 2026-09-26, deferred; closed 2026-11-15
 
