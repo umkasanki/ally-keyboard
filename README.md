@@ -190,6 +190,9 @@ package — no AppKit dependency, so it builds and is unit-tested on Linux (CI) 
 - `PredictionEngine` — protocol for word completion; `DictionaryPredictionEngine` is the
   portable implementation (a `NSSpellChecker` adapter plugs in on macOS)
 - `SuggestionApplier` — computes the minimal keystrokes to replace a partial word with a suggestion
+- `SuggestionSession` / `NextWords` / `BalloonCursor` — what the suggestion balloon offers (the rest
+  of the word, or the next words), what a pick sends through a `KeyEventSink`, what is learned,
+  and the arrow keys over the balloon — tested end to end by typing into a sink
 - `Settings` / `SettingsStore` — persisted, lenient-decoding settings model
 - `KeyboardLayout` / `LayoutStore` / `LayoutEditor` — layouts as data, their files, import
   and export, and every editing operation (undoable)

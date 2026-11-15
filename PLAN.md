@@ -168,7 +168,9 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [x] **C** Window: `.fullScreenAuxiliary` added + `level = .statusBar`.
 - [x] **D** Settings model in `AllyKeyboardCore` + `SettingsStore` (UserDefaults) — done in Phase 5.
 - [x] **E** Launch-at-login via `SMAppService` (`LoginItem`) — done in 6.3.
-- [ ] **F** `KeyEventSink` port in Core so `TextTracker → SuggestionApplier → sink` is testable end-to-end without AppKit
+- [x] **F** `KeyEventSink` port in Core so `TextTracker → SuggestionApplier → sink` is testable end-to-end without AppKit
+  — done 2026-11-15: `SuggestionSession` decides what is offered, what a pick sends and what is
+  learned; `BalloonCursor` the arrow keys; `SuggestionSessionTests` type into a sink that keeps the text.
 
 ---
 

@@ -122,6 +122,9 @@ final class SuggestionBarView: NSView {
         return bodyRect
     }
 
+    /// The most rows the balloon is made with.
+    static let maxRows = 10
+
     /// The rows shown.
     var rowCount: Int { buttons.count }
 

@@ -1002,19 +1002,28 @@ class ViewController: NSViewController {
     /// The balloon currently shows saved phrases (from the list key) rather than word predictions.
     private var balloonIsGreetings = false
     private var currentSuggestions: [String] = []
-    private let textTracker = TextTracker()
+    /// The suggestions, decided in Core (`SuggestionSession`); keys go out
+    /// through `KeySenderSink`.
+    private lazy var session = SuggestionSession(sink: KeySenderSink())
+    private var textTracker: TextTracker { session.tracker }
 
     /// The user's own words, learned from what is typed and suggested first.
     private let vocabularyStore = UserVocabularyStore(fileURL: FileManager.default
         .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("AllyKeyboard/vocabulary.json"))
-    private var vocabulary = UserVocabulary()
+    private var vocabulary: UserVocabulary {
+        get { session.vocabulary }
+        set { session.vocabulary = newValue }
+    }
     /// Which word the user writes after which (`NextWords`); saved with the
     /// vocabulary, on the same clock.
     private let nextWordsStore = JSONFileStore<NextWords>(fileURL: FileManager.default
         .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("AllyKeyboard/next-words.json"))
-    private var nextWords = NextWords()
+    private var nextWords: NextWords {
+        get { session.nextWords }
+        set { session.nextWords = newValue }
+    }
     private var vocabularySave: Timer?
     /// A suggestion was just picked with its space, and nothing that may move
     /// the caret has happened since — no key but Shift, Caps Lock, a modifier
@@ -1059,12 +1068,23 @@ class ViewController: NSViewController {
         vocabularyLoaded = true
         nextWords = nextWordsStore.load() ?? NextWords()
         nextWords.forgetFaded()
-        textTracker.onWordCompleted = { [weak self] word, wasSecret in
-            self?.learn(word, wasSecret: wasSecret)
+        session.options = { [unowned self] in
+            .init(showSuggestions: settings.showSuggestions, suggestNextWord: settings.suggestNextWord,
+                  spaceAfterSuggestion: settings.spaceAfterSuggestion, slots: suggestionBarSlots)
         }
-        textTracker.onWordFollowed = { [weak self] previous, word in
-            self?.learnPair(previous, word)
+        session.systemSuggestions = { [unowned self] partial, limit in
+            speller.language = InputSourceSwitcher.currentLanguageCode()
+            return speller.suggestions(for: partial, limit: limit)
         }
+        // A password must never be kept, let alone suggested.
+        session.mayLearn = { [unowned self] in settings.learnWords && !KeySender.isSecretInput() }
+        session.isOwnWord = { [unowned self] word in
+            // The language the word was typed in — not the current one, which
+            // the layout key may just have changed.
+            speller.language = wordLanguage ?? InputSourceSwitcher.currentLanguageCode()
+            return UserVocabulary.isOwnWord(word, knownToSystem: speller.knows(word))
+        }
+        session.onLearned = { [weak self] in self?.scheduleVocabularySave() }
         AppConfig.Colors.theme = AppConfig.Theme(rawValue: settings.theme) ?? .darkSystem
         view.layer?.backgroundColor = AppConfig.Colors.keyboardBg.darkCGColor   // theme now known
         scale = CGFloat(settings.scale)   // windowConfigured still false -> just stores
@@ -1756,25 +1776,9 @@ class ViewController: NSViewController {
     }
 
     private func refreshSuggestions() {
-        guard settings.showSuggestions else { hideSuggestions(); return }
-        guard textTracker.hasPartialWord else {
-            // Nothing of the next word typed yet: the words that usually
-            // follow the one before, if any have been learned.
-            if settings.suggestNextWord, let previous = textTracker.contextWord {
-                showBalloon(nextWords.suggestions(after: previous, limit: suggestionBarSlots),
-                            prefixLength: 0, widthFactor: 0.32, greetings: false)
-            } else {
-                hideSuggestions()
-            }
-            return
-        }
-        speller.language = InputSourceSwitcher.currentLanguageCode()
-        let partial = textTracker.currentWord
-        let words = UserVocabulary.merge(
-            user: vocabulary.suggestions(for: partial, limit: suggestionBarSlots),
-            system: speller.suggestions(for: partial, limit: suggestionBarSlots),
-            limit: suggestionBarSlots)
-        showSuggestions(words)
+        let offer = session.offer()
+        guard !offer.words.isEmpty else { hideSuggestions(); return }
+        showBalloon(offer.words, prefixLength: offer.prefixLength, widthFactor: 0.32, greetings: false)
     }
 
     // MARK: - Suggestion panel (docked outside the keyboard)
@@ -1796,7 +1800,7 @@ class ViewController: NSViewController {
         panel.isOpaque = false
         panel.hasShadow = true
         let bar = SuggestionBarView(frame: NSRect(origin: .zero, size: panel.frame.size),
-                                    maxSlots: 10, spacing: suggestionSpacing, fontSize: keyFontSizePrimary)
+                                    maxSlots: SuggestionBarView.maxRows, spacing: suggestionSpacing, fontSize: keyFontSizePrimary)
         bar.autoresizingMask = [.width, .height]
         bar.wantsLayer = true
         bar.onSelect = { [weak self] item in self?.balloonSelected(item) }
@@ -1838,8 +1842,7 @@ class ViewController: NSViewController {
         let bodyHeight = CGFloat(n) * suggestionRowHeight + CGFloat(n - 1) * suggestionSpacing
         let size = NSSize(width: keyboard.frame.width * widthFactor, height: bodyHeight + tailHeight)
         let tailOnTop = positionSuggestionPanel(panel, relativeTo: keyboard, size: size)
-        balloonBelow = tailOnTop
-        pickedSuggestion = nil
+        balloonCursor.reset(rows: min(n, SuggestionBarView.maxRows), below: tailOnTop)
         (panel.contentView as? SuggestionBarView)?.setSuggestions(
             items, prefixLength: prefixLength,
             tailOnTop: tailOnTop, tailHeight: tailHeight,
@@ -1848,43 +1851,23 @@ class ViewController: NSViewController {
     }
 
     /// Handle a click on a balloon row: insert a phrase as-is, or apply a word prediction.
-    /// The row of the balloon chosen with the arrow keys, if any.
-    private var pickedSuggestion: Int?
-    /// The balloon hangs below the keyboard (its tail on top).
-    private var balloonBelow = true
+    /// The row of the balloon chosen with the arrow keys (`BalloonCursor`).
+    private var balloonCursor = BalloonCursor()
 
-    /// ↑ and ↓ walk the balloon's rows while it is up, from the one nearest
-    /// the keyboard outwards and round again; the other arrow walks back, and
-    /// past the nearest row lets go. Return puts in the row chosen. With no
-    /// row chosen the arrows and Return do what they always do, and so do
-    /// they with a modifier armed. True when the key was used here.
+    /// ↑ and ↓ walk the balloon's rows while it is up; Return puts in the row
+    /// chosen. With no row chosen the arrows and Return do what they always
+    /// do, and so do they with a modifier armed. True when the key was used here.
     private func handleSuggestionKey(_ key: String) -> Bool {
         guard !currentSuggestions.isEmpty, suggestionPanel?.isVisible == true,
               activeModifiers.isEmpty, !isShifted,
               let bar = suggestionPanel?.contentView as? SuggestionBarView else { return false }
-        let n = bar.rowCount
-        guard n > 0 else { return false }
         switch key {
         case "ArrowDown", "ArrowUp":
-            let outwards = (key == "ArrowDown") == balloonBelow
-            let nearest = balloonBelow ? 0 : n - 1
-            let step = balloonBelow ? 1 : -1
-            if let i = pickedSuggestion {
-                if outwards {
-                    pickedSuggestion = ((i + step) % n + n) % n
-                } else {
-                    let back = i - step
-                    pickedSuggestion = (0..<n).contains(back) && i != nearest ? back : nil
-                }
-            } else if outwards {
-                pickedSuggestion = nearest
-            } else {
-                return false
-            }
-            bar.pick(pickedSuggestion)
+            guard balloonCursor.arrow(down: key == "ArrowDown") else { return false }
+            bar.pick(balloonCursor.picked)
             return true
         case "Return":
-            guard let i = pickedSuggestion, currentSuggestions.indices.contains(i) else { return false }
+            guard let i = balloonCursor.picked, currentSuggestions.indices.contains(i) else { return false }
             balloonSelected(currentSuggestions[i])
             return true
         default:
@@ -1903,7 +1886,7 @@ class ViewController: NSViewController {
     }
 
     private func hideSuggestions() {
-        pickedSuggestion = nil
+        balloonCursor.reset(rows: 0, below: balloonCursor.below)
         currentSuggestions = []
         suggestionPanel?.orderOut(nil)
     }
@@ -2033,53 +2016,14 @@ class ViewController: NSViewController {
         }
     }
 
-    /// Count a finished word towards the user's vocabulary — every word, so
-    /// the ones used most come first — unless it was typed into a password
-    /// field: a password must never be kept, let alone suggested.
-    private func learn(_ word: String, wasSecret: Bool) {
-        guard settings.learnWords, !wasSecret, !KeySender.isSecretInput() else { return }
-        // The language the word was typed in — not the current one, which the
-        // layout key may just have changed. Set here, too, because with
-        // suggestions off nothing else keeps it current.
-        speller.language = wordLanguage ?? InputSourceSwitcher.currentLanguageCode()
-        vocabulary.record(word, isOwnWord: UserVocabulary.isOwnWord(word, knownToSystem: speller.knows(word)))
-        scheduleVocabularySave()
-    }
-
-    /// Count `word` once after `previous`, as `learn` counts a word — not in
-    /// a password field, not with learning off.
-    private func learnPair(_ previous: String, _ word: String) {
-        guard settings.learnWords, !KeySender.isSecretInput() else { return }
-        nextWords.record(word, after: previous)
-        scheduleVocabularySave()
-    }
-
     /// Replace the partial word with the chosen suggestion — then a space, or,
     /// with that off in Settings, nothing: the word stays open to be typed on.
     private func applySuggestion(_ word: String) {
-        let withSpace = settings.spaceAfterSuggestion
-        // A next word, picked with nothing of it typed: the word before is
-        // finished — counted now if it was a pick waiting behind its space —
-        // and nothing is erased.
-        let isNextWord = !textTracker.hasPartialWord
-        if isNextWord { textTracker.finishPendingPick() }
-        let plan = SuggestionApplier.plan(currentWord: isNextWord ? "" : textTracker.currentWord,
-                                          suggestion: word, appendSpace: withSpace)
-        for _ in 0..<plan.backspaces { KeySender.send("Backspace") }
-        KeySender.sendText(plan.textToInsert)
+        let spaced = session.pick(word)
         hideSuggestions()
-        // The tracker counts it, once — the word picked over, if one was open,
-        // is replaced, not counted; see `TextTracker.adopt`.
-        if withSpace {
-            // Counted when the next key is not a Backspace: a Backspace takes
-            // the space back and reopens the word to be typed on.
-            textTracker.pickWithSpace(word)
-            autoSpacePending = true
-            refreshSuggestions()                    // the words that may follow it
-        } else {
-            textTracker.adopt(word)
-            refreshSuggestions()                    // open: type on, or end it
-        }
+        // The space may be taken back by the next key (`SmartSpace`).
+        if spaced { autoSpacePending = true }
+        refreshSuggestions()                        // the next words, or the open word's rest
     }
 
     // MARK: - Language switch
@@ -2201,4 +2145,10 @@ final class KeyboardPanel: NSPanel {
     /// this keyboard is how its user types into those dialogs. The suggestion
     /// panel says so too.
     override var worksWhenModal: Bool { get { true } set {} }
+}
+
+/// A picked suggestion's keys, into the app being typed into.
+private final class KeySenderSink: KeyEventSink {
+    func sendBackspace() { KeySender.send("Backspace") }
+    func sendText(_ text: String) { KeySender.sendText(text) }
 }
