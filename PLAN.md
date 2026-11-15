@@ -12,6 +12,7 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - `[ ]` — not started
 - `[~]` — in progress
 - `[x]` — done
+- `[-]` — dropped (the reason follows)
 
 ---
 
@@ -25,7 +26,8 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 - [x] **0.2** Add `.gitignore` for Xcode (xcuserdata, DerivedData, .DS_Store)
 - [x] **0.3** First commit and push from MacInCloud to GitHub
 - [x] **0.4** `git pull` in WSL — verify files appear correctly
-- [ ] **0.5** Open project in PhpStorm on WSL — verify Swift files are readable
+- [-] **0.5** Open project in PhpStorm on WSL — verify Swift files are readable
+  — dropped 2026-11-15: development moved to a Mac.
 
 ---
 
@@ -135,9 +137,13 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 > Goal: stable, comfortable daily use
 
 - [ ] **7.1** Handle edge cases: app switches, fullscreen apps, multiple monitors
-- [ ] **7.2** Keyboard shortcut to show/hide keyboard (global `NSEvent` monitor)
-- [ ] **7.3** Numbers row toggle (show/hide numbers row to save space)
-- [ ] **7.4** Punctuation panel (secondary layout with . , ! ? @ etc.)
+- [-] **7.2** Keyboard shortcut to show/hide keyboard (global `NSEvent` monitor)
+  — dropped 2026-11-15: the user presses no physical keys; a key on the keyboard and
+  the menu-bar icon show and hide it.
+- [-] **7.3** Numbers row toggle (show/hide numbers row to save space)
+  — dropped 2026-11-15: a layout without the number row does it (the layout editor).
+- [-] **7.4** Punctuation panel (secondary layout with . , ! ? @ etc.)
+  — dropped 2026-11-15: a punctuation layout can be made in the layout editor.
 - [ ] **7.5** Prolonged real-world testing with head tracker
 
 ---
