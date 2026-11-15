@@ -162,8 +162,8 @@ public struct KeySpec: Codable, Equatable {
     /// An SF Symbol or a bundled image; shown instead of the label.
     public var icon: String?
     /// The icon after every other press — a key whose shortcut starts
-    /// something and, pressed again, stops it (record, then stop). Shown in
-    /// red; nil keeps one icon.
+    /// something and, pressed again, stops it (record, then stop); nil
+    /// keeps one icon.
     public var secondIcon: String?
     /// 1 is a standard key; 1.5 is one and a half keys, gap included.
     public var width: Double

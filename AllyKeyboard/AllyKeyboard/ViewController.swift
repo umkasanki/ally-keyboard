@@ -1175,7 +1175,7 @@ class ViewController: NSViewController {
                    let face = iconFace(imageName, key: key, symbolSize: symbolSize, tint: .white) {
                     btn.installGlyph(face.0, restAlpha: face.1)
                     if let second = key.secondImage,
-                       let other = iconFace(second, key: key, symbolSize: symbolSize, tint: .systemRed) {
+                       let other = iconFace(second, key: key, symbolSize: symbolSize, tint: .white) {
                         btn.faces = (face, other)
                         btn.place = "\(rowIndex):\(keyIndex):\(imageName):\(second)"
                         if flippedKeys.contains(btn.place) { btn.installGlyph(other.0, restAlpha: other.1) }
