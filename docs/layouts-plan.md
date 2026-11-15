@@ -29,7 +29,6 @@ an extra later).
 
 ## Not in this work
 
-- Automatic layout switching per application (a natural next step, see the end).
 - Key repeat on hold, gestures, chords on one key.
 - Changing the keyboard's look (themes stay as they are).
 
@@ -264,7 +263,8 @@ Each phase ends with tests green, a build installed, and a check on the device.
   other people's layouts. Shortcut recording stays in, as the general way to
   add any chord.
 - The editor gets its own window (room for a full-size preview).
-- Automatic switching per application: not now; the model leaves room for it.
+- Automatic switching per application: dropped — the user has no use for it
+  (2026-11-15).
 - Two built-in layouts (2026-11-14): **Extended** is the keyboard as built for
   its first user; **Standard**, the default for everyone else, leaves out the
   input-language key and the Windows-style Home / Page Up / Page Down / End
