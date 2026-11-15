@@ -131,6 +131,15 @@ public final class LayoutEditor {
                         _ edit: (inout KeyboardLayout) -> Void) {
         var edited = layout
         edit(&edited)
+        // A centred keyboard whose rows change width — a key added, removed,
+        // moved to another row or resized — turns left-aligned, in the same
+        // step: centring re-spreads every short row and a new key lands
+        // nowhere in particular. Centre can be set again once the keys are
+        // in place (the user's call, 2026-11-15).
+        if edited.geometry.rowAlignment == .center, layout.geometry.rowAlignment == .center,
+           edited.rowWidths != layout.rowWidths {
+            edited.geometry.rowAlignment = .left
+        }
         let selected: KeyPosition? = newSelection ?? selection
         guard edited != layout || selected != selection else { return }
         undoStack.append(Snapshot(layout: layout, selection: selection))

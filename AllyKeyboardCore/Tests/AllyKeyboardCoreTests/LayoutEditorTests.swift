@@ -463,4 +463,42 @@ final class LayoutGeometryTests: XCTestCase {
         l.geometry.rowAlignment = .left
         XCTAssertEqual(l.emptySlots(inRow: 0), [9 * 39])
     }
+
+    // MARK: Centre gives way to Left
+
+    func testChangingRowWidthsTurnsCentreLeftInOneStep() {
+        let e = LayoutEditor(layout: shortOverLong(.center))
+        e.select(KeyPosition(row: 0, index: 0))
+        e.addKey(KeySpec(.character("N")))
+        XCTAssertEqual(e.layout.geometry.rowAlignment, .left)
+        e.undo()                                                // key and alignment back together
+        XCTAssertEqual(e.layout.geometry.rowAlignment, .center)
+        XCTAssertEqual(e.layout.rows[0].count, 4)
+        e.select(KeyPosition(row: 0, index: 0))
+        e.deleteKey()
+        XCTAssertEqual(e.layout.geometry.rowAlignment, .left)
+    }
+
+    func testAChangeThatKeepsTheWidthsKeepsCentre() {
+        let e = LayoutEditor(layout: shortOverLong(.center))
+        e.select(KeyPosition(row: 0, index: 0))
+        e.replaceSelectedKey(with: KeySpec(.character("Z"), label: "Zed"))
+        e.moveAlongRow(by: 1)
+        XCTAssertEqual(e.layout.geometry.rowAlignment, .center)
+    }
+
+    func testStretchIsLeftAlone() {
+        let e = LayoutEditor(layout: shortOverLong(.stretch))
+        e.select(KeyPosition(row: 0, index: 0))
+        e.addKey(KeySpec(.character("N")))
+        XCTAssertEqual(e.layout.geometry.rowAlignment, .stretch)
+    }
+
+    func testCentreCanBeSetAgainAfterwards() {
+        let e = LayoutEditor(layout: shortOverLong(.center))
+        e.select(KeyPosition(row: 0, index: 0))
+        e.addKey(KeySpec(.character("N")))
+        e.setRowAlignment(.center)
+        XCTAssertEqual(e.layout.geometry.rowAlignment, .center)
+    }
 }
