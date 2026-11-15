@@ -101,13 +101,16 @@ final class LayoutPreviewView: NSView {
         let g = layout.geometry, s = scale, pad = CGFloat(g.padding) * s
         let width = CGFloat(g.keyWidth) * s, height = CGFloat(g.keyHeight) * s
         let rowStep = CGFloat(g.keyHeight + g.rowSpacing) * s
-        NSColor(white: 1, alpha: 0.14).setStroke()
+        // Plain enough to see at a glance, still far fainter than a key.
+        NSColor(white: 1, alpha: 0.32).setStroke()
+        NSColor(white: 1, alpha: 0.04).setFill()
         for r in layout.rows.indices {
             for x in layout.emptySlots(inRow: r) {
                 let rect = NSRect(x: pad + CGFloat(x) * s, y: pad + CGFloat(r) * rowStep, width: width, height: height)
                 let path = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
-                path.setLineDash([3, 4], count: 2, phase: 0)
-                path.lineWidth = 1
+                path.setLineDash([5, 4], count: 2, phase: 0)
+                path.lineWidth = 1.5
+                path.fill()
                 path.stroke()
             }
         }

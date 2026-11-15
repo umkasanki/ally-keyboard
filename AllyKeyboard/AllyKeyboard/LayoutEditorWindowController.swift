@@ -454,7 +454,9 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
             label.stringValue = v == v.rounded() ? String(Int(v)) : String(v)
         }
         rowsValue.stringValue = String(editor.layout.rows.count)
-        alignPicker.selectedSegment = Self.alignments.firstIndex { $0.alignment == editor.layout.geometry.rowAlignment } ?? 1
+        // As the picture has it: with the key panel out, what Done will leave
+        // (a key that changes the rows' widths turns Centre into Left).
+        alignPicker.selectedSegment = Self.alignments.firstIndex { $0.alignment == shown.layout.geometry.rowAlignment } ?? 1
 
         if editor.layout.isBuiltIn {
             deleteButton.title = "Reset to Factory"
