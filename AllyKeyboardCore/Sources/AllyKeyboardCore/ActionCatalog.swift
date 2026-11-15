@@ -106,12 +106,18 @@ public enum ActionCatalog {
         ActionChoice("Mute", KeySpec(.media(.mute), icon: "volume-off-icon", colored: true)),
         ActionChoice("Volume Down", KeySpec(.media(.volumeDown), icon: "volume-down-icon", colored: true)),
         ActionChoice("Volume Up", KeySpec(.media(.volumeUp), icon: "volume-up-icon", colored: true)),
+        ActionChoice("Brightness Down", KeySpec(.media(.brightnessDown), icon: "sun.min")),
+        ActionChoice("Brightness Up", KeySpec(.media(.brightnessUp), icon: "sun.max")),
+        ActionChoice("Previous", KeySpec(.media(.previous), icon: "backward.fill")),
+        ActionChoice("Play / Pause", KeySpec(.media(.playPause), icon: "playpause.fill")),
+        ActionChoice("Next", KeySpec(.media(.next), icon: "forward.fill")),
     ])
 
     static let keyboard = ActionGroup(title: "Keyboard", choices: [
         ActionChoice("Hide Keyboard", KeySpec(.command(.hideKeyboard), icon: "keyboard-glyph")),
         ActionChoice("Screenshot", KeySpec(.command(.screenshot), icon: "camera")),
         ActionChoice("App Switcher", KeySpec(.command(.appSwitcher), icon: "square.grid.2x2")),
+        ActionChoice("Mission Control", KeySpec(.command(.missionControl), icon: "rectangle.3.group")),
         ActionChoice("Translate", KeySpec(.command(.translate), icon: "translate-icon", colored: true)),
         ActionChoice("Phrases", KeySpec(.command(.phrases), icon: "list.bullet")),
         ActionChoice("Language", KeySpec(.command(.languageSwitch), label: "\u{1F310}")),
@@ -142,5 +148,48 @@ public enum ActionCatalog {
         "list.bullet", "square.grid.2x2", "globe", "gearshape", "magnifyingglass", "doc.on.doc",
         "scissors", "arrow.uturn.backward", "arrow.uturn.forward", "speaker.slash", "speaker.wave.1",
         "speaker.wave.3", "keyboard", "rectangle.2.swap", "star", "heart",
+        "sun.min", "sun.max", "backward.fill", "playpause.fill", "forward.fill", "rectangle.3.group",
     ]
+
+    // MARK: - Groups of keys
+
+    /// Several keys put in at once (Add Group…): a row, or a column down the
+    /// right end of consecutive rows.
+    public struct KeyGroup {
+        public enum Shape { case row, column }
+        public let name: String
+        public let shape: Shape
+        public let keys: [KeySpec]
+    }
+
+    public static let keyGroups: [KeyGroup] = [numberRow, mediaRow, navigationColumn]
+
+    /// ` 1 2 … 0 - = and Backspace, with the shifted symbols in the corners —
+    /// Extended's own number row.
+    public static let numberRow: KeyGroup = {
+        let row = KeyboardLayout.extended.rows.first { $0.contains { $0.action == .character("1") } } ?? []
+        let end = row.firstIndex { $0.action == .key(.backspace) } ?? (row.count - 1)
+        return KeyGroup(name: "Number Row", shape: .row, keys: Array(row.prefix(end + 1)))
+    }()
+
+    /// A Mac keyboard's top row, as far as it can be sent: brightness, Mission
+    /// Control, the music keys and the sound keys.
+    public static let mediaRow = KeyGroup(name: "Media Row", shape: .row, keys: [
+        KeySpec(.media(.brightnessDown), icon: "sun.min"),
+        KeySpec(.media(.brightnessUp), icon: "sun.max"),
+        KeySpec(.command(.missionControl), icon: "rectangle.3.group"),
+        KeySpec(.media(.previous), icon: "backward.fill"),
+        KeySpec(.media(.playPause), icon: "playpause.fill"),
+        KeySpec(.media(.next), icon: "forward.fill"),
+        KeySpec(.media(.mute), icon: "volume-off-icon", colored: true),
+        KeySpec(.media(.volumeDown), icon: "volume-down-icon", colored: true),
+        KeySpec(.media(.volumeUp), icon: "volume-up-icon", colored: true),
+    ])
+
+    /// Home, Page Up, Page Down, End — Extended's column, top to bottom.
+    public static let navigationColumn: KeyGroup = {
+        let all = KeyboardLayout.extended.rows.flatMap { $0 }
+        let keys = [SpecialKey.home, .pageUp, .pageDown, .end].compactMap { k in all.first { $0.action == .key(k) } }
+        return KeyGroup(name: "Navigation Column", shape: .column, keys: keys)
+    }()
 }

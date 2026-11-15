@@ -205,6 +205,29 @@ public final class LayoutEditor {
         setGeometry(field, to: value(of: field) + Double(points))
     }
 
+    /// Put a group of keys in, as one step to undo. A row goes below the
+    /// selected key's row, or at the bottom; a column goes onto the right end
+    /// of consecutive rows from the selected key's (or the first), with new
+    /// rows where there are too few. The group's first key is selected.
+    public func insertGroup(_ group: ActionCatalog.KeyGroup) {
+        guard !group.keys.isEmpty else { return }
+        let keys = group.keys.map(Self.clamped)
+        switch group.shape {
+        case .row:
+            let at = selection.map { $0.row + 1 } ?? layout.rows.count
+            change(selecting: KeyPosition(row: at, index: 0)) { $0.rows.insert(keys, at: at) }
+        case .column:
+            let first = selection?.row ?? 0
+            let index = first < layout.rows.count ? layout.rows[first].count : 0
+            change(selecting: KeyPosition(row: first, index: index)) {
+                for (i, key) in keys.enumerated() {
+                    let r = first + i
+                    if r < $0.rows.count { $0.rows[r].append(key) } else { $0.rows.append([key]) }
+                }
+            }
+        }
+    }
+
     /// Where shorter rows stand: left, centre, or stretched across.
     public func setRowAlignment(_ alignment: KeyboardLayout.RowAlignment) {
         guard layout.geometry.rowAlignment != alignment else { return }

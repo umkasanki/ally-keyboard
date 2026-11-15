@@ -1387,6 +1387,13 @@ class ViewController: NSViewController {
             return true
         }
 
+        if key == Command.missionControl.rawValue {
+            // No key code or system event reaches it: the app itself is opened,
+            // as the Mission Control key does.
+            NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Mission Control.app"))
+            return true
+        }
+
         if key == "AppSwitcher" {
             appSwitcher.toggle(settings: settings, scale: scale, over: view.window)
             return true

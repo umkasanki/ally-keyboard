@@ -289,6 +289,44 @@ final class LayoutEditorTests: XCTestCase {
         XCTAssertEqual(names(e), [["A"], ["B", "C", "N"]])
         XCTAssertEqual(e.selection, p(1, 2))
     }
+
+    // MARK: Groups of keys
+
+    func testTheGroupsHoldWhatTheySay() {
+        XCTAssertEqual(ActionCatalog.numberRow.keys.map(\.action.legacyID),
+                       ["`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace"])
+        XCTAssertEqual(ActionCatalog.navigationColumn.keys.map(\.action.legacyID), ["Home", "PageUp", "PageDown", "End"])
+        XCTAssertEqual(ActionCatalog.mediaRow.keys.count, 9)
+        XCTAssertEqual(ActionCatalog.navigationColumn.shape, .column)
+    }
+
+    func testARowGroupGoesUnderTheSelectedRowInOneStep() {
+        let e = LayoutEditor(layout: KeyboardLayout(name: "T", rows: [[a], [b]]))
+        e.select(KeyPosition(row: 0, index: 0))
+        e.insertGroup(ActionCatalog.mediaRow)
+        XCTAssertEqual(e.layout.rows.count, 3)
+        XCTAssertEqual(e.layout.rows[1].count, 9)
+        XCTAssertEqual(e.selection, KeyPosition(row: 1, index: 0))
+        e.undo()
+        XCTAssertEqual(e.layout.rows.count, 2)
+        e.select(nil)
+        e.insertGroup(ActionCatalog.numberRow)                  // nothing selected: at the bottom
+        XCTAssertEqual(e.layout.rows.last?.first?.action, .character("`"))
+    }
+
+    func testAColumnGoesDownTheRightEndAddingRowsIfNeeded() {
+        let e = LayoutEditor(layout: KeyboardLayout(name: "T", rows: [[a], [b], [c]]))
+        e.select(KeyPosition(row: 1, index: 0))
+        e.insertGroup(ActionCatalog.navigationColumn)
+        let lasts: [String] = e.layout.rows.map { row in row.last.map { $0.action.legacyID } ?? "" }
+        XCTAssertEqual(lasts, ["A", "Home", "PageUp", "PageDown", "End"])
+        let second: [String] = e.layout.rows[1].map { $0.action.legacyID }
+        XCTAssertEqual(second, ["B", "Home"])
+        XCTAssertEqual(e.selection, KeyPosition(row: 1, index: 1))
+        XCTAssertTrue(e.canUndo)
+        e.undo()
+        XCTAssertEqual(e.layout.rows.count, 3)
+    }
 }
 
 final class LayoutGeometryTests: XCTestCase {
@@ -556,4 +594,5 @@ final class LayoutGeometryTests: XCTestCase {
         e.setRowAlignment(.center)
         XCTAssertEqual(e.layout.geometry.rowAlignment, .center)
     }
+
 }

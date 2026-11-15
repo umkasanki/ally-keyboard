@@ -266,8 +266,11 @@ public enum Modifier: String, Codable, CaseIterable {
          control = "Ctrl", option = "Alt", command = "Cmd"
 }
 
+/// The keys a Mac keyboard's top row sends as system events, not key codes.
 public enum MediaKey: String, Codable, CaseIterable {
-    case mute = "Mute", volumeDown = "VolumeDown", volumeUp = "VolumeUp"
+    case mute = "Mute", volumeDown = "VolumeDown", volumeUp = "VolumeUp",
+         brightnessDown = "BrightnessDown", brightnessUp = "BrightnessUp",
+         previous = "Previous", playPause = "PlayPause", next = "Next"
 }
 
 public enum Command: String, Codable, CaseIterable {
@@ -276,7 +279,7 @@ public enum Command: String, Codable, CaseIterable {
          languageSwitch = "LangSwitch",
          resizeWidth = "ResizeWidth", resizeHeight = "ResizeHeight",
          nextLayout = "NextLayout", chooseLayout = "ChooseLayout",
-         openSettings = "OpenSettings"
+         openSettings = "OpenSettings", missionControl = "MissionControl"
 }
 
 /// A chord: a virtual key code with modifiers held.

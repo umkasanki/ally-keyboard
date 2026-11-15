@@ -5,7 +5,7 @@
 //  The layout editor's window: the keyboard as a whole. Its sizes and rows
 //  are edited here, and keys are moved, swapped and deleted; one key's
 //  action and look are edited in a panel that slides out under them
-//  (`KeyEditorPanel`), opened by New Key… and Edit Key…. Every edit goes
+//  (`KeyEditorPanel`), opened by Add Key… and Edit Key…. Every edit goes
 //  through `LayoutEditor` (Core, tested). Everything is a single click on a large button — no drag
 //  and drop, no double clicks, nothing shown only on hover — since it is used
 //  with a head mouse. See docs/layouts-plan.md, "Editor".
@@ -41,6 +41,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     private var keyEdit: (isNew: Bool, draft: KeySpec, apply: (LayoutEditor, KeySpec) -> Void)?
     private var keyboardPanel: NSView!, keysPanel: NSView!
     private var newKeyButton: NSButton!, editKeyButton: NSButton!, deleteKeyButton: NSButton!, addRowButton: NSButton!
+    private var addGroupButton: NSButton!
     /// The line between the Keys buttons and the key panel, out with it.
     private let keyPanelRule = NSBox()
     /// Everything above the status bar, in a scroll view: the window grows
@@ -232,7 +233,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
             stack.bottomAnchor.constraint(equalTo: document.bottomAnchor),
             top.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -36),
             // The window's width, not its content's: left to fit its buttons,
-            // the row's right end (New Key…, Edit Key…) fell outside its own
+            // the row's right end (Add Key…, Edit Key…) fell outside its own
             // panel when the preview grew a column of row widths — still
             // drawn there, but not clickable (found by hit-testing, 2026-11-14).
             keysPanel.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -36),
@@ -407,10 +408,11 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
             deleteKeyButton,
             editKey,
         ]
-        let newKey = button("New Key\u{2026}", #selector(newKey), symbol: "plus.rectangle")
+        let newKey = button("Add Key\u{2026}", #selector(newKey), symbol: "plus.rectangle")
         newKeyButton = newKey
         editKeyButton = editKey
-        let buttons = row(keyButtons.dropLast() + [NSView(), newKey, editKey])
+        addGroupButton = button("Add Group\u{2026}", #selector(addGroup(_:)), symbol: "square.grid.3x1.below.line.grid.1x2")
+        let buttons = row(keyButtons.dropLast() + [NSView(), addGroupButton, newKey, editKey])
         // The key panel slides out inside this block, under its buttons: it
         // goes on from them.
         keyPanel.view.isHidden = true
@@ -448,6 +450,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         keyButtons.forEach { $0.isEnabled = editor.selection != nil }
         deleteRowButton.isEnabled = editor.selection != nil
         addRowButton.isEnabled = true
+        addGroupButton.isEnabled = true
         swapButton.state = swapPending ? .on : .off
         for (field, label) in geometryValues {
             let v = editor.value(of: field)
@@ -474,7 +477,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         newKeyButton.isEnabled = keyEdit?.isNew != true
         if let edit = keyEdit {
             if !edit.isNew { editKeyButton.isEnabled = false }
-            for b in [deleteKeyButton, deleteRowButton, addRowButton, swapButton, undoButton, redoButton, revertButton] {
+            for b in [deleteKeyButton, deleteRowButton, addRowButton, addGroupButton, swapButton, undoButton, redoButton, revertButton] {
                 b?.isEnabled = false
             }
         }
@@ -825,6 +828,26 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
 
     // MARK: - The key panel
 
+    /// Several keys at once, from a menu: a number row, a media row, a
+    /// navigation column (`ActionCatalog.keyGroups`), placed by the selection
+    /// (`LayoutEditor.insertGroup`), one step to undo.
+    @objc private func addGroup(_ sender: NSButton) {
+        let menu = NSMenu()
+        for (i, group) in ActionCatalog.keyGroups.enumerated() {
+            let item = NSMenuItem(title: group.name, action: #selector(groupChosen(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = i
+            menu.addItem(item)
+        }
+        menu.font = .systemFont(ofSize: 15)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.height + 4), in: sender)
+    }
+
+    @objc private func groupChosen(_ item: NSMenuItem) {
+        editor.insertGroup(ActionCatalog.keyGroups[item.tag])
+        refresh()
+    }
+
     /// The selected key in the key panel; Done replaces it, as one step to undo.
     @objc private func editKey() {
         guard let key = editor.selectedKey else { return }
@@ -835,7 +858,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     /// or blank with none selected — placed right of the selection, or in the
     /// first row with room for it.
     @objc private func newKey() {
-        beginKeyEdit(title: "New Key", key: editor.selectedKey ?? KeySpec(.blank), isNew: true) { $0.addKey($1) }
+        beginKeyEdit(title: "Add Key", key: editor.selectedKey ?? KeySpec(.blank), isNew: true) { $0.addKey($1) }
     }
 
     /// Slide the key panel out, inside the Keys block, under its buttons;

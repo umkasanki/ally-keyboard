@@ -40,7 +40,9 @@ or with a *Next Layout* key. **Layout ▸ Edit Layouts…** opens the editor:
 - the keyboard as a whole — key width and height, the gaps between keys and
   rows, the padding, the number of rows — each with − / + buttons;
 - keys selected with a click, then moved (◀ ▶ ▲ ▼), swapped or deleted;
-- **New Key…** and **Edit Key…** — a key's action (picked from a palette, a
+- **Add Group…** — a number row, a media row (brightness, Mission Control,
+  music, sound) or a Home / Page Up / Page Down / End column, put in at once;
+- **Add Key…** and **Edit Key…** — a key's action (picked from a palette, a
   recorded shortcut, or text to type), its label, corner label, icon, width
   and font size;
 - Undo / Redo, Save / Revert; a status bar with hints, warnings (no Space key,

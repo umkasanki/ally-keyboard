@@ -3,7 +3,7 @@
 //  AllyKeyboard
 //
 //  One key — what it does and how it looks — edited in a panel that slides
-//  out inside the layout editor's Keys block (New Key…, Edit Key…), not in a
+//  out inside the layout editor's Keys block (Add Key…, Edit Key…), not in a
 //  window of its own: the editor's own picture shows the key as it is
 //  being made, every change at once. It works on a draft: Done hands the
 //  draft back, Cancel drops it, so a whole edit of a key is one step to undo.
@@ -45,7 +45,7 @@ final class KeyEditorPanel: NSObject {
         build()
     }
 
-    /// Start editing `key`: "New Key" or "Edit Key", on the first tab of
+    /// Start editing `key`: "Add Key" or "Edit Key", on the first tab of
     /// actions.
     func begin(title: String, key: KeySpec) {
         titleLabel.stringValue = title
@@ -153,7 +153,7 @@ final class KeyEditorPanel: NSObject {
         doneButton.keyEquivalent = "\r"
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        // Cancel and Done on the title's line, at the right, under New Key…
+        // Cancel and Done on the title's line, at the right, under Add Key…
         // and Edit Key… — not left hanging under the fields.
         let header = row([titleLabel, spacer, cancelButton, doneButton])
 
