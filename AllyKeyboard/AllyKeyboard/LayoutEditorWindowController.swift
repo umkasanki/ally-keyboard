@@ -290,7 +290,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     }
 
     private func refreshStatus() {
-        let hint = keyEdit != nil ? "The picture shows the key as it will be: Done puts it in, Cancel leaves the layout as it was."
+        let hint = keyEdit != nil ? "The picture shows the key as it will be. Done, or a click on another key to edit it next, puts it in; Cancel leaves it out."
             : swapPending ? "Click the key to swap it with."
             : editor.selection == nil ? "Click a key to select it." : selectedDescription()
         var lines = [statusLine(hint, symbol: "info.circle", color: .secondaryLabelColor)]
@@ -790,7 +790,18 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     // for the arrow and delete keys, and these must not answer them.
 
     private func clicked(_ position: KeyPosition?) {
-        guard keyEdit == nil else { return }       // the picture is a preview then
+        if keyEdit != nil {
+            // Another key clicked with the key panel out: this one goes in,
+            // as with Done, and that one opens — several keys edited in turn,
+            // each its own step to undo (the user's call, 2026-11-15). The
+            // picture already shows the layout as Done leaves it, so its
+            // positions are the editor's once the key is in.
+            guard let position, position != preview.selection else { return }
+            keyPanel.commit()
+            editor.select(position)
+            editKey()
+            return
+        }
         if swapPending, let position {
             swapFrom = nil
             editor.swapSelected(with: position)
