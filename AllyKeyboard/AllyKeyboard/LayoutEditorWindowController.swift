@@ -184,7 +184,12 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         preview.maximumSize = Self.previewSize
 
         keyboardPanel = makeKeyboardPanel()
-        let middle = row([preview, keyboardPanel], spacing: 24)
+        // The sizes' column held at the right edge, as the top bar's right end
+        // is, however small the picture (an empty new layout's is a dot).
+        let middleSpacer = NSView()
+        middleSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        let middle = row([preview, middleSpacer, keyboardPanel], spacing: 24)
+        middle.setCustomSpacing(0, after: preview)          // the spacer adds no gap of its own
         // The picture in the middle of the sizes' column, which is taller:
         // the same space above it as below it, down to the keys.
         middle.alignment = .centerY
@@ -237,6 +242,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
             // panel when the preview grew a column of row widths — still
             // drawn there, but not clickable (found by hit-testing, 2026-11-14).
             keysPanel.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -36),
+            middle.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -36),
             statusBar.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             statusBar.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             statusBar.bottomAnchor.constraint(equalTo: content.bottomAnchor),
