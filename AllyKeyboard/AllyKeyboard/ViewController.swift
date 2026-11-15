@@ -222,6 +222,8 @@ final class KeyButton: NSButton {
     var shiftedChar: String?
     /// When set, the key always types this literal string, regardless of the active layout.
     var literalChar: String?
+    /// A Show Phrases key's own list; nil shows the list kept in Settings.
+    var phrases: [String]?
 
     /// The text glyph, when the glyph is text — see `setKeyText`.
     private(set) var glyphLabel: NSTextField?
@@ -435,6 +437,8 @@ class ViewController: NSViewController {
         let colored:         Bool        // render the image in full color (not a template tint)
         /// What the key does, when it comes from a layout.
         var action: KeyAction?
+        /// A Show Phrases key's own list (nil: the list kept in Settings).
+        var phrases: [String]?
 
         init(_ id: String,
              title: String? = nil,
@@ -468,6 +472,7 @@ class ViewController: NSViewController {
                       image: spec.icon, w: CGFloat(spec.width), fontScale: CGFloat(spec.fontScale),
                       fixed: isLiteral, colored: spec.colored)
             action = spec.action
+            phrases = spec.phrases
         }
     }
 
@@ -1207,6 +1212,7 @@ class ViewController: NSViewController {
                 if key.id == "LangSwitch" {
                     langSwitchButtons.append(btn)
                 }
+                btn.phrases = key.phrases
 
                 if key.fixed {
                     // Fixed keys always type their own literal and never relabel.
@@ -1404,6 +1410,8 @@ class ViewController: NSViewController {
         }
 
         if key == "Hi" {
+            // This key's own phrases — keys may each have their own list.
+            greetingPhrases = (sender as? KeyButton)?.phrases ?? settings.savedPhrases
             showGreetings()
             return true
         }
@@ -1714,8 +1722,12 @@ class ViewController: NSViewController {
     /// panel, which cannot restore minimised windows — see `AppSwitcherPanel`.
     private let appSwitcher = AppSwitcherPanel()
 
+    /// The list the last Show Phrases key pressed holds, shown again when
+    /// the keyboard moves.
+    private var greetingPhrases: [String] = []
+
     private func showGreetings() {
-        let phrases = settings.savedPhrases
+        let phrases = greetingPhrases
         guard !phrases.isEmpty else { hideSuggestions(); return }
         // Nothing of a phrase has been typed: it rests dimmed whole, and lights
         // up under the pointer, like a prediction's untyped part. It used to be

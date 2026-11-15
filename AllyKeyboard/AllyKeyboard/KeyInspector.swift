@@ -36,6 +36,11 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
     private var scriptScroll: NSScrollView!
     private var keysRow: NSView!, appRow: NSView!, choiceRow: NSView!, textRow: NSView!, scriptRow: NSView!
     private var shortcutRow: NSView!
+    private let phrasesView = NSTextView()
+    private var phrasesRow: NSView!
+    /// What a Show Phrases key without a list of its own shows: the list
+    /// kept in Settings before keys had their own.
+    var defaultPhrases: [String] = []
     private let shortcutPopup = NSPopUpButton()
     /// The user's Shortcuts, as `shortcuts list` gives them; read once, when
     /// first wanted.
@@ -64,6 +69,11 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
         appRow.isHidden = kind != .openApp
         scriptRow.isHidden = kind != .appleScript
         shortcutRow.isHidden = kind != .runShortcut
+        let isPhrases = key.action == .command(.phrases)
+        phrasesRow.isHidden = !isPhrases
+        if isPhrases, view.window?.firstResponder !== phrasesView {
+            phrasesView.string = (key.phrases ?? defaultPhrases).joined(separator: "\n")
+        }
         if case .runShortcut(let name) = key.action { showShortcuts(selecting: name) }
         if !kind.choices.isEmpty {
             choicePopup.removeAllItems()
@@ -207,6 +217,8 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
         appValue.font = .systemFont(ofSize: 15, weight: .medium)
         appRow = row([appValue, button("Choose\u{2026}", #selector(chooseApp))])
 
+        phrasesRow = column([caption("Phrases, one a line"), textArea(phrasesView, height: 120)], spacing: 4)
+
         scriptView.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
         scriptView.isRichText = false
         scriptView.isAutomaticQuoteSubstitutionEnabled = false
@@ -252,7 +264,7 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
 
         let stack = column([
             header,
-            caption("Action"), actionPopup, choiceRow, textRow, keysRow, appRow, shortcutRow, scriptRow,
+            caption("Action"), actionPopup, choiceRow, phrasesRow, textRow, keysRow, appRow, shortcutRow, scriptRow,
             caption("Label"), labelField,
             caption("Corner label"), cornerField,
             caption("Icon"), iconPopup, coloredCheck,
@@ -268,6 +280,26 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             stack.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+    }
+
+    /// A plain-text area, in its scroll view, the width of the fields.
+    private func textArea(_ text: NSTextView, height: CGFloat) -> NSScrollView {
+        text.font = .systemFont(ofSize: 14)
+        text.isRichText = false
+        text.isAutomaticQuoteSubstitutionEnabled = false
+        text.delegate = self
+        text.minSize = NSSize(width: 0, height: 0)
+        text.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
+        text.isVerticallyResizable = true
+        text.autoresizingMask = [.width]
+        let scroll = NSScrollView()
+        scroll.documentView = text
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.widthAnchor.constraint(equalToConstant: 260).isActive = true
+        scroll.heightAnchor.constraint(equalToConstant: height).isActive = true
+        return scroll
     }
 
     // MARK: - Editing
@@ -306,6 +338,15 @@ final class KeyInspector: NSObject, NSTextViewDelegate {
     }
 
     func textDidEndEditing(_ notification: Notification) {
+        if (notification.object as? NSTextView) === phrasesView {
+            let lines = phrasesView.string.split(separator: "\n")
+                .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            guard lines != (key.phrases ?? defaultPhrases) else { return }
+            var new = key
+            new.phrases = lines
+            emit(new)
+            return
+        }
         guard case .appleScript(let old) = key.action, scriptView.string != old else { return }
         var new = key
         new.action = .appleScript(scriptView.string)

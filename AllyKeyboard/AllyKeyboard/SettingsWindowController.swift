@@ -4,8 +4,8 @@
 //
 //  Tabbed settings window:
 //   • General     — launch-at-login + keyboard size (percent, 100% = base).
-//   • Suggestions — show word predictions while typing, and the saved phrases
-//                   opened by the list key (one per line).
+//   • Suggestions — show word predictions while typing, and the learned words.
+//                   (Phrases belong to each phrases key, in the layout editor.)
 //   • Launcher    — floating-launcher width (points) and opacity (percent).
 //
 
@@ -844,7 +844,6 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         let (wordsView, wordsScroll) = textArea(learnedWords, height: 110)
         learnedWordsView = wordsView
         appliedLearnedWords = learnedWords
-        let (_, scroll) = textArea(savedPhrases, height: 110)
         return pane([
             .wide(check),
             .wide(spaceCheck),
@@ -859,8 +858,9 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
                   + "a password field is kept. One per line: delete a word to forget it, "
                   + "add one to keep it; changes apply when you leave the list."),
             .gap,
-            .tall("Saved phrases", scroll),
-            .note("One per line. The list key on the keyboard opens them."),
+            .note("Phrases now belong to each phrases key, so several keys can hold "
+                  + "different lists: Layout \u{25B8} Edit Layouts\u{2026}, select the key, "
+                  + "Edit Key\u{2026}. A key with no list of its own shows the one kept here before."),
         ])
     }
 
@@ -1017,10 +1017,8 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
         onLearnWordsChange(sender.state == .on)
     }
 
-    /// Three text views share this delegate — the saved phrases, the learned
-    /// words and the list of applications to leave out — so it must ask which
-    /// one changed. Without
-    /// that, typing an application name would overwrite the phrases.
+    /// Two text views share this delegate — the learned words and the list of
+    /// applications to leave out — so it must ask which one changed.
     func textDidChange(_ notification: Notification) {
         guard let textView = notification.object as? NSTextView else { return }
         let lines = textView.string
@@ -1035,8 +1033,6 @@ final class SettingsWindowController: NSWindowController, NSTextViewDelegate {
             // reopened, or the app quits — never in the middle. At head-mouse speed any pause can
             // fall inside a word, and a half-typed line would be taken for a
             // word added, and the word being edited for one removed.
-        } else {
-            onSavedPhrasesChange(lines)
         }
     }
 

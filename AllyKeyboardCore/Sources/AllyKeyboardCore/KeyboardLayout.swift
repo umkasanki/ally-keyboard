@@ -167,9 +167,13 @@ public struct KeySpec: Codable, Equatable {
     public var fontScale: Double
     /// The icon keeps its own colours instead of taking the text colour.
     public var colored: Bool
+    /// A Show Phrases key's own list; nil shows the list from before keys had
+    /// their own (Settings), so nothing set up then is lost.
+    public var phrases: [String]?
 
     public init(_ action: KeyAction, label: String? = nil, secondary: String? = nil,
-                icon: String? = nil, width: Double = 1, fontScale: Double = 1, colored: Bool = false) {
+                icon: String? = nil, width: Double = 1, fontScale: Double = 1, colored: Bool = false,
+                phrases: [String]? = nil) {
         self.action = action
         self.label = label
         self.secondary = secondary
@@ -177,6 +181,7 @@ public struct KeySpec: Codable, Equatable {
         self.width = width
         self.fontScale = fontScale
         self.colored = colored
+        self.phrases = phrases
     }
 
     /// The text on the key when it has no icon. A blank key without a label
@@ -197,7 +202,7 @@ public struct KeySpec: Codable, Equatable {
 
     // Readable files: defaults are left out, and missing keys take them.
     private enum CodingKeys: String, CodingKey {
-        case action, label, secondary, icon, width, fontScale, colored
+        case action, label, secondary, icon, width, fontScale, colored, phrases
     }
 
     public init(from decoder: Decoder) throws {
@@ -209,6 +214,7 @@ public struct KeySpec: Codable, Equatable {
         width = (try c.decodeIfPresent(Double.self, forKey: .width) ?? 1).clamped(to: LayoutEditor.widthRange)
         fontScale = (try c.decodeIfPresent(Double.self, forKey: .fontScale) ?? 1).clamped(to: LayoutEditor.fontScaleRange)
         colored = try c.decodeIfPresent(Bool.self, forKey: .colored) ?? false
+        phrases = try c.decodeIfPresent([String].self, forKey: .phrases)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -220,6 +226,7 @@ public struct KeySpec: Codable, Equatable {
         if width != 1 { try c.encode(width, forKey: .width) }
         if fontScale != 1 { try c.encode(fontScale, forKey: .fontScale) }
         if colored { try c.encode(colored, forKey: .colored) }
+        try c.encodeIfPresent(phrases, forKey: .phrases)
     }
 }
 

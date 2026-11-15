@@ -186,6 +186,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         let middleSpacer = NSView()
         middleSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         inspector.view.isHidden = true
+        inspector.defaultPhrases = SettingsStore().load().savedPhrases
         inspector.onChange = { [weak self] key in
             guard let self else { return }
             self.editor.replaceSelectedKey(with: key)

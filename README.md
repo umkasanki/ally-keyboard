@@ -16,12 +16,12 @@ AllyKeyboard is a clickable on-screen keyboard that stays on top of all windows.
 - **Floating, non-activating** window — always on top, clicking keys doesn't steal focus.
 - Full QWERTY + number row with symbol variants; **multilingual** layout switching (types and relabels per the active input source).
 - **Modifier chords** — sticky Shift / Ctrl / Alt / Cmd (active keys highlight red).
-- **Word prediction** — a docked balloon (above or below, wherever there's room) that also hosts your **saved phrases**; dismisses on outside click.
+- **Word prediction** — a docked balloon (above or below, wherever there's room) that also hosts your **saved phrases** — each phrases key with a list of its own, set in the layout editor; dismisses on outside click.
 - **Right-hand action column** — copy / cut / paste / undo (Material icons) + **Translate** (opens the current selection in Google Translate).
 - Fixed top-row punctuation and `+ − =` keys, navigation keys (Home/End/PgUp/PgDn/arrows), media/volume keys.
 - **Editable layouts** — three built-ins (Standard, Standard Multilingual, Extended) and your own, switched from the menus or a key; a click-only **layout editor** for key sizes, gaps, rows and each key's action and look; layouts shared as files. See [Layouts](#layouts).
 - **Floating launcher** when collapsed — draggable, remembers its position, adjustable width/opacity.
-- **Settings** — keyboard size (%), top/bottom bar heights (+ hide bottom bar), suggestions toggle & saved-phrase editor, launcher width/opacity, launch-at-login, launch-collapsed, and two dark themes (custom / macOS system colors).
+- **Settings** — keyboard size (%), top/bottom bar heights (+ hide bottom bar), suggestions toggle & learned words, launcher width/opacity, launch-at-login, launch-collapsed, and two dark themes (custom / macOS system colors).
 - Dimmed function keys that brighten on hover/press, pointing-hand cursor, menu-bar + right-click control, runs as a **menu-bar accessory** (no Dock icon).
 
 ## Layouts

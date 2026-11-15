@@ -70,4 +70,14 @@ final class ActionKindTests: XCTestCase {
         XCTAssertEqual(l.scriptKeyCount, 2)
         XCTAssertEqual(KeyboardLayout.extended.scriptKeyCount, 0)
     }
+
+    func testAPhrasesKeyKeepsItsOwnList() throws {
+        let key = KeySpec(.command(.phrases), icon: "list.bullet", phrases: ["Hello!", "See you"])
+        XCTAssertEqual(try JSONDecoder().decode(KeySpec.self, from: JSONEncoder().encode(key)), key)
+        // None of its own: nothing written, nil read back.
+        let plain = KeySpec(.command(.phrases))
+        let data = try JSONEncoder().encode(plain)
+        XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("phrases"))
+        XCTAssertNil(try JSONDecoder().decode(KeySpec.self, from: data).phrases)
+    }
 }
