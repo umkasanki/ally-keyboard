@@ -22,13 +22,10 @@ final class AppSwitcherPanel {
     private var panel: NSPanel?
     private var outsideMonitor: Any?
 
-    /// Gaps and padding follow the icon, which is the only size worth a
-    /// setting: everything else exists to frame it.
-    private var baseGap: CGFloat { settings.appPanelIconSize > 0 ? CGFloat(settings.appPanelIconSize) * 0.22 : 14 }
-    /// The margin between the icons and the panel's edge. Deliberately smaller
-    /// than the gap between icons: the frame should hold the row, not surround
-    /// it with air.
-    private var basePadding: CGFloat { baseGap * 0.75 }
+    /// The gap between icons and the margin to the panel's edge, as Settings
+    /// has them (Space between icons, Space around icons).
+    private var baseGap: CGFloat { CGFloat(settings.appPanelIconSpacing) }
+    private var basePadding: CGFloat { CGFloat(settings.appPanelEdgeSpacing) }
 
     private var settings = Settings()
     private var autoHide: DispatchWorkItem?
@@ -39,6 +36,14 @@ final class AppSwitcherPanel {
     private var side: CGFloat = 64
     private var gap: CGFloat = 14
     private var rowCentreY: CGFloat = 0
+    private var padding: CGFloat = 10
+    private var scale: CGFloat = 1
+    /// The apps, a page each that fits in three quarters of the screen, and
+    /// the dots that turn them.
+    private var pages: [[NSRunningApplication]] = []
+    private var dots: [PageDotView] = []
+    private var dotSize: CGFloat = 28
+    private weak var background: NSView?
 
     /// How much the icon under the pointer grows, and how far the swell
     /// reaches. Two icons either side is what the Dock does, and it is what
@@ -97,17 +102,30 @@ final class AppSwitcherPanel {
         let apps = runningApps()
         guard !apps.isEmpty else { return }
 
-        side = CGFloat(settings.appPanelIconSize) * scale
-        gap = baseGap * scale
-        let padding = basePadding * scale
-        // Room for the swell: at most about two and a half icons' worth of
-        // extra width, and the tallest icon has to fit too.
-        let slack = settings.appPanelHoverZoom ? (maxZoom - 1) * side * 2.5 : 0
-        let width = CGFloat(apps.count) * side + CGFloat(apps.count - 1) * gap + padding * 2 + slack
-        let height = (settings.appPanelHoverZoom ? side * maxZoom : side) + padding * 2
-
         let screen = keyboard?.screen ?? NSScreen.main
         let frame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1000, height: 600)
+
+        self.scale = scale
+        side = CGFloat(settings.appPanelIconSize) * scale
+        gap = baseGap * scale
+        padding = basePadding * scale
+        // Room for the swell: at most about two and a half icons' worth of
+        // extra width, and the tallest icon has to fit too.
+        let zoomRoom = settings.appPanelHoverZoom ? (maxZoom - 1) * side * 2.5 : 0
+        // At most three quarters of the screen wide (the user's call,
+        // 2026-11-15); the apps that do not fit go on further pages, reached
+        // by the dots under the row. Icons keep their size: a smaller target
+        // is harder to hit with the head.
+        let widest = frame.width * 0.75
+        let perPage = max(1, Int(((widest - padding * 2 - zoomRoom + gap) / (side + gap)).rounded(.down)))
+        pages = stride(from: 0, to: apps.count, by: perPage).map { Array(apps[$0..<min($0 + perPage, apps.count)]) }
+        let shown = min(apps.count, perPage)
+        let width = CGFloat(shown) * side + CGFloat(shown - 1) * gap + padding * 2 + zoomRoom
+        let rowHeight = settings.appPanelHoverZoom ? side * maxZoom : side
+        dotSize = max(28 * scale, side * 0.4)
+        let dotsHeight = pages.count > 1 ? dotSize : 0
+        let height = rowHeight + padding * 2 + dotsHeight
+        rowCentreY = dotsHeight + padding + rowHeight / 2
         let origin = NSPoint(x: frame.midX - width / 2, y: frame.midY - height / 2)
 
         let p = NSPanel(contentRect: NSRect(origin: origin, size: NSSize(width: width, height: height)),
@@ -128,7 +146,11 @@ final class AppSwitcherPanel {
         p.acceptsMouseMovedEvents = true
 
         let background = HoverTrackingView(frame: NSRect(origin: .zero, size: p.frame.size))
-        background.onMouseMoved = { [weak self] x in self?.updateTargets(pointerX: x) }
+        // Over the dots the row rests: pointing at a dot is not aiming at an icon.
+        background.onMouseMoved = { [weak self] point in
+            guard let self else { return }
+            self.updateTargets(pointerX: point.y >= self.rowCentreY - self.side * self.maxZoom / 2 ? point.x : nil)
+        }
         background.onMouseExited = { [weak self] in self?.updateTargets(pointerX: nil) }
         background.wantsLayer = true
         background.layer?.backgroundColor = NSColor(
@@ -137,12 +159,41 @@ final class AppSwitcherPanel {
         background.layer?.borderWidth = 1
         background.layer?.borderColor = NSColor(white: 1, alpha: 0.12).cgColor
 
+        p.contentView = background
+        self.background = background
+        if pages.count > 1 {
+            for page in pages.indices {
+                let dot = PageDotView(frame: NSRect(x: 0, y: 0, width: dotSize, height: dotSize))
+                dot.onPick = { [weak self] in self?.showPage(page) }
+                background.addSubview(dot)
+                dots.append(dot)
+            }
+            let dotsWidth = CGFloat(dots.count) * dotSize
+            for (i, dot) in dots.enumerated() {
+                dot.setFrameOrigin(NSPoint(x: (width - dotsWidth) / 2 + CGFloat(i) * dotSize, y: padding / 2))
+            }
+        }
+        showPage(0)
+        p.orderFrontRegardless()
+        panel = p
+
+        outsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] _ in
+            self?.hide()
+        }
+    }
+
+    /// One page of the row: its icons, centred, and its dot lit. Picking a
+    /// dot starts the wait for closing by itself again.
+    private func showPage(_ page: Int) {
+        guard let background, pages.indices.contains(page) else { return }
+        stopTicking()
+        buttons.forEach { $0.removeFromSuperview() }
         buttons = []
         restCentres = []
-        rowCentreY = height / 2
+        let apps = pages[page]
+        let width = background.bounds.width
         let rowWidth = CGFloat(apps.count) * side + CGFloat(apps.count - 1) * gap
         let firstX = (width - rowWidth) / 2
-
         for (i, app) in apps.enumerated() {
             let centre = firstX + CGFloat(i) * (side + gap) + side / 2
             let icon = AppIconView(frame: NSRect(x: centre - side / 2,
@@ -162,24 +213,20 @@ final class AppSwitcherPanel {
         }
         currentScales = Array(repeating: 1, count: buttons.count)
         targetScales = currentScales
+        for (i, dot) in dots.enumerated() { dot.isCurrent = i == page }
+        restartAutoHide()
+    }
 
-        p.contentView = background
-        p.orderFrontRegardless()
-        panel = p
-
-        outsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown]) { [weak self] _ in
-            self?.hide()
-        }
-
+    private func restartAutoHide() {
+        autoHide?.cancel()
+        autoHide = nil
         // Closing on its own is off by default and has to be asked for: a panel
         // that disappears while somebody is still aiming at it with their head
         // is worse than one that waits.
-        if settings.appPanelAutoHideSeconds > 0 {
-            let work = DispatchWorkItem { [weak self] in self?.hide() }
-            autoHide = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double(settings.appPanelAutoHideSeconds),
-                                          execute: work)
-        }
+        guard settings.appPanelAutoHideSeconds > 0 else { return }
+        let work = DispatchWorkItem { [weak self] in self?.hide() }
+        autoHide = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Double(settings.appPanelAutoHideSeconds), execute: work)
     }
 
     /// The wave. Every icon is sized from its distance to the pointer, so the
@@ -288,27 +335,38 @@ final class AppSwitcherPanel {
         }
         panel?.orderOut(nil)
         panel = nil
+        buttons = []
+        restCentres = []
+        currentScales = []
+        targetScales = []
+        pages = []
+        dots = []
     }
 
     /// Unhide, un-minimise, then activate — in that order, because activating an
     /// application whose windows are all in the Dock is what the system switcher
     /// already does, and it is exactly what does not help.
+    ///
+    /// The windows are asked for off the main thread: an application that has
+    /// frozen answers each question only when the timeout runs out, and with
+    /// several windows that came to seconds in which the keyboard — the only
+    /// way to type — did not answer either.
     private func raise(_ app: NSRunningApplication) {
         app.unhide()
-
-        let ax = AXUIElementCreateApplication(app.processIdentifier)
-        // A frozen application must not freeze the keyboard with it.
-        AXUIElementSetMessagingTimeout(ax, 0.25)
-        var value: CFTypeRef?
-        if AXUIElementCopyAttributeValue(ax, kAXWindowsAttribute as CFString, &value) == .success,
-           let windows = value as? [AXUIElement] {
-            for window in windows {
-                AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString,
-                                             kCFBooleanFalse)
+        let pid = app.processIdentifier
+        DispatchQueue.global(qos: .userInitiated).async {
+            let ax = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(ax, 0.25)
+            var value: CFTypeRef?
+            if AXUIElementCopyAttributeValue(ax, kAXWindowsAttribute as CFString, &value) == .success,
+               let windows = value as? [AXUIElement] {
+                for window in windows {
+                    AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString,
+                                                 kCFBooleanFalse)
+                }
             }
+            DispatchQueue.main.async { app.activate(options: [.activateAllWindows]) }
         }
-
-        app.activate(options: [.activateAllWindows])
     }
 }
 
@@ -340,9 +398,11 @@ private final class AppIconView: NSView {
 
     required init?(coder: NSCoder) { fatalError("not from a nib") }
 
+    /// Drawn again for the new screen scale (BetterDisplay changes it often).
     override func viewDidChangeBackingProperties() {
         super.viewDidChangeBackingProperties()
         layer?.contentsScale = window?.backingScaleFactor ?? 2
+        layer?.contents = nil
         loadIcon()
     }
 
@@ -353,7 +413,10 @@ private final class AppIconView: NSView {
 
     private func loadIcon() {
         guard layer?.contents == nil, let image = app?.icon else { return }
-        var rect = CGRect(origin: .zero, size: image.size)
+        // In pixels for the largest the icon is drawn — swollen, on this
+        // screen — not at the image's nominal 32 points.
+        let pixels = max(bounds.width, 32) * 1.25 * (window?.backingScaleFactor ?? 2)
+        var rect = CGRect(x: 0, y: 0, width: pixels, height: pixels)
         layer?.contents = image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
     }
 
@@ -390,7 +453,10 @@ private final class AppIconView: NSView {
             // No implicit animation on anything geometric.
             outline.actions = ["position": NSNull(), "bounds": NSNull(),
                                "frame": NSNull(), "cornerRadius": NSNull(),
-                               "borderWidth": NSNull()]
+                               "borderWidth": NSNull(),
+                               // The fade below is the only one: without this
+                               // the layer's own 0.25 s fade ran under it.
+                               "opacity": NSNull()]
             layer?.addSublayer(outline)
         }
 
@@ -432,7 +498,7 @@ private final class AppIconView: NSView {
 /// area for the whole row rather than one per icon: the wave needs to know where
 /// the pointer is even when it is between two icons.
 private final class HoverTrackingView: NSView {
-    var onMouseMoved: ((CGFloat) -> Void)?
+    var onMouseMoved: ((NSPoint) -> Void)?
     var onMouseExited: (() -> Void)?
     private var tracking: NSTrackingArea?
 
@@ -447,11 +513,27 @@ private final class HoverTrackingView: NSView {
     }
 
     override func mouseMoved(with event: NSEvent) {
-        onMouseMoved?(convert(event.locationInWindow, from: nil).x)
+        onMouseMoved?(convert(event.locationInWindow, from: nil))
     }
 
     override func mouseExited(with event: NSEvent) {
         onMouseExited?()
     }
 
+}
+
+/// One page's dot under the row: lit for the page shown, a click turns to
+/// its page. The whole square is the target, not just the dot drawn in it.
+private final class PageDotView: NSView {
+    var onPick: (() -> Void)?
+    var isCurrent = false { didSet { needsDisplay = true } }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let d = bounds.width * 0.42
+        let dot = NSRect(x: bounds.midX - d / 2, y: bounds.midY - d / 2, width: d, height: d)
+        NSColor(white: 1, alpha: isCurrent ? 0.95 : 0.35).setFill()
+        NSBezierPath(ovalIn: dot).fill()
+    }
+
+    override func mouseUp(with event: NSEvent) { onPick?() }
 }

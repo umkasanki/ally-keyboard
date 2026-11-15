@@ -188,27 +188,30 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 **Released: v1.2.1** — [GitHub release](https://github.com/umkasanki/ally-keyboard/releases/tag/v1.2.1)
 (.dmg + .zip, signed with a stable self-signed identity; notarization skipped — no Developer ID).
 
-### Ревью переключателя приложений — 2026-09-26, отложено
+### App switcher review — 2026-09-26, deferred; closed 2026-11-15
 
-Шесть находок по `15885bd`. Решение «оставить как есть» принято пользователем сознательно;
-всё ниже воспроизводится, и каждый пункт сказан через то, чем он проявится.
+Six findings on `15885bd`, left as they were by the user's choice then; all
+fixed on 2026-11-15, with one change of design asked for at the same time.
 
-- [ ] **Две настройки отступов мертвы** (`AppSwitcherPanel.swift`, `baseGap` / `basePadding`).
-  `appPanelIconSpacing` и `appPanelEdgeSpacing` сохраняются и переживают перезапуск, но
-  панель по-прежнему считает промежутки как доли размера иконки и настройки не читает —
-  ползунки не делают ничего. Причина: подстановка текста не совпала с образцом, прошла
-  молча, а результат не был проверен. Отсюда и правило на будущее — **после замены
-  проверять файл, а не отчитываться об успехе**.
-- [ ] **`raise()` морозит главный поток.** Запросы к чужому приложению идут на главном
-  потоке с таймаутом 0.25 с на каждое окно: зависшая программа с шестью свёрнутыми окнами
-  задержит клавиатуру почти на две секунды. А она — единственный способ ввода.
-- [ ] **Ширина панели ничем не ограничена.** Крупные иконки плюс десяток программ — ряд
-  выходит за оба края экрана, и крайние иконки недостижимы.
-- [ ] **Двойная анимация обводки.** У слоя не отключено неявное действие на `opacity`,
-  поэтому поверх явного проявления в 0.12 с идёт системное на 0.25 с.
-- [ ] **Иконка растеризуется один раз.** При смене масштаба экрана — здесь это бывает
-  регулярно через BetterDisplay — иконки остаются в прежнем разрешении.
-- [ ] **`hide()` оставляет массивы** кнопок и геометрии от уже закрытой панели.
+- [x] **Two spacing settings did nothing** (`baseGap` / `basePadding`): the
+  panel worked its gaps out from the icon size and never read
+  *Space between icons* or *Space around icons*. It reads them now. (A text
+  substitution had missed and gone unchecked — check the file after a
+  replacement, not the report of one.)
+- [x] **`raise()` froze the main thread**: the windows of the app picked were
+  asked about on the main thread, up to 0.25 s each, so a frozen app with six
+  minimised windows held the keyboard for nearly two seconds. Asked in the
+  background now.
+- [x] **The panel had no width limit**: with large icons and many apps it ran
+  off both edges of the screen. Now at most three quarters of the screen wide;
+  the apps that do not fit go on further pages, turned by dots under the row
+  (the user's call: pages, not smaller icons).
+- [x] **The outline faded twice**: the layer's implicit opacity action ran its
+  0.25 s fade under the explicit 0.12 s one.
+- [x] **Icons were rasterised once**: after a change of screen scale (often,
+  through BetterDisplay) they stayed at the old resolution. Drawn again, at
+  the size they are shown.
+- [x] **`hide()` kept the closed panel's buttons and geometry.**
 
 ### 2026-09-13
 
