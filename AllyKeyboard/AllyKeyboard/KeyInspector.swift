@@ -240,7 +240,7 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let done = button("Done", #selector(doneClicked))
-        done.keyEquivalent = "\r"
+        // A plain button, as Save beside it is: no default-button blue.
         let header = row([heading, spacer, done])
 
         popup(actionPopup, #selector(kindPicked))

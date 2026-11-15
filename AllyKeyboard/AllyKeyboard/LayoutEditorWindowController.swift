@@ -479,6 +479,8 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         undoButton.isEnabled = editor.canUndo
         redoButton.isEnabled = editor.canRedo
         saveButton.isEnabled = editor.hasUnsavedChanges && editor.canSave
+        // Blue while there is something to save, as a default button is.
+        saveButton.bezelColor = saveButton.isEnabled ? .controlAccentColor : nil
         revertButton.isEnabled = editor.hasUnsavedChanges
         keyButtons.forEach { $0.isEnabled = editor.selection != nil }
         deleteRowButton.isEnabled = editor.selection != nil
