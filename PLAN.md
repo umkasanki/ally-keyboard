@@ -136,7 +136,8 @@ Floating window + clickable word suggestions, inspired by Hot Virtual Keyboard (
 ## Phase 7 — Polish & Testing
 > Goal: stable, comfortable daily use
 
-- [ ] **7.1** Handle edge cases: app switches, fullscreen apps, multiple monitors
+- [-] **7.1** Handle edge cases: app switches, fullscreen apps, multiple monitors
+  — dropped 2026-11-15: the user works without fullscreen apps or a second monitor.
 - [-] **7.2** Keyboard shortcut to show/hide keyboard (global `NSEvent` monitor)
   — dropped 2026-11-15: the user presses no physical keys; a key on the keyboard and
   the menu-bar icon show and hide it.
