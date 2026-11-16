@@ -101,7 +101,9 @@ public enum ActionCatalog {
         chord("Find", 3, [.command], label: "Find"),
         chord("New Tab", 17, [.command], label: "\u{2318}T"),
         chord("Close", 13, [.command], label: "\u{2318}W"),
-    ])
+    ] + zip(1...12, [122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111]).map { n, code in
+        ActionChoice("F\(n)", KeySpec(.shortcut(Shortcut(keyCode: code, modifiers: [])), label: "F\(n)", fontScale: 0.7))
+    })
 
     public static let media = ActionGroup(title: "Media", choices: [
         ActionChoice("Mute", KeySpec(.media(.mute), icon: "volume-off-icon", colored: true)),

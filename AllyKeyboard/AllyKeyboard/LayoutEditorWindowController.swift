@@ -660,14 +660,23 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     @objc private func undo() { editor.undo(); refresh() }
     @objc private func redo() { editor.redo(); refresh() }
 
-    /// New ▸ an almost empty layout, or macOS's Accessibility Keyboard to
-    /// start from (`KeyboardLayout.accessibilityKeyboard`).
+    /// New ▸ an almost empty layout, or one of the built-ins to start from,
+    /// as it comes from the factory (`KeyboardLayout.builtIns`).
     @objc private func newLayoutMenu(_ sender: NSButton) {
         let menu = NSMenu()
-        for (i, title) in ["Empty Layout", "Accessibility Keyboard"].enumerated() {
-            let item = NSMenuItem(title: title, action: #selector(newLayout(_:)), keyEquivalent: "")
+        let empty = NSMenuItem(title: "Empty Layout", action: #selector(newLayout(_:)), keyEquivalent: "")
+        empty.target = self
+        empty.tag = -1
+        menu.addItem(empty)
+        menu.addItem(.separator())
+        let heading = NSMenuItem(title: "Start From", action: nil, keyEquivalent: "")
+        heading.isEnabled = false
+        menu.addItem(heading)
+        for (i, layout) in KeyboardLayout.builtIns.enumerated() {
+            let item = NSMenuItem(title: layout.name, action: #selector(newLayout(_:)), keyEquivalent: "")
             item.target = self
             item.tag = i
+            item.indentationLevel = 1
             menu.addItem(item)
         }
         menu.font = .systemFont(ofSize: 15)
@@ -677,9 +686,12 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     @objc private func newLayout(_ item: NSMenuItem) {
         guard confirmLeavingEdits() else { return }
         var layout: KeyboardLayout
-        switch item.tag {
-        case 1: layout = .accessibilityKeyboard()
-        default:
+        if KeyboardLayout.builtIns.indices.contains(item.tag) {
+            // A copy of the factory layout, the user's own under a new id.
+            layout = KeyboardLayout.builtIns[item.tag]
+            layout.id = UUID()
+            layout.name += " copy"
+        } else {
             // A start that can already type a little: Backspace, Space, Return.
             layout = KeyboardLayout(name: "New Layout", rows: [[
                 KeySpec(.key(.backspace), icon: "delete.backward", width: 1.5),

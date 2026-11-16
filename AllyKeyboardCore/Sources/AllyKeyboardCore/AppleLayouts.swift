@@ -15,9 +15,10 @@ import Foundation
 
 extension KeyboardLayout {
 
-    /// The Accessibility Keyboard, under a new id.
-    public static func accessibilityKeyboard() -> KeyboardLayout {
-        KeyboardLayout(name: "Accessibility Keyboard",
+    /// The Accessibility Keyboard — under a new id for New ▸, under its own
+    /// for the built-in one (`accessibilityKeyboardID`).
+    public static func accessibilityKeyboard(id: UUID = UUID()) -> KeyboardLayout {
+        KeyboardLayout(id: id, name: "Accessibility Keyboard",
                        rows: [topRow, numberRow, tabRow, capsRow, shiftRow, bottomRow])
     }
 

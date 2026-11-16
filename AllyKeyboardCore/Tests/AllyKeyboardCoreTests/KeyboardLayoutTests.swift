@@ -58,26 +58,31 @@ final class KeyboardLayoutTests: XCTestCase {
         XCTAssertEqual(ids(.standardMultilingual), expectedStandardMultilingual)
     }
 
-    /// Where a key starts, in key widths from the left edge.
-    private func start(of action: KeyAction, in row: [KeySpec]) -> Double {
-        row.prefix { $0.action != action }.reduce(0) { $0 + $1.width }
-    }
-
     func testEveryBuiltInHasEvenRowsAndUpAboveDown() {
         for layout in KeyboardLayout.builtIns {
-            let widths = Set(layout.rows.map { $0.reduce(0) { $0 + $1.width } })
-            XCTAssertEqual(widths.count, 1, "\(layout.name): rows of different widths \(widths)")
-            let zxcv = layout.rows[4], bottom = layout.rows[5]
-            XCTAssertEqual(start(of: .key(.arrowUp), in: zxcv), start(of: .key(.arrowDown), in: bottom),
-                           "\(layout.name): ↑ is not above ↓")
+            // ↑ over ↓ in one place (half-height keys) counts once.
+            XCTAssertFalse(layout.rowsAreUneven, "\(layout.name): rows of different widths \(layout.rowWidths)")
+            // Where each arrow starts across the keyboard — in the row above,
+            // or in the same place as a top half.
+            func start(_ key: SpecialKey) -> Double? {
+                for r in layout.rows.indices {
+                    if let i = layout.rows[r].firstIndex(where: { $0.action == .key(key) }) {
+                        return layout.placements(inRow: r)[i].x
+                    }
+                }
+                return nil
+            }
+            XCTAssertEqual(start(.arrowUp)!, start(.arrowDown)!, accuracy: 1e-9, "\(layout.name): ↑ is not above ↓")
         }
     }
 
     func testBuiltInsHaveFixedIDsAndNoProblems() {
         XCTAssertEqual(KeyboardLayout.builtIns.map(\.id),
-                       [KeyboardLayout.standardID, KeyboardLayout.standardMultilingualID, KeyboardLayout.extendedID])
-        XCTAssertEqual(KeyboardLayout.builtIns.map(\.name), ["Standard", "Standard Multilingual", "Extended"])
-        XCTAssertEqual(Set(KeyboardLayout.builtIns.map(\.id)).count, 3)
+                       [KeyboardLayout.standardID, KeyboardLayout.standardMultilingualID, KeyboardLayout.extendedID,
+                        KeyboardLayout.accessibilityKeyboardID])
+        XCTAssertEqual(KeyboardLayout.builtIns.map(\.name),
+                       ["Standard", "Standard Multilingual", "Extended", "Accessibility Keyboard"])
+        XCTAssertEqual(Set(KeyboardLayout.builtIns.map(\.id)).count, 4)
         for layout in KeyboardLayout.builtIns { XCTAssertEqual(layout.problems, [], layout.name) }
     }
 

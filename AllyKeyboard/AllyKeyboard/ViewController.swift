@@ -932,12 +932,15 @@ class ViewController: NSViewController {
 
     private var allRows: [[Key]] { layout.rows.map { row in row.map { Key($0) } } }
 
-    private func rowPixelWidth(_ row: [Key]) -> CGFloat {
-        row.reduce(0) { $0 + keyW($1) } + CGFloat(row.count - 1) * keySpacing
+    /// A row's width as its keys are laid out (`placements(inRow:)`): ↑ over
+    /// ↓, half-height keys sharing a place, count once.
+    private func rowPixelWidth(_ row: Int) -> CGFloat {
+        let end = layout.placements(inRow: row).map { $0.x + $0.width }.max() ?? 0
+        return CGFloat(end) * scale
     }
 
     private var keyboardSize: NSSize {
-        let contentW = allRows.map { rowPixelWidth($0) }.max() ?? 0
+        let contentW = layout.rows.indices.map { rowPixelWidth($0) }.max() ?? 0
         let w = contentW + padding * 2
         let statusBarH = AppConfig.useCustomTitleBar ? customStatusBarHeight : 0
         let h = CGFloat(allRows.count) * (keyHeight + rowSpacing) - rowSpacing + padding * 2 + dragBarHeight + statusBarH

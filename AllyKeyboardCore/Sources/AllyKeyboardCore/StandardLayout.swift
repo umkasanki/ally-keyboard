@@ -25,7 +25,9 @@ extension KeyboardLayout {
     public static let standardMultilingualID = UUID(uuidString: "00000000-0000-0000-0000-0000000A11E2")!
 
     /// The built-ins, default first.
-    public static let builtIns: [KeyboardLayout] = [standard, standardMultilingual, extended]
+    public static let accessibilityKeyboardID = UUID(uuidString: "00000000-0000-0000-0000-0000000ACCE5")!
+    public static let builtIns: [KeyboardLayout] = [standard, standardMultilingual, extended,
+                                                    accessibilityKeyboard(id: accessibilityKeyboardID)]
 
     public var isBuiltIn: Bool { KeyboardLayout.builtIns.contains { $0.id == id } }
 

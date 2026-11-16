@@ -19,20 +19,23 @@ AllyKeyboard is a clickable on-screen keyboard that stays on top of all windows.
 - **Word prediction** and **next-word suggestions** — after a word and a space, the words you usually write next (learned from your own typing, on your Mac only), so a frequent phrase can be finished word by word; a docked balloon (above or below, wherever there's room) that also hosts your **saved phrases** — each phrases key with a list of its own, set in the layout editor; dismisses on outside click.
 - **Right-hand action column** — copy / cut / paste / undo (Material icons) + **Translate** (opens the current selection in Google Translate).
 - Fixed top-row punctuation and `+ − =` keys, navigation keys (Home/End/PgUp/PgDn/arrows), media/volume keys.
-- **Editable layouts** — three built-ins (Standard, Standard Multilingual, Extended) and your own, switched from the menus or a key; a click-only **layout editor** in one window — key sizes, gaps, rows, row alignment, and a key inspector for each key's action (shortcuts, system events, apps, Shortcuts, AppleScript…) and look (icons, a second icon for start / stop keys); layouts shared as files. See [Layouts](#layouts).
+- **Editable layouts** — four built-ins (Standard, Standard Multilingual, Extended, Accessibility Keyboard) and your own, switched from the menus or a key; a click-only **layout editor** in one window — key sizes, gaps, rows, row alignment, and a key inspector for each key's action (shortcuts, system events, apps, Shortcuts, AppleScript…) and look (icons, a second icon for start / stop keys); layouts shared as files. See [Layouts](#layouts).
 - **Floating launcher** when collapsed — draggable, remembers its position, adjustable width/opacity.
 - **Settings** — keyboard size (%), top/bottom bar heights (+ hide bottom bar), suggestions toggle & learned words, launcher width/opacity, launch-at-login, launch-collapsed, and two dark themes (custom / macOS system colors).
 - Dimmed function keys that brighten on hover/press, pointing-hand cursor, menu-bar + right-click control, runs as a **menu-bar accessory** (no Dock icon).
 
 ## Layouts
 
-The keys on the keyboard come from a **layout**. Three are built in:
+The keys on the keyboard come from a **layout**. Four are built in:
 
 - **Standard** — the default: QWERTY, the number row, editing and media keys.
 - **Standard Multilingual** — Standard with the input-language key (it cycles
   the input sources enabled in macOS) in place of Screenshot.
 - **Extended** — Standard plus the input-language key and a Home / Page Up /
   Page Down / End column.
+- **Accessibility Keyboard** — macOS's own on-screen keyboard as it first
+  appears: its top row (the Panels button is Choose Layout), its widths, a real
+  fn and the half-height arrows; Hide Keyboard in place of the right Option.
 
 Switch layouts from the menu-bar icon or the right-click menu (**Layout ▸**),
 or with a *Next Layout* key. **Layout ▸ Edit Layouts…** opens the editor.
@@ -47,7 +50,7 @@ any change; nothing is written to disk until **Save** (**Revert** drops the
 edits).
 
 - **Top bar** — the layout being edited, **New ▸** (an almost empty layout, or
-  macOS's **Accessibility Keyboard**, its Panels button being Choose Layout),
+  a copy of a built-in one to start from),
   Duplicate, Rename, Delete (**Reset to Factory** for a built-in), Import,
   Export; Undo, Redo, Revert, Save.
 - **The keyboard as a whole** — key width and height, the gaps between keys

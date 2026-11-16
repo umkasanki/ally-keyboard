@@ -68,6 +68,17 @@ final class AppleLayoutsTests: XCTestCase {
                        (1...12).map { "F\($0)" })
     }
 
+    /// Built in, fourth in the list, under an id of its own that stays.
+    func testItIsTheFourthBuiltIn() {
+        XCTAssertEqual(KeyboardLayout.builtIns.map(\.name),
+                       ["Standard", "Standard Multilingual", "Extended", "Accessibility Keyboard"])
+        let builtIn = KeyboardLayout.builtIns[3]
+        XCTAssertEqual(builtIn.id, KeyboardLayout.accessibilityKeyboardID)
+        XCTAssertTrue(builtIn.isBuiltIn)
+        XCTAssertEqual(builtIn.rows, l.rows)                                // the same keys as the template
+        XCTAssertFalse(l.isBuiltIn)                                         // a copy from New ▸ is the user's
+    }
+
     func testEachIsANewLayout() {
         XCTAssertNotEqual(KeyboardLayout.accessibilityKeyboard().id, KeyboardLayout.accessibilityKeyboard().id)
     }
