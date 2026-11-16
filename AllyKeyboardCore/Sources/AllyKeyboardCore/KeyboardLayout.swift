@@ -107,10 +107,13 @@ public struct KeyboardLayout: Codable, Equatable, Identifiable {
         // of the same clamped keys and the gaps between them — the keyboard's
         // own sum (`rowPixelWidth`) — so no row runs past the widest.
         func span(_ units: Double) -> Double { max(0, units * unit - g.keySpacing) }
+        // A place is a key, or a top half and the bottom half under it.
         func rowSpan(_ keys: [KeySpec]) -> Double {
-            keys.reduce(0) { $0 + span($1.width) } + Double(max(keys.count - 1, 0)) * g.keySpacing
+            let places = Self.places(keys)
+            return places.reduce(0) { $0 + span($1.width) } + Double(max(places.count - 1, 0)) * g.keySpacing
         }
-        var widths = keys.map { span($0.width) }
+        let places = Self.places(keys)
+        var widths = places.map { span($0.width) }
         let ownSpan = rowSpan(keys)
         let full = rows.map(rowSpan).max() ?? 0
         var x = 0.0
@@ -118,14 +121,33 @@ public struct KeyboardLayout: Codable, Equatable, Identifiable {
         case .left: break
         case .center: x = (full - ownSpan) / 2
         case .stretch:
-            let gaps = Double(keys.count - 1) * g.keySpacing
+            let gaps = Double(places.count - 1) * g.keySpacing
             let keysOnly = widths.reduce(0, +)
             if keysOnly > 0 { widths = widths.map { $0 * (full - gaps) / keysOnly } }
         }
-        return widths.map { w in
-            defer { x += w + g.keySpacing }
-            return (x, w)
+        var result = [(x: Double, width: Double)](repeating: (0, 0), count: keys.count)
+        for (place, w) in zip(places, widths) {
+            for i in place.keys { result[i] = (x, w) }
+            x += w + g.keySpacing
         }
+        return result
+    }
+
+    /// A row's places, in order: each key on its own, except a top half
+    /// followed by a bottom half, which share one place as wide as the wider.
+    static func places(_ keys: [KeySpec]) -> [(keys: [Int], width: Double)] {
+        var places: [(keys: [Int], width: Double)] = []
+        var i = 0
+        while i < keys.count {
+            if keys[i].half == .top, i + 1 < keys.count, keys[i + 1].half == .bottom {
+                places.append(([i, i + 1], max(keys[i].width, keys[i + 1].width)))
+                i += 2
+            } else {
+                places.append(([i], keys[i].width))
+                i += 1
+            }
+        }
+        return places
     }
 
     /// The empty room in a row, cut into one-key places — where a letter key
@@ -152,6 +174,18 @@ public struct KeyboardLayout: Codable, Equatable, Identifiable {
     }
 }
 
+/// Which half of the row's height a key takes.
+public enum KeyHalf: String, Codable, CaseIterable {
+    case top, bottom
+
+    /// Where the half stands within a row `height` high: its distance from
+    /// the row's top and its own height, `gap` between the two halves.
+    public func span(rowHeight height: Double, gap: Double) -> (fromTop: Double, height: Double) {
+        let h = max(0, (height - gap) / 2)
+        return (self == .top ? 0 : height - h, h)
+    }
+}
+
 /// One key: what it does, its label or icon, and its size.
 public struct KeySpec: Codable, Equatable {
     public var action: KeyAction
@@ -174,10 +208,14 @@ public struct KeySpec: Codable, Equatable {
     /// A Show Phrases key's own list; nil shows the list from before keys had
     /// their own (Settings), so nothing set up then is lost.
     public var phrases: [String]?
+    /// Half the row's height, at its top or its bottom — the arrows of a Mac
+    /// keyboard. A top half followed by a bottom half share one place, ↑ over
+    /// ↓; nil is the whole height.
+    public var half: KeyHalf?
 
     public init(_ action: KeyAction, label: String? = nil, secondary: String? = nil,
                 icon: String? = nil, width: Double = 1, fontScale: Double = 1, colored: Bool = false,
-                phrases: [String]? = nil, secondIcon: String? = nil) {
+                phrases: [String]? = nil, secondIcon: String? = nil, half: KeyHalf? = nil) {
         self.action = action
         self.label = label
         self.secondary = secondary
@@ -187,6 +225,7 @@ public struct KeySpec: Codable, Equatable {
         self.colored = colored
         self.phrases = phrases
         self.secondIcon = secondIcon
+        self.half = half
     }
 
     /// The text on the key when it has no icon. A blank key without a label
@@ -207,7 +246,7 @@ public struct KeySpec: Codable, Equatable {
 
     // Readable files: defaults are left out, and missing keys take them.
     private enum CodingKeys: String, CodingKey {
-        case action, label, secondary, icon, secondIcon, width, fontScale, colored, phrases
+        case action, label, secondary, icon, secondIcon, width, fontScale, colored, phrases, half
     }
 
     public init(from decoder: Decoder) throws {
@@ -221,6 +260,7 @@ public struct KeySpec: Codable, Equatable {
         fontScale = (try c.decodeIfPresent(Double.self, forKey: .fontScale) ?? 1).clamped(to: LayoutEditor.fontScaleRange)
         colored = try c.decodeIfPresent(Bool.self, forKey: .colored) ?? false
         phrases = try c.decodeIfPresent([String].self, forKey: .phrases)
+        half = try c.decodeIfPresent(KeyHalf.self, forKey: .half)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -234,6 +274,7 @@ public struct KeySpec: Codable, Equatable {
         if fontScale != 1 { try c.encode(fontScale, forKey: .fontScale) }
         if colored { try c.encode(colored, forKey: .colored) }
         try c.encodeIfPresent(phrases, forKey: .phrases)
+        try c.encodeIfPresent(half, forKey: .half)
     }
 }
 
@@ -301,7 +342,11 @@ public enum SpecialKey: String, Codable, CaseIterable, Hashable {
 
 public enum Modifier: String, Codable, CaseIterable {
     case shift = "Shift", capsLock = "CapsLock",
-         control = "Ctrl", option = "Alt", command = "Cmd"
+         control = "Ctrl", option = "Alt", command = "Cmd",
+         /// As on Apple's Accessibility Keyboard: held for the next key, it
+         /// turns the top row into F1–F12 and the arrows into Home, End and
+         /// the page keys (`FnLayer`); any other key is pressed with fn.
+         fn = "Fn"
 }
 
 /// The keys a Mac keyboard's top row sends as system events, not key codes.
@@ -339,7 +384,7 @@ public struct Shortcut: Hashable {
         self.modifiers = Self.order.filter(modifiers.contains)
     }
 
-    private static let order: [Modifier] = [.control, .option, .shift, .capsLock, .command]
+    private static let order: [Modifier] = [.control, .option, .shift, .capsLock, .command, .fn]
 
     /// The chords the keyboard has keys for, by the names the app gives them.
     public static let named: [String: Shortcut] = [

@@ -80,6 +80,7 @@ public enum ActionCatalog {
         ActionChoice("Control", KeySpec(.modifier(.control), label: "^")),
         ActionChoice("Option", KeySpec(.modifier(.option), label: "\u{2325}")),
         ActionChoice("Command", KeySpec(.modifier(.command), label: "\u{2318}")),
+        ActionChoice("fn", KeySpec(.modifier(.fn), label: "fn", fontScale: 0.7)),
     ])
 
     private static func chord(_ name: String, _ keyCode: Int, _ mods: [Modifier],
@@ -152,7 +153,8 @@ public enum ActionCatalog {
         "scissors", "arrow.uturn.backward", "arrow.uturn.forward", "speaker.slash", "speaker.wave.1",
         "speaker.wave.3", "keyboard", "rectangle.2.swap", "star", "heart",
         "sun.min", "sun.max", "backward.fill", "playpause.fill", "forward.fill", "rectangle.3.group",
-        "eject.fill", "square.grid.3x3",
+        "eject.fill", "square.grid.3x3", "backward", "playpause", "forward",
+        "arrowtriangle.left.fill", "arrowtriangle.right.fill", "arrowtriangle.up.fill", "arrowtriangle.down.fill",
         "mic", "mic.fill", "mic.slash", "record.circle", "stop.fill", "stop.circle", "pause.fill",
         "pause.circle", "play.fill", "video", "video.fill", "waveform",
     ]

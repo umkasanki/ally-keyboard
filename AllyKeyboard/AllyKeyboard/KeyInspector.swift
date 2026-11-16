@@ -75,6 +75,9 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
         .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     private let coloredCheck = NSButton(checkboxWithTitle: "Icon keeps its colours", target: nil, action: nil)
     private let widthValue = NSTextField(labelWithString: "")
+    /// The whole height, or the top or bottom half (`KeySpec.half`).
+    private let heightPopup = NSPopUpButton()
+    private static let heights: [(KeyHalf?, String)] = [(nil, "Whole"), (.top, "Top half"), (.bottom, "Bottom half")]
     private let fontValue = NSTextField(labelWithString: "")
 
     override init() {
@@ -138,8 +141,9 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
         secondIconToggle.state = secondIconOpened ? .on : .off
         secondIconBox.isHidden = !secondIconOpened
         coloredCheck.state = key.colored ? .on : .off
-        widthValue.stringValue = String(key.width)
-        fontValue.stringValue = String(key.fontScale)
+        widthValue.stringValue = Self.number(key.width)
+        fontValue.stringValue = Self.number(key.fontScale)
+        heightPopup.selectItem(at: Self.heights.firstIndex { $0.0 == key.half } ?? 0)
     }
 
     private func emit(_ new: KeySpec) {
@@ -319,12 +323,17 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
             value.alignment = .center
             value.widthAnchor.constraint(equalToConstant: 56).isActive = true
         }
+        popup(heightPopup, #selector(heightPicked))
+        heightPopup.addItems(withTitles: Self.heights.map(\.1))
         let sizes = row([
             column([caption("Width"), row([button("", #selector(narrower), symbol: "minus"), widthValue,
                                            button("", #selector(wider), symbol: "plus")])]),
             column([caption("Font size"), row([button("", #selector(smallerFont), symbol: "minus"), fontValue,
                                                button("", #selector(largerFont), symbol: "plus")])]),
         ], spacing: 18)
+        let heightRow = column([caption("Height"), heightPopup,
+                                caption("Top half, then bottom half: one place, \u{2191} over \u{2193}")],
+                               spacing: 4)
 
         let stack = column([
             header,
@@ -333,7 +342,7 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
             caption("Corner label"), cornerField,
             caption("Icon"), iconSearch, iconPopup,
             secondIconHeader(), secondIconBox, coloredCheck,
-            sizes,
+            sizes, heightRow,
         ], spacing: 6)
         stack.setCustomSpacing(12, after: header)
         header.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
@@ -479,6 +488,20 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
         var new = key
         new.icon = iconPopup.selectedItem?.representedObject as? String
         new.secondIcon = secondIconPopup.selectedItem?.representedObject as? String
+        emit(new)
+    }
+
+    /// Up to two decimals, no trailing zeros: 1, 1.25, 1.04.
+    private static func number(_ value: Double) -> String {
+        let rounded = (value * 100).rounded() / 100
+        return rounded == rounded.rounded() ? String(Int(rounded)) + ".0" : String(rounded)
+    }
+
+    @objc private func heightPicked() {
+        let i = heightPopup.indexOfSelectedItem
+        guard Self.heights.indices.contains(i) else { return }
+        var new = key
+        new.half = Self.heights[i].0
         emit(new)
     }
 
@@ -671,7 +694,8 @@ final class KeyInspector: NSObject, NSTextViewDelegate, NSTextFieldDelegate {
     static func chordName(_ chord: Shortcut, key: String? = nil) -> String {
         let symbols: [(Modifier, String)] = [(.control, "\u{2303}"), (.option, "\u{2325}"),
                                              (.shift, "\u{21E7}"), (.command, "\u{2318}")]
-        return symbols.filter { chord.modifiers.contains($0.0) }.map(\.1).joined() + keyName(chord.keyCode, typed: key)
+        return (chord.modifiers.contains(.fn) ? "fn " : "")
+            + symbols.filter { chord.modifiers.contains($0.0) }.map(\.1).joined() + keyName(chord.keyCode, typed: key)
     }
 
     private static func keyName(_ code: Int, typed: String?) -> String {

@@ -35,7 +35,7 @@ public enum KeyInput: Equatable {
              "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
              "Home", "End", "PageUp", "PageDown",
              "Mute", "VolumeDown", "VolumeUp",
-             "fn", "Ctrl", "Alt", "Cmd", "CapsLock", "Shift",
+             "fn", "Fn", "Ctrl", "Alt", "Cmd", "CapsLock", "Shift",
              "Hi", "LangSwitch":
             return .ignored
         default:

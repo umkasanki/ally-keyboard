@@ -66,8 +66,14 @@ final class LayoutPreviewView: NSView {
         let pad = CGFloat(g.padding) * s
         return layout.rows.indices.map { r in
             let y = pad + CGFloat(r) * rowStep
-            return layout.placements(inRow: r).map { place in
-                NSRect(x: pad + CGFloat(place.x) * s, y: y, width: max(CGFloat(place.width) * s, 4), height: height)
+            return zip(layout.placements(inRow: r), layout.rows[r]).map { place, key in
+                var frame = NSRect(x: pad + CGFloat(place.x) * s, y: y, width: max(CGFloat(place.width) * s, 4), height: height)
+                if let half = key.half {                     // flipped: counted from the top
+                    let span = half.span(rowHeight: Double(height), gap: g.rowSpacing * Double(s))
+                    frame.origin.y = y + CGFloat(span.fromTop)
+                    frame.size.height = CGFloat(span.height)
+                }
+                return frame
             }
         }
     }
@@ -147,12 +153,14 @@ final class LayoutPreviewView: NSView {
     /// The keyboard's label arithmetic, against the key's height: its primary
     /// font is 15 pt on a 32 pt key, its corner font 9.6 pt.
     private func drawFace(of key: KeySpec, in frame: NSRect) {
-        let primary = frame.height * AppConfig.Layout.fontSizePrimary / 32
+        // A half-height key takes the whole key's font, as on the keyboard,
+        // whose sizes do not follow the key's height.
+        let primary = (key.half == nil ? frame.height : frame.height * 2) * AppConfig.Layout.fontSizePrimary / 32
         let fontScale = CGFloat(key.fontScale)
         if let name = key.icon, let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil) {
             // A symbol, always white, as on the keyboard.
             let config = NSImage.SymbolConfiguration(pointSize: primary * 0.85 * fontScale, weight: .regular)
-                .applying(.init(paletteColors: [.white]))
+                .applying(.init(paletteColors: [NSColor(white: 1, alpha: key.half != nil ? 0.88 : 1)]))   // half keys dimmer, as on the keyboard
             if let image = symbol.withSymbolConfiguration(config) { draw(image, centredIn: frame) }
         } else if let name = key.icon, let asset = NSImage(named: name) {
             // A bundled image: white unless it keeps its colours.

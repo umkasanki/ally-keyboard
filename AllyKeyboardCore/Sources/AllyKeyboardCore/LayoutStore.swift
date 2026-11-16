@@ -34,7 +34,8 @@ extension KeyboardLayout {
     public var isUsable: Bool { !problems.contains(.noKeys) }
 
     /// Each row's width in key widths, gaps included as the keyboard draws them.
-    public var rowWidths: [Double] { rows.map { $0.reduce(0) { $0 + $1.width } } }
+    /// ↑ over ↓ (`KeySpec.half`) count once.
+    public var rowWidths: [Double] { rows.map { Self.places($0).reduce(0) { $0 + $1.width } } }
 
     /// Whether rows differ in width — to a millionth of a key, so sums of
     /// fractions that are equal (1.1 + 2.2 and 3.3) count as equal.

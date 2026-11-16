@@ -256,6 +256,25 @@ final class KeyButton: NSButton {
     override init(frame: NSRect) { super.init(frame: frame); configure() }
     required init?(coder: NSCoder) { super.init(coder: coder); configure() }
 
+    private var overlayLabel: NSTextField?
+
+    /// Show `text` in place of the key's own face — the F-key a top-row key
+    /// is while fn is held — or, with nil, the face again.
+    func showOverlay(_ text: String?, fontSize: CGFloat) {
+        overlayLabel?.removeFromSuperview()
+        overlayLabel = nil
+        glyphView?.isHidden = text != nil
+        guard let text else { return }
+        let label = NSTextField(labelWithString: text)
+        label.font = .systemFont(ofSize: fontSize, weight: .regular)
+        label.textColor = .white
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+        NSLayoutConstraint.activate([label.centerXAnchor.constraint(equalTo: centerXAnchor),
+                                     label.centerYAnchor.constraint(equalTo: centerYAnchor)])
+        overlayLabel = label
+    }
+
     /// Host a glyph that rests dimmed and brightens to full on hover/press.
     func installGlyph(_ view: NSView, restAlpha: CGFloat) {
         title = ""            // hide the button's own default title/image behind the glyph
@@ -447,6 +466,8 @@ class ViewController: NSViewController {
         var phrases: [String]?
         /// The icon after every other press (`KeySpec.secondIcon`).
         var secondImage: String?
+        /// Half the row's height (`KeySpec.half`).
+        var half: KeyHalf?
 
         init(_ id: String,
              title: String? = nil,
@@ -482,6 +503,7 @@ class ViewController: NSViewController {
             action = spec.action
             phrases = spec.phrases
             secondImage = spec.secondIcon
+            half = spec.half
         }
     }
 
@@ -945,7 +967,7 @@ class ViewController: NSViewController {
 
     // MARK: - Modifier state (Ctrl / Alt / Cmd — sticky, one-shot like Shift)
 
-    private static let modifierIDs: Set<String> = ["Ctrl", "Alt", "Cmd"]
+    private static let modifierIDs: Set<String> = ["Ctrl", "Alt", "Cmd", "Fn"]
 
     /// How bright a key rests, by the only rule there is: **a letter is bright,
     /// everything else recedes.** Asked for on 2026-10-02 so that the thing
@@ -958,6 +980,8 @@ class ViewController: NSViewController {
     /// Being compared on the device, 2026-10-09: 0.80 read easily but stood too
     /// close to a letter's 1.0, 0.72 was the midpoint, and this is 0.65 again for
     /// a second look at the original.
+    /// How much dimmer a half-height key's icon rests than a whole key's.
+    static let halfKeyDim: CGFloat = 0.88
     static let dimAlpha: CGFloat = 0.78   // 2026-10-24: 0.70 read too dark once the labels went a weight lighter
     /// Coloured icons carry their own colour through the dimming, and colour
     /// draws the eye on its own, so they rest a little lower than the grey ones
@@ -1181,6 +1205,7 @@ class ViewController: NSViewController {
         shiftButtons = []
         capsButtons = []
         modifierButtons = [:]
+        fnLabelButtons = []
         activeModifiers = []
         langSwitchButtons = []
         characterButtons = []
@@ -1216,16 +1241,30 @@ class ViewController: NSViewController {
                 let x = padding + CGFloat(places[keyIndex].x) * scale
                 let w = CGFloat(places[keyIndex].width) * scale
                 if key.isSpacer { continue }   // empty gap, no button
-                let btn = KeyButton(frame: NSRect(x: x, y: y, width: w, height: keyHeight))
+                // A half-height key: the top or bottom half of the row, the
+                // row gap between the halves.
+                var frame = NSRect(x: x, y: y, width: w, height: keyHeight)
+                if let half = key.half {
+                    let span = half.span(rowHeight: Double(keyHeight), gap: Double(rowSpacing))
+                    frame.size.height = CGFloat(span.height)
+                    frame.origin.y = y + keyHeight - CGFloat(span.fromTop + span.height)   // the window counts from below
+                }
+                let btn = KeyButton(frame: frame)
                 btn.identifier = NSUserInterfaceItemIdentifier(key.id)
                 if let action = key.action { actionsByID[key.id] = action }
+                if let action = key.action, let label = FnLayer.label(for: action) {
+                    fnLabelButtons.append((btn, label))
+                }
                 btn.target     = self
                 btn.action     = #selector(keyPressed(_:))
                 btn.movesWindowOnDrag = settings.dragToMove   // drag a key to move the keyboard
 
                 if let imageName = key.image,
                    let face = iconFace(imageName, key: key, symbolSize: symbolSize, tint: .white) {
-                    btn.installGlyph(face.0, restAlpha: face.1)
+                    // The small arrows of a half-height key rest dimmer: drawn
+                    // as brightly as a whole key's icon they glared (the user's
+                    // call, 2026-11-16).
+                    btn.installGlyph(face.0, restAlpha: key.half != nil ? face.1 * Self.halfKeyDim : face.1)
                     if let second = key.secondImage,
                        let other = iconFace(second, key: key, symbolSize: symbolSize, tint: .white) {
                         btn.faces = (face, other)
@@ -1335,6 +1374,7 @@ class ViewController: NSViewController {
         // and the rest may move the caret or the focus, and then the space is
         // no longer the character before it.
         // ↑ ↓ and Return choose among the suggestions while they are up.
+        if pressFnVariant(of: key) { return }
         if handleSuggestionKey(key) { return }
 
         let autoSpaceWasPending = autoSpacePending
@@ -1735,6 +1775,7 @@ class ViewController: NSViewController {
         if mods.contains("Ctrl") { flags.insert(.maskControl) }
         if mods.contains("Alt")  { flags.insert(.maskAlternate) }
         if mods.contains("Cmd")  { flags.insert(.maskCommand) }
+        if mods.contains("Fn")   { flags.insert(.maskSecondaryFn) }
         return flags
     }
 
@@ -1743,6 +1784,35 @@ class ViewController: NSViewController {
             let on = activeModifiers.contains(id)
             buttons.forEach { $0.isActive = on }
         }
+        // While fn is held the top row reads F1–F12, as on Apple's keyboard.
+        let fn = activeModifiers.contains("Fn")
+        for (button, label) in fnLabelButtons {
+            button.showOverlay(fn ? label : nil, fontSize: keyFontSizePrimary * 0.8)
+        }
+    }
+
+    /// Keys that read otherwise while fn is held, and what they read then.
+    private var fnLabelButtons: [(KeyButton, String)] = []
+
+    /// A key pressed with fn held that becomes another (`FnLayer`): the F-key,
+    /// Home, End, a page key, forward Delete — sent with the other modifiers
+    /// held. True when it was done here.
+    private func pressFnVariant(of key: String) -> Bool {
+        guard activeModifiers.contains("Fn"), let action = actionsByID[key],
+              let variant = FnLayer.variant(of: action) else { return false }
+        var others = activeModifiers
+        others.remove("Fn")
+        let flags = eventFlags(from: others)
+        switch variant {
+        case .shortcut(let chord): KeySender.sendShortcut(chord, adding: flags.union(isShifted ? .maskShift : []))
+        case .key(let special): KeySender.send(special.rawValue, shifted: isShifted, modifiers: flags)
+        default: return false
+        }
+        textTracker.reset()                     // the caret may have moved
+        autoSpacePending = false
+        clearOneShotModifiers()
+        refreshSuggestions()
+        return true
     }
 
     // MARK: - Word prediction

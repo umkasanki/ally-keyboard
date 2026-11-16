@@ -47,7 +47,7 @@ any change; nothing is written to disk until **Save** (**Revert** drops the
 edits).
 
 - **Top bar** — the layout being edited, **New ▸** (an almost empty layout, or
-  Apple's **Magic Keyboard** or **Magic Keyboard with Numeric Keypad**),
+  macOS's **Accessibility Keyboard**, its Panels button being Choose Layout),
   Duplicate, Rename, Delete (**Reset to Factory** for a built-in), Import,
   Export; Undo, Redo, Revert, Save.
 - **The keyboard as a whole** — key width and height, the gaps between keys
@@ -78,7 +78,7 @@ edits).
 | Character | a letter, digit or symbol; follows the input source |
 | Type Text | types the text as it is, whatever the input source |
 | Key | Space, Return, Tab, Delete, Esc, the arrows, Home / End, Page Up / Down |
-| Modifier | ⇧ ⌃ ⌥ ⌘, held for the next key |
+| Modifier | ⇧ ⌃ ⌥ ⌘ fn, held for the next key; with fn the top row is F1–F12 and the arrows Home, End, Page Up and Down, as on Apple's Accessibility Keyboard |
 | Press Keyboard Shortcut | one or more shortcuts, pressed in turn |
 | System Event | sound, brightness, music, Mission Control, Spotlight, Launchpad, the input source |
 | Keyboard | one of AllyKeyboard's own commands — hide, screenshot, the app switcher, translate, **Show Phrases**, next or chosen layout, settings |
@@ -107,7 +107,9 @@ picked from **Common**, or written in the field:
 
 Text the field cannot read turns red and changes nothing.
 
-**Look** — the label, the corner label, the font size, the width and the
+**Look** — the label, the corner label, the font size, the width, the
+**height** (the whole row, or its top or bottom half: a top half followed by
+a bottom half share one place, ↑ over ↓, as a Mac's arrows do) and the
 **icon**: bundled images and SF Symbols, listed A to Z, with a search field
 above the list. **Second icon, every other press** (folded away until
 opened) gives a key a second icon it switches to on each press and back on

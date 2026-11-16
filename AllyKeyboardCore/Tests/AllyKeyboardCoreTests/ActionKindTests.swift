@@ -17,7 +17,7 @@ final class ActionKindTests: XCTestCase {
     }
 
     func testEveryBuiltInKeyHasAKind() {
-        for layout in KeyboardLayout.builtIns + [.magicKeyboard(numericKeypad: true)] {
+        for layout in KeyboardLayout.builtIns + [.accessibilityKeyboard()] {
             for key in layout.rows.flatMap({ $0 }) {
                 // Recorded chords are not on any list; every other listed kind is.
                 let kind = ActionKind.of(key.action)

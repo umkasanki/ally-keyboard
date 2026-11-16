@@ -70,7 +70,7 @@ enum KeySender {
         case "Next":           sendMediaKey(17)
         case "Previous":       sendMediaKey(18)
         case "Eject":          sendMediaKey(14)
-        case "fn", "Ctrl", "Alt", "Cmd", "CapsLock":
+        case "fn", "Fn", "Ctrl", "Alt", "Cmd", "CapsLock":
             break // modifier-only keys — no action yet
         case "Hi":
             break // greetings placeholder — not wired yet
@@ -200,6 +200,7 @@ enum KeySender {
             case .control:  flags.insert(.maskControl)
             case .option:   flags.insert(.maskAlternate)
             case .shift:    flags.insert(.maskShift)
+            case .fn:       flags.insert(.maskSecondaryFn)
             // Not held like the others — no key goes down and up for it — so
             // it is left out rather than sent as a flag nothing releases.
             case .capsLock: break

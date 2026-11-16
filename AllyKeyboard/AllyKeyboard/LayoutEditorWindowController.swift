@@ -660,11 +660,11 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
     @objc private func undo() { editor.undo(); refresh() }
     @objc private func redo() { editor.redo(); refresh() }
 
-    /// New ▸ an almost empty layout, or one of Apple's keyboards to start
-    /// from (`KeyboardLayout.magicKeyboard`).
+    /// New ▸ an almost empty layout, or macOS's Accessibility Keyboard to
+    /// start from (`KeyboardLayout.accessibilityKeyboard`).
     @objc private func newLayoutMenu(_ sender: NSButton) {
         let menu = NSMenu()
-        for (i, title) in ["Empty Layout", "Magic Keyboard", "Magic Keyboard with Numeric Keypad"].enumerated() {
+        for (i, title) in ["Empty Layout", "Accessibility Keyboard"].enumerated() {
             let item = NSMenuItem(title: title, action: #selector(newLayout(_:)), keyEquivalent: "")
             item.target = self
             item.tag = i
@@ -678,8 +678,7 @@ final class LayoutEditorWindowController: NSWindowController, NSWindowDelegate, 
         guard confirmLeavingEdits() else { return }
         var layout: KeyboardLayout
         switch item.tag {
-        case 1: layout = .magicKeyboard(numericKeypad: false)
-        case 2: layout = .magicKeyboard(numericKeypad: true)
+        case 1: layout = .accessibilityKeyboard()
         default:
             // A start that can already type a little: Backspace, Space, Return.
             layout = KeyboardLayout(name: "New Layout", rows: [[

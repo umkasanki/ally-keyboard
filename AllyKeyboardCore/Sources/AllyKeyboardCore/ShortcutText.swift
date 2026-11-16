@@ -26,11 +26,11 @@ extension Shortcut {
         "\u{2303}": .control, "\u{2325}": .option, "\u{21E7}": .shift, "\u{2318}": .command,
     ]
     /// A modifier alone, as a tap: its left key's code.
-    private static let tapCodes: [Modifier: Int] = [.command: 55, .option: 58, .control: 59, .shift: 56]
+    private static let tapCodes: [Modifier: Int] = [.command: 55, .option: 58, .control: 59, .shift: 56, .fn: 63]
 
     private static let modifierWords: [String: Modifier] = [
         "cmd": .command, "command": .command, "opt": .option, "option": .option, "alt": .option,
-        "ctrl": .control, "control": .control, "shift": .shift,
+        "ctrl": .control, "control": .control, "shift": .shift, "fn": .fn,
     ]
 
     /// Key names as words, besides the symbols of `keyNames`.
@@ -38,7 +38,7 @@ extension Shortcut {
         "space": 49, "return": 36, "enter": 36, "tab": 48, "esc": 53, "escape": 53,
         "delete": 51, "backspace": 51, "forwarddelete": 117, "left": 123, "right": 124,
         "down": 125, "up": 126, "home": 115, "end": 119, "pageup": 116, "pgup": 116,
-        "pagedown": 121, "pgdn": 121, "fn": 63, "comma": 43,
+        "pagedown": 121, "pgdn": 121, "comma": 43,
     ]
 
     /// The chord as the field writes it, read back by `parseSequence`: "⇧⌘5",
@@ -57,6 +57,12 @@ extension Shortcut {
             key = String(ch).uppercased()
         } else {
             key = "key \(keyCode)"
+        }
+        // fn has no symbol: a chord with it is written in words, "fn+cmd+→".
+        if modifiers.contains(.fn) {
+            let words: [(Modifier, String)] = [(.control, "ctrl"), (.option, "opt"), (.shift, "shift"),
+                                               (.command, "cmd"), (.fn, "fn")]
+            return (words.filter { modifiers.contains($0.0) }.map(\.1) + [key]).joined(separator: "+")
         }
         return symbols.filter { modifiers.contains($0.0) }.map(\.1).joined() + key
     }
