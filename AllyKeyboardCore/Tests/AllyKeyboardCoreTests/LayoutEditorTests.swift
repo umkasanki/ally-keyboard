@@ -554,7 +554,7 @@ final class LayoutGeometryTests: XCTestCase {
         l.rows[0] = Array(l.rows[1].prefix(9))
         XCTAssertEqual(l.emptySlots(inRow: 0), [])
         l.geometry.rowAlignment = .left
-        XCTAssertEqual(l.emptySlots(inRow: 0), [9 * 39])
+        XCTAssertEqual(l.emptySlots(inRow: 0), [9.0 * 39])
     }
 
     // MARK: Centre gives way to Left
