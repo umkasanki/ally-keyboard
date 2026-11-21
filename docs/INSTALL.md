@@ -200,5 +200,8 @@ entry has disappeared from the list entirely, add it again with **+**.
 
 AllyKeyboard runs as part of your session and cannot appear on the macOS **login
 window**, so it cannot type your password there. macOS has its own keyboard that
-can: **System Settings → Accessibility → Keyboard → Accessibility Keyboard**.
-Turn it on, and it is available before anyone has logged in.
+can. Turn it on for the login window in **System Settings → Lock Screen →
+Accessibility Options…** — choose **Accessibility Keyboard** — and it appears
+there after a restart, so the password can be typed with the pointer. Check it
+once with a restart: whether a head tracker moves the pointer there depends on
+whether it needs its own software running.
